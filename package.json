@@ -1,0 +1,23 @@
+{
+  "name": "notes-insa",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "format": "prettier --write \"**/*.{js,jsx,json,md,mdx,yml,yaml,css,scss,html,xml,svg}\"",
+    "format:check": "prettier --check \"**/*.{js,jsx,json,md,mdx,yml,yaml,css,scss,html,xml,svg}\"",
+    "prepare": "husky install"
+  },
+  "lint-staged": {
+    "*.{js,jsx,json,md,mdx,yml,yaml,css,scss,html,xml,svg}": [
+      "prettier --write"
+    ],
+    "*.dart": [
+      "dart format"
+    ]
+  },
+  "devDependencies": {
+    "husky": "^9.1.7",
+    "lint-staged": "^16.2.7",
+    "prettier": "^3.8.1"
+  }
+}

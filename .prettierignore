@@ -1,0 +1,23 @@
+# Ignore artifacts
+build/
+**/build/
+.dart_tool/
+.android/
+.ios/
+pubspec.lock
+
+# Node
+node_modules/
+
+# IDEs
+.idea/
+.vscode/
+
+# Assets
+*.png
+*.jpg
+*.jpeg
+*.gif
+*.ico
+*.icns
+*.db
