@@ -3,12 +3,12 @@
   "version": "1.0.0",
   "private": true,
   "scripts": {
-    "format": "prettier --write \"**/*.{js,jsx,json,md,mdx,yml,yaml,css,scss,html,xml,svg}\"",
-    "format:check": "prettier --check \"**/*.{js,jsx,json,md,mdx,yml,yaml,css,scss,html,xml,svg}\"",
+    "format": "prettier --write \"**/*.{js,jsx,json,md,mdx,yml,yaml,css,scss,html,svg}\"",
+    "format:check": "prettier --check \"**/*.{js,jsx,json,md,mdx,yml,yaml,css,scss,html,svg}\"",
     "prepare": "husky install"
   },
   "lint-staged": {
-    "*.{js,jsx,json,md,mdx,yml,yaml,css,scss,html,xml,svg}": [
+    "*.{js,jsx,json,md,mdx,yml,yaml,css,scss,html,svg}": [
       "prettier --write"
     ],
     "*.dart": [

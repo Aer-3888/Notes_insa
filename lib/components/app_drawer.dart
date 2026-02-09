@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import '../services/auth_service.dart';
+import '../screens/login_screen.dart';
 
 class AppDrawer extends StatelessWidget {
   const AppDrawer({super.key});
@@ -45,10 +47,32 @@ class AppDrawer extends StatelessWidget {
             selectedTileColor: Colors.indigo.withValues(alpha: .1),
             onTap: () => Navigator.pop(context),
           ),
+
+          const Divider(),
+
+          // Logout Option
           ListTile(
-            leading: const Icon(Icons.settings),
-            title: const Text('Paramètres'),
-            onTap: () => Navigator.pop(context),
+            leading: const Icon(Icons.logout, color: Colors.red),
+            title: const Text(
+              'Déconnexion',
+              style: TextStyle(color: Colors.red),
+            ),
+            onTap: () async {
+              // Delete credentials
+              await AuthService().clear();
+
+              if (context.mounted) {
+                // Close Drawer
+                Navigator.pop(context);
+
+                // Reset App to Login Screen
+                Navigator.pushAndRemoveUntil(
+                  context,
+                  MaterialPageRoute(builder: (context) => const LoginScreen()),
+                  (route) => false,
+                );
+              }
+            },
           ),
         ],
       ),
