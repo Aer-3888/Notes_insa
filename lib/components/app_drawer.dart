@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../services/auth_service.dart';
 import '../screens/login_screen.dart';
+import '../screens/raw_json_viewer_screen.dart';
 
 class AppDrawer extends StatelessWidget {
   const AppDrawer({super.key});
@@ -48,6 +49,20 @@ class AppDrawer extends StatelessWidget {
             onTap: () => Navigator.pop(context),
           ),
 
+          ListTile(
+            leading: const Icon(Icons.code, color: Colors.grey),
+            title: const Text('Voir JSON Brut'),
+            onTap: () {
+              Navigator.pop(context);
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => const RawJsonViewerScreen(),
+                ),
+              );
+            },
+          ),
+
           const Divider(),
 
           // Logout Option
@@ -62,7 +77,6 @@ class AppDrawer extends StatelessWidget {
               await AuthService().clear();
 
               if (context.mounted) {
-                // Close Drawer
                 Navigator.pop(context);
 
                 // Reset App to Login Screen

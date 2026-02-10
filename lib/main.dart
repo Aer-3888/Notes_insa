@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'services/auth_service.dart';
+import 'services/grades_service.dart';
 import 'screens/login_screen.dart';
 import 'screens/dashboard_screen.dart';
 
@@ -48,6 +49,9 @@ class _AuthGateState extends State<AuthGate> {
   }
 
   Future<void> _checkAuth() async {
+    // Load stored grades first for instant display
+    await GradesService.loadStoredGrades();
+
     // Check if we have credentials stored
     bool hasCreds = await _authService.isLoggedIn();
 
@@ -56,21 +60,47 @@ class _AuthGateState extends State<AuthGate> {
       bool bioSuccess = await _authService.authenticate();
 
       if (bioSuccess) {
-        setState(() {
-          _isLoggedIn = true;
-          _isLoading = false;
-        });
+        // Fetch grades using stored credentials
+        try {
+          final credentials = await _authService.getCredentials();
+
+          if (credentials != null) {
+            await GradesService.fetchGrades(
+              credentials['username']!,
+              credentials['password']!,
+              credentials['token']!,
+            );
+          }
+
+          if (mounted) {
+            setState(() {
+              _isLoggedIn = true;
+              _isLoading = false;
+            });
+          }
+        } catch (_) {
+          if (mounted) {
+            setState(() {
+              _isLoggedIn = true;
+              _isLoading = false;
+            });
+          }
+        }
       } else {
+        if (mounted) {
+          setState(() {
+            _isLoggedIn = false;
+            _isLoading = false;
+          });
+        }
+      }
+    } else {
+      if (mounted) {
         setState(() {
           _isLoggedIn = false;
           _isLoading = false;
         });
       }
-    } else {
-      setState(() {
-        _isLoggedIn = false;
-        _isLoading = false;
-      });
     }
   }
 

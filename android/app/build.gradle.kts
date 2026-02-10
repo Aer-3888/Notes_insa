@@ -1,3 +1,5 @@
+import org.jetbrains.kotlin.gradle.tasks.KotlinJvmCompile
+
 plugins {
     id("com.android.application")
     id("kotlin-android")
@@ -14,13 +16,9 @@ android {
         targetCompatibility = JavaVersion.VERSION_17
     }
 
-    kotlinOptions {
-        jvmTarget = JavaVersion.VERSION_17.toString()
-    }
-
     defaultConfig {
         applicationId = "com.aer.notes_insa"
-        minSdk = flutter.minSdkVersion
+        minSdk = 30
         targetSdk = flutter.targetSdkVersion
         versionCode = flutter.versionCode
         versionName = flutter.versionName
@@ -28,8 +26,6 @@ android {
 
     buildTypes {
         release {
-            // TODO: Add signing config for the release build.
-            // Signing with the debug keys for now
             signingConfig = signingConfigs.getByName("debug")
         }
     }
@@ -37,4 +33,14 @@ android {
 
 flutter {
     source = "../.."
+}
+
+dependencies {
+    implementation(files("lib/inscore.aar"))
+}
+
+tasks.withType(KotlinJvmCompile::class.java).configureEach {
+    compilerOptions {
+        jvmTarget.set(org.jetbrains.kotlin.gradle.dsl.JvmTarget.JVM_17)
+    }
 }

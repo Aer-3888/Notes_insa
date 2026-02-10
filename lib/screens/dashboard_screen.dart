@@ -28,6 +28,12 @@ class _DashboardScreenState extends State<DashboardScreen> {
     _loadData();
   }
 
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    _loadData();
+  }
+
   void _loadData() {
     List<TeachingUnit> loadedCurriculum = getCurriculum(selectedSemester);
     Map<String, dynamic> rawData = jsonDecode(jsonString);
@@ -39,7 +45,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
       }
     }
 
-    // Remplissage des notes
     for (var unit in loadedCurriculum) {
       for (var sub in unit.subjects) {
         sub.grades = [];
@@ -54,7 +59,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
       }
     }
 
-    // Calcul de la moyenne
     double totalSemScore = 0;
     double totalSemCoeff = 0;
     for (var unit in loadedCurriculum) {
@@ -215,7 +219,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
       body: SafeArea(
         child: Column(
           children: [
-            // ON PASSE LA VARIABLE departmentName ICI
             DashboardHeader(
               title: departmentName,
               average: semesterAverage,

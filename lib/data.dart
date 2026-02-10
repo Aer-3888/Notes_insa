@@ -83,53 +83,5 @@ List<TeachingUnit> _getSemester6() {
   ];
 }
 
-// Json fetch from the API
-String jsonString = '''
-{
-  "3INFO-SEMESTRE5": "Aucun résultat",
-  "3INFO-SEMESTRE6": "Aucun résultat",
-  "ARCHITECTURE LOGICIELLE ET MATERIELLE": "13.188/20",
-  "Analyse de données et Fouille de données": "Aucun résultat",
-  "Anglais S5": "Aucun résultat",
-  "Anglais S6": "Aucun résultat",
-  "Base de données": "Aucun résultat",
-  "CLP DS 2h": "13/20",
-  "CONCEPTION LOGICIELLE": "Aucun résultat",
-  "CPOO1 DS 2H": "12.25/20",
-  "Conception et programmation orientée objet": "12.25/20",
-  "Concepts de la logique à la programmation": "13/20",
-  "Controle continu EPS S5": "13.75/20",
-  "Controle continu Gestion du Risque": "19.2/20",
-  "Créativ'": "Aucun résultat",
-  "ENSEIGNEMENTS D'HUMANITE S5": "Aucun résultat",
-  "ENSEIGNEMENTS D'HUMANITE S6": "Aucun résultat",
-  "Education physique et sportive S5": "13.75/20",
-  "Education physique et sportive S6": "Aucun résultat",
-  "Etude Pratique - S5": "Aucun résultat",
-  "Gestion du Risque": "19.2/20",
-  "HI DS 2h": "14/20",
-  "Hygiène numérique": "14/20",
-  "INFORMATIQUE THEORIQUE": "Aucun résultat",
-  "INGENIERIE ET RESEAUX": "Aucun résultat",
-  "INGENIEUR INFO 3A": "Aucun résultat",
-  "ITI - DS 2H": "17.25/20",
-  "Ingénierie Web 1": "11/20",
-  "Introduction au Numérique Durable": "Aucun résultat",
-  "Introduction aux techniques de l’ingénieur": "Aucun résultat",
-  "LANGAGE C DS 1h": "17/20",
-  "LANGAGE C DS TP 1h": "17/20",
-  "Langage C": "17/20",
-  "MATHEMATIQUES POUR L'INFORMATIQUE": "Aucun résultat",
-  "PARADIGMES DE PROGRAMMATION": "Aucun résultat",
-  "PROJETS ET OUVERTURE": "Aucun résultat",
-  "Probabilités": "Aucun résultat",
-  "Programmation fonctionnelle": "Aucun résultat",
-  "Programmation logique": "Aucun résultat",
-  "Projet Personnel Individualisé S6": "Aucun résultat",
-  "Projet Sciences Humaines": "Aucun résultat",
-  "REMEDIATION GESTION DU TRAVAIL": "Aucun résultat",
-  "Remédiation Gestion du travail ": "Aucun résultat",
-  "Réseaux": "16/20",
-  "Structure de données": "Aucun résultat"
-}
-''';
+// Json fetch from the API - initially empty, populated after successful login
+String jsonString = '{}';
