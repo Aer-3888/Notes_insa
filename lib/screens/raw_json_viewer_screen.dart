@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'dart:convert';
 import '../data.dart';
+import '../components/app_drawer.dart';
 
 class RawJsonViewerScreen extends StatelessWidget {
   const RawJsonViewerScreen({super.key});
@@ -32,7 +33,16 @@ class RawJsonViewerScreen extends StatelessWidget {
     final isEmpty = jsonString == '{}' || jsonString.isEmpty;
 
     return Scaffold(
+      // NOTE: App drawer attached and this page marked as rawJson
+      drawer: const AppDrawer(selected: DrawerItem.rawJson),
       appBar: AppBar(
+        automaticallyImplyLeading: false,
+        leading: Builder(
+          builder: (context) => IconButton(
+            icon: const Icon(Icons.menu, color: Colors.white),
+            onPressed: () => Scaffold.of(context).openDrawer(),
+          ),
+        ),
         title: const Text('JSON Brut'),
         backgroundColor: Colors.indigo,
         foregroundColor: Colors.white,

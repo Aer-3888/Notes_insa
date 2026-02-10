@@ -2,9 +2,15 @@ import 'package:flutter/material.dart';
 import '../services/auth_service.dart';
 import '../screens/login_screen.dart';
 import '../screens/raw_json_viewer_screen.dart';
+import '../screens/config_screen.dart';
+import '../screens/dashboard_screen.dart';
 
+enum DrawerItem { notes, rawJson, config }
+
+// Allow the drawer to know which item is currently selected
 class AppDrawer extends StatelessWidget {
-  const AppDrawer({super.key});
+  final DrawerItem selected;
+  const AppDrawer({super.key, this.selected = DrawerItem.notes});
 
   @override
   Widget build(BuildContext context) {
@@ -36,22 +42,54 @@ class AppDrawer extends StatelessWidget {
             ),
           ),
           ListTile(
-            leading: const Icon(Icons.school, color: Colors.indigo),
-            title: const Text(
+            leading: Icon(
+              Icons.school,
+              color: selected == DrawerItem.notes ? Colors.indigo : Colors.grey,
+            ),
+            title: Text(
               'Mes Notes',
               style: TextStyle(
-                fontWeight: FontWeight.bold,
-                color: Colors.indigo,
+                fontWeight: selected == DrawerItem.notes
+                    ? FontWeight.bold
+                    : FontWeight.normal,
+                color: selected == DrawerItem.notes
+                    ? Colors.indigo
+                    : Colors.black87,
               ),
             ),
-            selected: true,
-            selectedTileColor: Colors.indigo.withValues(alpha: .1),
-            onTap: () => Navigator.pop(context),
+            selected: selected == DrawerItem.notes,
+            selectedTileColor: Colors.indigo.withValues(alpha: .12),
+            onTap: () {
+              Navigator.pop(context);
+
+              if (selected != DrawerItem.notes) {
+                Navigator.pushReplacement(
+                  context,
+                  MaterialPageRoute(
+                    builder: (context) => const DashboardScreen(),
+                  ),
+                );
+              }
+            },
           ),
 
           ListTile(
-            leading: const Icon(Icons.code, color: Colors.grey),
-            title: const Text('Voir JSON Brut'),
+            leading: Icon(
+              Icons.code,
+              color: selected == DrawerItem.rawJson
+                  ? Colors.indigo
+                  : Colors.grey,
+            ),
+            title: Text(
+              'Voir JSON Brut',
+              style: TextStyle(
+                color: selected == DrawerItem.rawJson
+                    ? Colors.indigo
+                    : Colors.black87,
+              ),
+            ),
+            selected: selected == DrawerItem.rawJson,
+            selectedTileColor: Colors.indigo.withValues(alpha: .08),
             onTap: () {
               Navigator.pop(context);
               Navigator.push(
@@ -59,6 +97,32 @@ class AppDrawer extends StatelessWidget {
                 MaterialPageRoute(
                   builder: (context) => const RawJsonViewerScreen(),
                 ),
+              );
+            },
+          ),
+
+          ListTile(
+            leading: Icon(
+              Icons.settings,
+              color: selected == DrawerItem.config
+                  ? Colors.indigo
+                  : Colors.grey,
+            ),
+            title: Text(
+              'Config',
+              style: TextStyle(
+                color: selected == DrawerItem.config
+                    ? Colors.indigo
+                    : Colors.black87,
+              ),
+            ),
+            selected: selected == DrawerItem.config,
+            selectedTileColor: Colors.indigo.withValues(alpha: .08),
+            onTap: () {
+              Navigator.pop(context);
+              Navigator.push(
+                context,
+                MaterialPageRoute(builder: (context) => const ConfigScreen()),
               );
             },
           ),

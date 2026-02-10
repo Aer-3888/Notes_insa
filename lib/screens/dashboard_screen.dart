@@ -215,7 +215,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       key: _scaffoldKey,
-      drawer: const AppDrawer(),
+      drawer: const AppDrawer(selected: DrawerItem.notes),
       body: SafeArea(
         child: Column(
           children: [

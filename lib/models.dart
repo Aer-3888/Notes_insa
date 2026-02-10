@@ -75,3 +75,16 @@ class TeachingUnit {
     return totalScore / totalCoeff;
   }
 }
+
+// 5. Profile model: a named collection of TeachingUnits
+class Profile {
+  final String name;
+  final List<TeachingUnit> units;
+  final bool isActive;
+
+  // Use named optional params so it's clear which arguments are provided
+  Profile(this.name, {List<TeachingUnit>? units, this.isActive = false})
+    : units = units ?? [];
+
+  int get unitCount => units.length;
+}

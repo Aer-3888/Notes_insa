@@ -47,6 +47,7 @@ List<TeachingUnit> _getSemester5() {
       Subject("Probabilités", 1.5, {"Probabilités": "Moyenne"}),
       Subject("Fouille de données", 2.5, {
         "Analyse de données et Fouille de données": "Moyenne",
+        "ADFD  DS 2h": "DS Final",
       }),
     ]),
     TeachingUnit("UE Humanités", [
