@@ -96,7 +96,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
               children: [
                 Expanded(
                   child: Text(
-                    unit.name,
+                    titleCase(unit.name),
                     style: const TextStyle(
                       fontSize: 22,
                       fontWeight: FontWeight.bold,
@@ -145,13 +145,18 @@ class _DashboardScreenState extends State<DashboardScreen> {
                         Row(
                           mainAxisAlignment: MainAxisAlignment.spaceBetween,
                           children: [
-                            Text(
-                              sub.name,
-                              style: const TextStyle(
-                                fontWeight: FontWeight.w600,
-                                fontSize: 16,
+                            Expanded(
+                              child: Text(
+                                titleCase(sub.name),
+                                style: const TextStyle(
+                                  fontWeight: FontWeight.w600,
+                                  fontSize: 16,
+                                ),
+                                maxLines: 2,
+                                overflow: TextOverflow.ellipsis,
                               ),
                             ),
+                            const SizedBox(width: 12),
                             Text(
                               "Coeff ${sub.coeff}",
                               style: TextStyle(
@@ -162,30 +167,40 @@ class _DashboardScreenState extends State<DashboardScreen> {
                           ],
                         ),
                         const SizedBox(height: 8),
-                        Wrap(
-                          spacing: 8,
-                          children: sub.grades.isEmpty
-                              ? [
-                                  Chip(
-                                    label: const Text("Aucun résultat"),
-                                    backgroundColor: Colors.grey.shade200,
-                                  ),
-                                ]
-                              : sub.grades
-                                    .map(
-                                      (g) => Chip(
-                                        label: Text("${g.label}: ${g.value}"),
-                                        backgroundColor: GradeUtils.getColor(
-                                          g.value,
-                                        ).withValues(alpha: 0.1),
-                                        labelStyle: TextStyle(
-                                          color: GradeUtils.getColor(g.value),
-                                          fontWeight: FontWeight.bold,
-                                        ),
-                                        side: BorderSide.none,
+                        // Allow horizontal scrolling for chips so long labels can be read
+                        SingleChildScrollView(
+                          scrollDirection: Axis.horizontal,
+                          child: Row(
+                            children: sub.grades.isEmpty
+                                ? [
+                                    Chip(
+                                      label: const Text('Aucun résultat'),
+                                      backgroundColor: Colors.grey.shade200,
+                                    ),
+                                  ]
+                                : sub.grades.map((g) {
+                                    final fullText = '${g.label}: ${g.value}';
+                                    return Padding(
+                                      padding: const EdgeInsets.only(
+                                        right: 8.0,
                                       ),
-                                    )
-                                    .toList(),
+                                      child: Tooltip(
+                                        message: fullText,
+                                        child: Chip(
+                                          label: Text(fullText),
+                                          backgroundColor: GradeUtils.getColor(
+                                            g.value,
+                                          ).withValues(alpha: 0.1),
+                                          labelStyle: TextStyle(
+                                            color: GradeUtils.getColor(g.value),
+                                            fontWeight: FontWeight.bold,
+                                          ),
+                                          side: BorderSide.none,
+                                        ),
+                                      ),
+                                    );
+                                  }).toList(),
+                          ),
                         ),
                       ],
                     ),

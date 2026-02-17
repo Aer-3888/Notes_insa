@@ -71,7 +71,7 @@ class UnitCardGrid extends StatelessWidget {
                 ),
                 // Name
                 Text(
-                  unit.name,
+                  titleCase(unit.name),
                   style: const TextStyle(
                     fontSize: 16,
                     fontWeight: FontWeight.w600,
@@ -85,7 +85,7 @@ class UnitCardGrid extends StatelessWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      unit.average != null ? "Validé" : "En cours",
+                      unit.isValidated ? "Validé" : "En cours",
                       style: TextStyle(
                         fontSize: 12,
                         color: Colors.grey.shade500,
