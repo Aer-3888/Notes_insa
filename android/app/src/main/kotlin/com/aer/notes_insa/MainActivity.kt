@@ -29,21 +29,21 @@ class MainActivity: FlutterFragmentActivity() {
 
                 Thread {
                     try {
-                        val mobileClass = Class.forName("mobile.Mobile")
+                        val mobileClass = Class.forName("minscore.Minscore")
                         val method = mobileClass.getMethod("fetchGrades", String::class.java, String::class.java, String::class.java)
                         val jsonResult = method.invoke(null, username, password, secret) as String
                         Handler(Looper.getMainLooper()).post {
                             result.success(jsonResult)
                         }
                     } catch (e: ClassNotFoundException) {
-                        Log.e("MainActivity", "mobile.Mobile class not found", e)
+                        Log.e("MainActivity", "minscore.Minscore class not found", e)
                         Handler(Looper.getMainLooper()).post {
-                            result.error("ERR_AAR_NOT_FOUND", "mobile.Mobile class not found. Ensure inscore.aar is included.", e.stackTraceToString())
+                            result.error("ERR_AAR_NOT_FOUND", "minscore.Minscore class not found. Ensure inscore.aar is included.", e.stackTraceToString())
                         }
                     } catch (e: NoSuchMethodException) {
                         Log.e("MainActivity", "fetchGrades method not found", e)
                         Handler(Looper.getMainLooper()).post {
-                            result.error("ERR_METHOD_NOT_FOUND", "fetchGrades method not found in mobile.Mobile", e.stackTraceToString())
+                            result.error("ERR_METHOD_NOT_FOUND", "fetchGrades method not found in minscore.Minscore", e.stackTraceToString())
                         }
                     } catch (e: java.lang.reflect.InvocationTargetException) {
                         val cause = e.cause ?: e

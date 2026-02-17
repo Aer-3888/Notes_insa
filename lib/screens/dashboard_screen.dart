@@ -1,4 +1,3 @@
-import 'dart:convert';
 import 'package:flutter/material.dart';
 import '../models.dart';
 import '../data.dart';
@@ -35,34 +34,17 @@ class _DashboardScreenState extends State<DashboardScreen> {
   }
 
   void _loadData() {
-    List<TeachingUnit> loadedCurriculum = getCurriculum(selectedSemester);
-    Map<String, dynamic> rawData = jsonDecode(jsonString);
+    try {
+      // Load curriculum for the selected semester
+      List<TeachingUnit> loadedCurriculum = getCurriculum(selectedSemester);
 
-    for (String key in rawData.keys) {
-      if (key.toUpperCase().contains("SEMESTRE")) {
-        departmentName = key.split('-')[0];
-        break;
-      }
-    }
+      // Get department/title from the JSON source
+      departmentName = JsonCurriculumParser.getDepartmentName(jsonString);
 
-    for (var unit in loadedCurriculum) {
-      for (var sub in unit.subjects) {
-        sub.grades = [];
-        sub.jsonKeys.forEach((jsonKey, readableLabel) {
-          if (rawData.containsKey(jsonKey)) {
-            double? val = GradeUtils.parseDouble(rawData[jsonKey]);
-            if (val != null) {
-              sub.grades.add(GradeInstance(readableLabel, val));
-            }
-          }
-        });
-      }
-    }
-
-    double totalSemScore = 0;
-    double totalSemCoeff = 0;
-    for (var unit in loadedCurriculum) {
-      if (unit.average != null) {
+      // Compute weighted semester average
+      double totalSemScore = 0;
+      double totalSemCoeff = 0;
+      for (var unit in loadedCurriculum) {
         for (var sub in unit.subjects) {
           if (sub.average != null) {
             totalSemScore += sub.average! * sub.coeff;
@@ -70,14 +52,20 @@ class _DashboardScreenState extends State<DashboardScreen> {
           }
         }
       }
-    }
 
-    setState(() {
-      curriculum = loadedCurriculum;
-      semesterAverage = (totalSemCoeff > 0)
-          ? totalSemScore / totalSemCoeff
-          : null;
-    });
+      setState(() {
+        curriculum = loadedCurriculum;
+        semesterAverage = (totalSemCoeff > 0)
+            ? totalSemScore / totalSemCoeff
+            : null;
+      });
+    } catch (e) {
+      // On parse error, clear curriculum and reset average
+      setState(() {
+        curriculum = [];
+        semesterAverage = null;
+      });
+    }
   }
 
   void _switchSemester(int newSem) {

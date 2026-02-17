@@ -8,10 +8,20 @@ class ConfigScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // Use the semester blueprints as example profiles
+    // Dynamically get available semesters from JSON
+    List<int> availableSemesters = JsonCurriculumParser.getAvailableSemesters(
+      jsonString,
+    );
+
     final profiles = <Profile>[
-      Profile('Semestre 5', units: getCurriculum(5), isActive: true),
-      Profile('Semestre 6', units: getCurriculum(6)),
+      for (var semNum in availableSemesters)
+        Profile(
+          'Semestre $semNum',
+          units: getCurriculum(semNum),
+          isActive:
+              availableSemesters.isNotEmpty &&
+              semNum == availableSemesters.first,
+        ),
     ];
 
     final crossAxisCount = 2;

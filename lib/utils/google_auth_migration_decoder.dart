@@ -2,29 +2,33 @@ import 'dart:convert';
 import 'dart:typed_data';
 import 'base32_codec.dart';
 
+/// Decoder for Google Authenticator migration URIs.
+///
+/// The `decode` method accepts an `otpauth-migration` URI (as produced by
+/// Google Authenticator export) and returns a list of OTP accounts with
+/// base32-encoded secrets.
 class GoogleAuthMigrationDecoder {
-  // Extract OTP accounts from a migration URI
+  /// Decode an `otpauth-migration` URI and return decoded OTP accounts.
+  ///
+  /// Throws [FormatException] when the URI is invalid or the payload is
+  /// malformed.
   static List<OtpAccount> decode(String uri) {
-    try {
-      final parsedUri = Uri.parse(uri);
+    final parsedUri = Uri.parse(uri);
 
-      if (parsedUri.scheme != 'otpauth-migration') {
-        throw Exception('Not a valid otpauth-migration URI');
-      }
-
-      final dataParam = parsedUri.queryParameters['data'];
-      if (dataParam == null) {
-        throw Exception('Missing data parameter in migration URI');
-      }
-
-      final decodedBytes = base64.decode(Uri.decodeComponent(dataParam));
-      return _parseProtobuf(decodedBytes);
-    } catch (e) {
-      rethrow;
+    if (parsedUri.scheme != 'otpauth-migration') {
+      throw FormatException('Not a valid otpauth-migration URI');
     }
+
+    final dataParam = parsedUri.queryParameters['data'];
+    if (dataParam == null) {
+      throw FormatException('Missing data parameter in migration URI');
+    }
+
+    final decodedBytes = base64.decode(Uri.decodeComponent(dataParam));
+    return _parseProtobuf(decodedBytes);
   }
 
-  // Parse protobuf payload and return accounts
+  /// Parse the top-level protobuf payload and return OTP accounts.
   static List<OtpAccount> _parseProtobuf(Uint8List data) {
     final accounts = <OtpAccount>[];
     int offset = 0;
@@ -41,11 +45,16 @@ class GoogleAuthMigrationDecoder {
         final length = lengthResult['value'] as int;
         offset = lengthResult['offset'] as int;
 
+        // Guard against malformed payloads where the length would overrun
+        if (offset + length > data.length) {
+          throw FormatException(
+            'Invalid length for OtpParameters in migration payload',
+          );
+        }
+
         final otpParamsData = data.sublist(offset, offset + length);
         final account = _parseOtpParameters(otpParamsData);
-        if (account != null) {
-          accounts.add(account);
-        }
+        if (account != null) accounts.add(account);
         offset += length;
       } else {
         // Skip unknown fields
@@ -56,7 +65,7 @@ class GoogleAuthMigrationDecoder {
     return accounts;
   }
 
-  // Parse one OtpParameters message and return account
+  /// Parse a single OtpParameters message and return an [OtpAccount].
   static OtpAccount? _parseOtpParameters(Uint8List data) {
     String? name;
     String? issuer;
@@ -74,6 +83,11 @@ class GoogleAuthMigrationDecoder {
         final lengthResult = _readVarint(data, offset);
         final length = lengthResult['value'] as int;
         offset = lengthResult['offset'] as int;
+
+        // Protect against invalid lengths
+        if (offset + length > data.length) {
+          throw FormatException('Invalid length for field in OtpParameters');
+        }
 
         final value = data.sublist(offset, offset + length);
 
@@ -96,7 +110,6 @@ class GoogleAuthMigrationDecoder {
     }
 
     if (secret != null) {
-      // Convert secret bytes to base32 string
       final secretBase32 = Base32Codec.encode(secret);
       return OtpAccount(
         name: name ?? 'Unknown',
@@ -108,7 +121,7 @@ class GoogleAuthMigrationDecoder {
     return null;
   }
 
-  // Read protobuf field header
+  /// Read a protobuf field tag and return its field number and wire type.
   static Map<String, int> _readField(Uint8List data, int offset) {
     final varintResult = _readVarint(data, offset);
     final tag = varintResult['value'] as int;
@@ -121,7 +134,8 @@ class GoogleAuthMigrationDecoder {
     };
   }
 
-  // Read varint value
+  /// Read a varint value starting at [offset]. Returns the parsed value and
+  /// the offset immediately after the varint.
   static Map<String, int> _readVarint(Uint8List data, int offset) {
     int value = 0;
     int shift = 0;
@@ -131,16 +145,14 @@ class GoogleAuthMigrationDecoder {
       value |= (byte & 0x7F) << shift;
       offset++;
 
-      if ((byte & 0x80) == 0) {
-        break;
-      }
+      if ((byte & 0x80) == 0) break;
       shift += 7;
     }
 
     return {'value': value, 'offset': offset};
   }
 
-  // Skip field by wire type
+  /// Skip an encoded field by its wire type and return the new offset.
   static int _skipField(Uint8List data, int offset, int wireType) {
     switch (wireType) {
       case 0: // Varint
@@ -151,16 +163,20 @@ class GoogleAuthMigrationDecoder {
       case 2: // Length-delimited
         final lengthResult = _readVarint(data, offset);
         final length = lengthResult['value'] as int;
+        // Guard against invalid lengths when skipping
+        if ((lengthResult['offset'] as int) + length > data.length) {
+          throw FormatException('Invalid length while skipping field');
+        }
         return (lengthResult['offset'] as int) + length;
       case 5: // 32-bit
         return offset + 4;
       default:
-        throw Exception('Unknown wire type: $wireType');
+        throw FormatException('Unknown wire type: $wireType');
     }
   }
 }
 
-// OTP account container
+/// OTP account container with base32 secret.
 class OtpAccount {
   final String name;
   final String issuer;
@@ -169,6 +185,10 @@ class OtpAccount {
   OtpAccount({required this.name, required this.issuer, required this.secret});
 
   @override
-  String toString() =>
-      'OtpAccount(name: $name, issuer: $issuer, secret: ${secret.substring(0, secret.length > 10 ? 10 : secret.length)}...)';
+  String toString() {
+    final preview = secret.length > 10
+        ? '${secret.substring(0, 10)}...'
+        : secret;
+    return 'OtpAccount(name: $name, issuer: $issuer, secret: $preview)';
+  }
 }

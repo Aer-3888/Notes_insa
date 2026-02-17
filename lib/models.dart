@@ -1,14 +1,15 @@
 import 'package:flutter/material.dart';
 
-// Utilities for grade parsing and color coding
+// Utilities for parsing grade strings and mapping grades to colors
 class GradeUtils {
   static double? parseDouble(String? rawValue) {
     if (rawValue == null ||
         rawValue.contains("Aucun") ||
-        rawValue.contains("Abs"))
+        rawValue.contains("Abs")) {
       return null;
+    }
     try {
-      // Replaces comma with dot
+      // Replace comma with dot and parse the numeric portion before '/'
       final clean = rawValue.split('/')[0].replaceAll(',', '.');
       return double.parse(clean);
     } catch (e) {
@@ -16,7 +17,7 @@ class GradeUtils {
     }
   }
 
-  // Returns a color based on the grade
+  // Returns a color appropriate for the given grade
   static Color getColor(double? grade) {
     if (grade == null) return Colors.grey;
     if (grade >= 14) return Colors.green.shade700;
@@ -25,7 +26,7 @@ class GradeUtils {
   }
 }
 
-// 2. Grade model (e.g., "DS 1h: 17/20")
+// Simple grade record (e.g. "DS 1h: 17/20")
 class GradeInstance {
   final String label; // e.g. "DS 1h"
   final double value; // e.g. 17.0
@@ -33,18 +34,17 @@ class GradeInstance {
   GradeInstance(this.label, this.value);
 }
 
-// 3. Subject model (e.g. "Langage C")
+// Subject model, contains a list of grade instances
 class Subject {
   final String name;
   final double coeff;
   final Map<String, String> jsonKeys;
 
-  // Grades listed for this subject
   List<GradeInstance> grades = [];
 
   Subject(this.name, this.coeff, this.jsonKeys);
 
-  // Calculate average of all found sub-grades
+  // Average of the subject's grades, or null when none
   double? get average {
     if (grades.isEmpty) return null;
     double sum = grades.fold(0, (prev, curr) => prev + curr.value);
@@ -52,14 +52,14 @@ class Subject {
   }
 }
 
-// 4. Teaching Unit (e.g. "UE Développement")
+// Teaching unit containing multiple subjects
 class TeachingUnit {
   final String name;
   final List<Subject> subjects;
 
   TeachingUnit(this.name, this.subjects);
 
-  // Weighted Average for the whole UE
+  // Weighted average for the unit (based on subject coefficients)
   double? get average {
     double totalScore = 0;
     double totalCoeff = 0;
@@ -76,15 +76,43 @@ class TeachingUnit {
   }
 }
 
-// 5. Profile model: a named collection of TeachingUnits
+// Profile model: a named collection of TeachingUnits
 class Profile {
   final String name;
   final List<TeachingUnit> units;
   final bool isActive;
 
-  // Use named optional params so it's clear which arguments are provided
   Profile(this.name, {List<TeachingUnit>? units, this.isActive = false})
     : units = units ?? [];
 
   int get unitCount => units.length;
+}
+
+// Parser to flatten nested grade structures into a map
+class JsonGradeParser {
+  // Recursively collect name->score entries from nested json
+  static Map<String, String> flattenGrades(Map<String, dynamic> json) {
+    final Map<String, String> result = {};
+
+    void traverse(dynamic node) {
+      if (node is Map<String, dynamic>) {
+        if (node['name'] != null && node['score'] != null) {
+          result[node['name'] as String] = node['score'] as String;
+        }
+
+        if (node['details'] is List) {
+          for (var child in node['details']) {
+            traverse(child);
+          }
+        }
+      } else if (node is List) {
+        for (var item in node) {
+          traverse(item);
+        }
+      }
+    }
+
+    traverse(json);
+    return result;
+  }
 }

@@ -33,7 +33,7 @@ class RawJsonViewerScreen extends StatelessWidget {
     final isEmpty = jsonString == '{}' || jsonString.isEmpty;
 
     return Scaffold(
-      // NOTE: App drawer attached and this page marked as rawJson
+      // Drawer attached; this screen displays the raw JSON payload for debugging/inspection
       drawer: const AppDrawer(selected: DrawerItem.rawJson),
       appBar: AppBar(
         automaticallyImplyLeading: false,

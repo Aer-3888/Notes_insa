@@ -10,7 +10,8 @@ class ScanScreen extends StatefulWidget {
 }
 
 class _ScanScreenState extends State<ScanScreen> {
-  bool _isScanned = false; // Prevent scanning the same code twice rapidly
+  // Prevent processing the same barcode multiple times while handling a detection
+  bool _isScanned = false;
 
   void _onDetect(BarcodeCapture capture) {
     if (_isScanned) return;
@@ -22,74 +23,82 @@ class _ScanScreenState extends State<ScanScreen> {
           _isScanned = true;
         });
 
-        // Extract the secret from OTP URI (e.g., otpauth://totp/...?secret=BASE32SECRET)
+        // Parse the scanned value and attempt to extract the OTP secret
         String secret = _extractSecretFromQR(barcode.rawValue!);
 
-        // Close the screen and return the extracted secret
-        Navigator.pop(context, secret);
+        // Only close and return a secret when one was extracted immediately.
+        // If multiple accounts are found, the selection dialog will handle
+        // returning the chosen secret asynchronously.
+        if (secret.isNotEmpty && mounted) Navigator.pop(context, secret);
         break;
       }
     }
   }
 
-  /// Extracts the base32 secret from an OTP QR code URI.
-  /// Handles both standard OTP URIs and Google Authenticator migration URIs.
+  /// Parse a scanned QR value and extract the base32 secret used for OTP.
+  /// Supports standard 'otpauth' URIs and Google Authenticator migration URIs.
   String _extractSecretFromQR(String rawValue) {
     try {
-      // Try to parse as URI
       final uri = Uri.parse(rawValue);
 
-      // Check if it's a Google Authenticator migration URI
+      // Handle Google Authenticator migration URI (contains multiple accounts)
       if (uri.scheme == 'otpauth-migration') {
         try {
           final accounts = GoogleAuthMigrationDecoder.decode(rawValue);
 
           if (accounts.isEmpty) {
-            return rawValue; // Fallback to raw value
+            // No decoded accounts; return raw value as fallback
+            return rawValue;
           }
 
-          // If multiple accounts, show a dialog to select
+          // Multiple accounts: show a selection dialog and do not return a
+          // secret synchronously. The dialog will close the scanner and
+          // return the selected secret when the user picks one.
           if (accounts.length > 1) {
             _showAccountSelectionDialog(accounts);
-            return accounts[0].secret;
+            return '';
           }
 
-          // Single account - return the secret
-          final secret = accounts[0].secret;
-          return secret;
+          // Single account: return its secret
+          return accounts[0].secret;
         } catch (e) {
-          // Show error to user
+          // Decoding failed; inform the user and stop further processing
           if (mounted) {
             ScaffoldMessenger.of(
               context,
             ).showSnackBar(SnackBar(content: Text('Erreur de décodage: $e')));
+            // Allow scanning again after a decoding error
+            setState(() {
+              _isScanned = false;
+            });
           }
-          return ''; // Return empty to prevent proceeding
+          return '';
         }
       }
 
-      // Check if it's a standard OTP auth URI
+      // Standard otpauth URI with a 'secret' query parameter
       if (uri.scheme == 'otpauth' &&
           uri.queryParameters.containsKey('secret')) {
-        final secret = uri.queryParameters['secret']!;
-        return secret;
+        return uri.queryParameters['secret']!;
       }
 
-      // If not an OTP URI, check if query params exist anyway
+      // Some OTP providers may use other URI schemes but still include
+      // a 'secret' query parameter — handle that as a fallback.
       if (uri.queryParameters.containsKey('secret')) {
-        final secret = uri.queryParameters['secret']!;
-        return secret;
+        return uri.queryParameters['secret']!;
       }
 
-      // Otherwise return raw value (might already be the secret)
+      // If nothing matched, return the raw scanned value (it might already be the secret)
       return rawValue;
     } catch (e) {
-      // If parsing fails, return raw value
+      // If the scanned value is not a valid URI, return the raw value
       return rawValue;
     }
   }
 
-  /// Show dialog to select from multiple OTP accounts
+  /// Show a dialog to pick one account from a migration payload.
+  /// When the user selects an account, the dialog will return its secret and
+  /// close the scanner screen with that value.
   void _showAccountSelectionDialog(List<OtpAccount> accounts) {
     if (!mounted) return;
 
@@ -105,6 +114,7 @@ class _ScanScreenState extends State<ScanScreen> {
               title: Text(account.name),
               subtitle: Text(account.issuer),
               onTap: () {
+                // Return the chosen secret to the dialog caller
                 Navigator.pop(ctx, account.secret);
               },
             );
@@ -112,8 +122,15 @@ class _ScanScreenState extends State<ScanScreen> {
         ),
       ),
     ).then((selectedSecret) {
+      if (!mounted) return;
       if (selectedSecret != null) {
+        // Close the scanner screen and pass back the selected secret
         Navigator.pop(context, selectedSecret);
+      } else {
+        // If the dialog was dismissed without selection, allow scanning again
+        setState(() {
+          _isScanned = false;
+        });
       }
     });
   }
