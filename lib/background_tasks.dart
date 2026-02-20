@@ -56,8 +56,9 @@ Future<void> performBackgroundFetch() async {
 
     final fetchEnabled = prefs.getBool('background_fetch_enabled') ?? true;
     if (!fetchEnabled) {
-      if (kDebugMode)
+      if (kDebugMode) {
         debugPrint('[BackgroundFetch] Background fetch is disabled');
+      }
       return;
     }
 
@@ -95,18 +96,23 @@ Future<void> performBackgroundFetch() async {
       return;
     }
 
-    if (kDebugMode)
+    if (kDebugMode) {
       debugPrint('[BackgroundFetch] Successfully fetched grades data');
+    }
 
-    final previousDataJson = prefs.getString('last_grades_data');
+    final previousDataJson = await _secureStorage.read(key: 'last_grades_data');
 
     if (previousDataJson != null) {
       final previousData = json.decode(previousDataJson);
       if (hasDataChanged(previousData, newData)) {
-        if (kDebugMode)
+        if (kDebugMode) {
           debugPrint('[BackgroundFetch] Data changed - updating stored data');
+        }
 
-        await prefs.setString('last_grades_data', json.encode(newData));
+        await _secureStorage.write(
+          key: 'last_grades_data',
+          value: json.encode(newData),
+        );
         await prefs.setString(
           'last_fetch_time',
           DateTime.now().toIso8601String(),
@@ -143,19 +149,25 @@ Future<void> performBackgroundFetch() async {
             );
           }
         } else {
-          if (kDebugMode)
+          if (kDebugMode) {
             debugPrint(
               '[BackgroundFetch] Data changed but no grade changes detected - skipping notification',
             );
+          }
         }
       } else {
-        if (kDebugMode)
+        if (kDebugMode) {
           debugPrint('[BackgroundFetch] No changes detected in grades');
+        }
       }
     } else {
-      if (kDebugMode)
+      if (kDebugMode) {
         debugPrint('[BackgroundFetch] First fetch - storing initial data');
-      await prefs.setString('last_grades_data', json.encode(newData));
+      }
+      await _secureStorage.write(
+        key: 'last_grades_data',
+        value: json.encode(newData),
+      );
       await prefs.setString(
         'last_fetch_time',
         DateTime.now().toIso8601String(),
@@ -223,10 +235,11 @@ Map<String, List<String>> _getChangedSubjectNames(
 
       if (oldSubject == null || oldSubject.grades.isEmpty) {
         // New subject or subject that previously had no grades.
-        if (kDebugMode)
+        if (kDebugMode) {
           debugPrint(
             '[BackgroundFetch] New grade detected: ${newSubject.name}',
           );
+        }
         newGrades.add(newSubject.name);
       } else {
         // Compare grades lists for existing subjects with grades.
@@ -238,10 +251,11 @@ Map<String, List<String>> _getChangedSubjectNames(
               .map((g) => {'label': g.label, 'value': g.value})
               .toList(),
         )) {
-          if (kDebugMode)
+          if (kDebugMode) {
             debugPrint(
               '[BackgroundFetch] Grade updated in: ${newSubject.name}',
             );
+          }
           updatedGrades.add(newSubject.name);
         }
       }
@@ -270,10 +284,11 @@ Future<void> initBackgroundTasks() async {
     final prefs = await SharedPreferences.getInstance();
     final fetchInterval = prefs.getInt('background_fetch_interval') ?? 15;
 
-    if (kDebugMode)
+    if (kDebugMode) {
       debugPrint(
         '[BackgroundFetch] Initializing with interval: $fetchInterval minutes',
       );
+    }
 
     await BackgroundFetch.configure(
       BackgroundFetchConfig(
