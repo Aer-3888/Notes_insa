@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter/foundation.dart';
 import '../services/auth_service.dart';
 import '../services/grades_service.dart';
+import '../background_tasks.dart';
 import 'scan_screen.dart';
 import 'dashboard_screen.dart';
 
@@ -84,6 +85,9 @@ class _LoginScreenState extends State<LoginScreen> {
         _passController.text,
         token: _scannedToken!,
       );
+
+      // Start background sync
+      await initBackgroundTasks();
 
       if (mounted) {
         // Go to Dashboard only on successful fetch
