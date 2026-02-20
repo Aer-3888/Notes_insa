@@ -1,23 +1,28 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../models.dart';
 import '../data.dart';
+import '../providers/grades_provider.dart';
+import '../providers/dashboard_providers.dart';
 import '../components/app_drawer.dart';
 
-class ConfigScreen extends StatelessWidget {
+class ConfigScreen extends ConsumerWidget {
   const ConfigScreen({super.key});
 
   @override
-  Widget build(BuildContext context) {
-    // Dynamically get available semesters from JSON
-    List<int> availableSemesters = JsonCurriculumParser.getAvailableSemesters(
-      jsonString,
-    );
+  Widget build(BuildContext context, WidgetRef ref) {
+    // Use computed provider for available semesters (cached)
+    final availableSemesters = ref.watch(availableSemestersProvider);
+
+    // Get JSON data for parsing individual semesters
+    final gradesState = ref.watch(gradesProvider);
+    final jsonString = gradesState.jsonData;
 
     final profiles = <Profile>[
       for (var semNum in availableSemesters)
         Profile(
           'Semestre $semNum',
-          units: getCurriculum(semNum),
+          units: JsonCurriculumParser.parseSemester(jsonString, semNum),
           isActive:
               availableSemesters.isNotEmpty &&
               semNum == availableSemesters.first,

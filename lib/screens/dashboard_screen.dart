@@ -1,79 +1,42 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../models.dart';
-import '../data.dart';
+import '../providers/dashboard_providers.dart';
+import '../providers/grades_provider.dart';
 import '../components/app_drawer.dart';
 import '../components/dashboard_header.dart';
 import '../components/semester_selector.dart';
 import '../components/unit_card_grid.dart';
 
-class DashboardScreen extends StatefulWidget {
+/// Dashboard screen - main grades view with lifecycle handling for background updates
+class DashboardScreen extends ConsumerStatefulWidget {
   const DashboardScreen({super.key});
 
   @override
-  State<DashboardScreen> createState() => _DashboardScreenState();
+  ConsumerState<DashboardScreen> createState() => _DashboardScreenState();
 }
 
-class _DashboardScreenState extends State<DashboardScreen> {
-  final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey<ScaffoldState>();
-
-  int selectedSemester = 5;
-  List<TeachingUnit> curriculum = [];
-  double? semesterAverage;
-  String departmentName = "Etudiant";
-
+class _DashboardScreenState extends ConsumerState<DashboardScreen>
+    with WidgetsBindingObserver {
   @override
   void initState() {
     super.initState();
-    _loadData();
+    // Register lifecycle observer to detect when app resumes from background
+    WidgetsBinding.instance.addObserver(this);
   }
 
   @override
-  void didChangeDependencies() {
-    super.didChangeDependencies();
-    _loadData();
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
   }
 
-  void _loadData() {
-    try {
-      // Load curriculum for the selected semester
-      List<TeachingUnit> loadedCurriculum = getCurriculum(selectedSemester);
-
-      // Get department/title from the JSON source
-      departmentName = JsonCurriculumParser.getDepartmentName(jsonString);
-
-      // Compute weighted semester average
-      double totalSemScore = 0;
-      double totalSemCoeff = 0;
-      for (var unit in loadedCurriculum) {
-        for (var sub in unit.subjects) {
-          if (sub.average != null) {
-            totalSemScore += sub.average! * sub.coeff;
-            totalSemCoeff += sub.coeff;
-          }
-        }
-      }
-
-      setState(() {
-        curriculum = loadedCurriculum;
-        semesterAverage = (totalSemCoeff > 0)
-            ? totalSemScore / totalSemCoeff
-            : null;
-      });
-    } catch (e) {
-      // On parse error, clear curriculum and reset average
-      setState(() {
-        curriculum = [];
-        semesterAverage = null;
-      });
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    // Reload grades from storage when app resumes (to pick up background fetch updates)
+    if (state == AppLifecycleState.resumed) {
+      ref.read(gradesProvider.notifier).loadStoredGrades();
     }
-  }
-
-  void _switchSemester(int newSem) {
-    if (selectedSemester == newSem) return;
-    setState(() {
-      selectedSemester = newSem;
-    });
-    _loadData();
   }
 
   void _showUEDetails(BuildContext context, TeachingUnit unit) {
@@ -216,20 +179,30 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
   @override
   Widget build(BuildContext context) {
+    // Watch computed providers - Riverpod caches and only recomputes when dependencies change
+    final departmentName = ref.watch(departmentNameProvider);
+    final curriculum = ref.watch(curriculumProvider);
+    final semesterAverage = ref.watch(semesterAverageProvider);
+    final selectedSemester = ref.watch(selectedSemesterProvider);
+
     return Scaffold(
-      key: _scaffoldKey,
       drawer: const AppDrawer(selected: DrawerItem.notes),
       body: SafeArea(
         child: Column(
           children: [
-            DashboardHeader(
-              title: departmentName,
-              average: semesterAverage,
-              onMenuPressed: () => _scaffoldKey.currentState?.openDrawer(),
+            Builder(
+              builder: (context) => DashboardHeader(
+                title: departmentName,
+                average: semesterAverage,
+                onMenuPressed: () => Scaffold.of(context).openDrawer(),
+              ),
             ),
             SemesterSelector(
               selectedSemester: selectedSemester,
-              onSemesterChanged: _switchSemester,
+              onSemesterChanged: (newSem) {
+                // Update provider state - UI rebuilds automatically
+                ref.read(selectedSemesterProvider.notifier).state = newSem;
+              },
             ),
             Expanded(
               child: UnitCardGrid(

@@ -1,7 +1,6 @@
 import 'package:flutter/services.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'dart:convert';
-import '../data.dart';
 import 'package:flutter/foundation.dart';
 
 class GradesService {
@@ -17,7 +16,6 @@ class GradesService {
     try {
       final storedJson = await _storage.read(key: _gradesKey);
       if (storedJson != null && storedJson.isNotEmpty) {
-        jsonString = storedJson;
         return true;
       }
       return false;
@@ -37,7 +35,7 @@ class GradesService {
 
   /// Calls the native Android AAR via MethodChannel.
   /// Expects the native side to return a JSON string containing grades.
-  /// On success this function updates `lib/data.dart`'s top-level `jsonString` and saves locally.
+  /// On success this function returns the JSON string containing grades and saves locally.
   static Future<String> fetchGrades(
     String username,
     String password,
@@ -58,9 +56,6 @@ class GradesService {
           message: 'Null response from native code',
         );
       }
-
-      // Overwrite the in-memory data JSON so UI can read it
-      jsonString = result;
 
       // Save to local storage for offline access
       await saveGrades(result);
@@ -96,9 +91,6 @@ class GradesService {
 
       // Save to local storage
       await saveGrades(result);
-
-      // Update global jsonString if needed
-      jsonString = result;
 
       return parsedData;
     } catch (e) {

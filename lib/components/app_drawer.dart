@@ -1,70 +1,23 @@
 // App navigation drawer.
 import 'package:flutter/material.dart';
-import 'package:flutter/foundation.dart';
-import 'package:flutter_secure_storage/flutter_secure_storage.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../services/auth_service.dart';
-import '../services/notification_service.dart';
+import '../providers/grades_provider.dart';
 import '../screens/login_screen.dart';
 import '../screens/raw_json_viewer_screen.dart';
 import '../screens/config_screen.dart';
 import '../screens/settings_screen.dart';
 import '../screens/dashboard_screen.dart';
-import '../data.dart';
-import '../background_tasks.dart';
 
 enum DrawerItem { notes, rawJson, config, settings }
 
-// Perform logout cleanup.
-Future<void> _performLogoutCleanup() async {
-  final storage = const FlutterSecureStorage();
-
-  // Stop background tasks
-  try {
-    await stopBackgroundTasks();
-  } catch (e) {
-    if (kDebugMode) debugPrint('[Logout] Failed to stop background tasks: $e');
-  }
-
-  // Cancel notifications
-  try {
-    await NotificationService.cancelAllNotifications();
-  } catch (e) {
-    if (kDebugMode) debugPrint('[Logout] Failed to cancel notifications: $e');
-  }
-
-  // Delete stored grades
-  try {
-    await storage.delete(key: 'stored_grades_json');
-  } catch (e) {
-    if (kDebugMode) debugPrint('[Logout] Failed to delete stored grades: $e');
-  }
-
-  // Delete last fetch snapshot
-  try {
-    await storage.delete(key: 'last_grades_data');
-  } catch (e) {
-    if (kDebugMode)
-      debugPrint('[Logout] Failed to delete last grades data: $e');
-  }
-
-  // Clear credentials - this should deleteAll() internally
-  try {
-    await AuthService().clear();
-  } catch (e) {
-    if (kDebugMode) debugPrint('[Logout] Failed to clear auth service: $e');
-  }
-
-  // Clear in-memory data (shouldn't fail, but wrapped for safety)
-  clearGrades();
-}
-
 // Navigation drawer widget.
-class AppDrawer extends StatelessWidget {
+class AppDrawer extends ConsumerWidget {
   final DrawerItem selected;
   const AppDrawer({super.key, this.selected = DrawerItem.notes});
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     return Drawer(
       child: ListView(
         padding: EdgeInsets.zero,
@@ -214,10 +167,16 @@ class AppDrawer extends StatelessWidget {
               style: TextStyle(color: Colors.red),
             ),
             onTap: () async {
-              await _performLogoutCleanup();
+              // Clear Riverpod grades state
+              ref.read(gradesProvider.notifier).clearGrades();
+
+              // Delete credentials from secure storage
+              await AuthService().clear();
 
               if (context.mounted) {
                 Navigator.pop(context);
+
+                // Reset App to Login Screen
                 Navigator.pushAndRemoveUntil(
                   context,
                   MaterialPageRoute(builder: (context) => const LoginScreen()),

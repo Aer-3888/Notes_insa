@@ -143,15 +143,3 @@ class JsonCurriculumParser {
     }
   }
 }
-
-/// Backwards-compatible helper
-List<TeachingUnit> getCurriculum(int semester) =>
-    JsonCurriculumParser.parseSemester(jsonString, semester);
-
-/// Resets the global JSON data to an empty state.
-void clearGrades() {
-  jsonString = '{}';
-}
-
-/// The global grade data, initialized to an empty JSON object.
-String jsonString = '{}';

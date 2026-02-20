@@ -1,10 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'dart:convert';
-import '../data.dart';
+import '../providers/grades_provider.dart';
 import '../components/app_drawer.dart';
 
-class RawJsonViewerScreen extends StatelessWidget {
+class RawJsonViewerScreen extends ConsumerWidget {
   const RawJsonViewerScreen({super.key});
 
   void _copyToClipboard(BuildContext context, String text) {
@@ -23,7 +24,11 @@ class RawJsonViewerScreen extends StatelessWidget {
   }
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    // Get JSON data from Riverpod state
+    final gradesState = ref.watch(gradesProvider);
+    final jsonString = gradesState.jsonData;
+
     final formattedJson = _formatJson(jsonString);
     final isEmpty = jsonString == '{}' || jsonString.isEmpty;
 
