@@ -1,13 +1,15 @@
+// App navigation drawer.
 import 'package:flutter/material.dart';
 import '../services/auth_service.dart';
 import '../screens/login_screen.dart';
 import '../screens/raw_json_viewer_screen.dart';
 import '../screens/config_screen.dart';
+import '../screens/settings_screen.dart';
 import '../screens/dashboard_screen.dart';
 
-enum DrawerItem { notes, rawJson, config }
+enum DrawerItem { notes, rawJson, config, settings }
 
-// Allow the drawer to know which item is currently selected
+// Navigation drawer widget.
 class AppDrawer extends StatelessWidget {
   final DrawerItem selected;
   const AppDrawer({super.key, this.selected = DrawerItem.notes});
@@ -123,6 +125,32 @@ class AppDrawer extends StatelessWidget {
               Navigator.push(
                 context,
                 MaterialPageRoute(builder: (context) => const ConfigScreen()),
+              );
+            },
+          ),
+
+          ListTile(
+            leading: Icon(
+              Icons.tune,
+              color: selected == DrawerItem.settings
+                  ? Colors.indigo
+                  : Colors.grey,
+            ),
+            title: Text(
+              'Settings',
+              style: TextStyle(
+                color: selected == DrawerItem.settings
+                    ? Colors.indigo
+                    : Colors.black87,
+              ),
+            ),
+            selected: selected == DrawerItem.settings,
+            selectedTileColor: Colors.indigo.withValues(alpha: .08),
+            onTap: () {
+              Navigator.pop(context);
+              Navigator.push(
+                context,
+                MaterialPageRoute(builder: (context) => const SettingsScreen()),
               );
             },
           ),

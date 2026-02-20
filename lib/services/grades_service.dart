@@ -1,11 +1,14 @@
 import 'package:flutter/services.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
+import 'dart:convert';
 import '../data.dart';
+import 'package:flutter/foundation.dart';
 
 class GradesService {
   static const MethodChannel _channel = MethodChannel(
     'com.aer.notes_insa/fetch_grades',
   );
+  // FlutterSecureStorage uses custom ciphers by default for better security and background task compatibility
   static const FlutterSecureStorage _storage = FlutterSecureStorage();
   static const String _gradesKey = 'stored_grades_json';
 
@@ -69,5 +72,50 @@ class GradesService {
     } catch (e) {
       throw PlatformException(code: 'ERR_FETCH', message: e.toString());
     }
+  }
+
+  /// Instance method for background tasks - returns parsed data instead of just JSON string
+  Future<Map<String, dynamic>?> fetchGradesForBackground(
+    String username,
+    String password, {
+    String secret = '',
+  }) async {
+    try {
+      final result = await _channel.invokeMethod<String>('FetchGrades', {
+        'username': username,
+        'password': password,
+        'secret': secret,
+      });
+
+      if (result == null) {
+        return null;
+      }
+
+      // Parse JSON for comparison purposes
+      final parsedData = json.decode(result) as Map<String, dynamic>;
+
+      // Save to local storage
+      await saveGrades(result);
+
+      // Update global jsonString if needed
+      jsonString = result;
+
+      return parsedData;
+    } catch (e) {
+      return null;
+    }
+  }
+
+  /// Get last saved grades data as parsed JSON
+  Future<Map<String, dynamic>?> getLastSavedGrades() async {
+    try {
+      final storedJson = await _storage.read(key: _gradesKey);
+      if (storedJson != null && storedJson.isNotEmpty) {
+        return json.decode(storedJson) as Map<String, dynamic>;
+      }
+    } catch (e) {
+      debugPrint('Error reading stored grades: $e');
+    }
+    return null;
   }
 }

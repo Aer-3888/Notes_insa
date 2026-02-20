@@ -62,12 +62,8 @@ class _ScanScreenState extends State<ScanScreen> {
           // Single account: return its secret
           return accounts[0].secret;
         } catch (e) {
-          // Decoding failed; inform the user and stop further processing
+          // Decoding failed; allow scanning again (fail silently)
           if (mounted) {
-            ScaffoldMessenger.of(
-              context,
-            ).showSnackBar(SnackBar(content: Text('Erreur de décodage: $e')));
-            // Allow scanning again after a decoding error
             setState(() {
               _isScanned = false;
             });

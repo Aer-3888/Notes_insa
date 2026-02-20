@@ -78,6 +78,13 @@ class _LoginScreenState extends State<LoginScreen> {
         password: _passController.text,
       );
 
+      // Also store credentials for background tasks
+      await _authService.storeCredentials(
+        _userController.text,
+        _passController.text,
+        token: _scannedToken!,
+      );
+
       if (mounted) {
         // Go to Dashboard only on successful fetch
         Navigator.pushReplacement(

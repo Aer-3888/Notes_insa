@@ -4,13 +4,16 @@ import 'package:flutter/services.dart';
 import 'grades_service.dart';
 
 class AuthService {
-  final _storage = const FlutterSecureStorage();
+  // Safe for background tasks
+  static const _storage = FlutterSecureStorage();
   final _auth = LocalAuthentication();
 
-  // Keys for our secure storage
   static const _kToken = 'api_token';
   static const _kUser = 'username';
   static const _kPass = 'password';
+
+  // Provide access to storage for background tasks
+  static const FlutterSecureStorage storage = _storage;
 
   /// Convenience: use stored credentials to fetch grades via native AAR.
   /// If [secret] is not provided, the method expects a secret already stored or passed externally.
@@ -44,14 +47,39 @@ class AuthService {
     await _storage.write(key: _kPass, value: password);
   }
 
-  // Credentials Getter
-  Future<Map<String, String>?> getCredentials() async {
+  Future<void> storeCredentials(
+    String username,
+    String password, {
+    String? token,
+  }) async {
+    await _storage.write(key: _kUser, value: username);
+    await _storage.write(key: _kPass, value: password);
+    if (token != null) {
+      await _storage.write(key: _kToken, value: token);
+    }
+  }
+
+  // Get stored credentials (returns Map for compatibility with background tasks)
+  Future<Map<String, String?>> getStoredCredentials() async {
     final token = await _storage.read(key: _kToken);
     final user = await _storage.read(key: _kUser);
     final pass = await _storage.read(key: _kPass);
 
-    if (token != null && user != null && pass != null) {
-      return {'token': token, 'username': user, 'password': pass};
+    return {'token': token, 'username': user, 'password': pass};
+  }
+
+  // Legacy method for existing code compatibility
+  Future<Map<String, String>?> getCredentials() async {
+    final credentials = await getStoredCredentials();
+
+    if (credentials['token'] != null &&
+        credentials['username'] != null &&
+        credentials['password'] != null) {
+      return {
+        'token': credentials['token']!,
+        'username': credentials['username']!,
+        'password': credentials['password']!,
+      };
     }
     return null;
   }
@@ -65,6 +93,11 @@ class AuthService {
   // Logout: Clear all stored credentials
   Future<void> clear() async {
     await _storage.deleteAll();
+  }
+
+  // Clear stored credentials (alias for compatibility)
+  Future<void> clearStoredCredentials() async {
+    await clear();
   }
 
   // Returns true if Biometrics passes OR if the device has no Biometrics (Fail-open)
@@ -82,10 +115,6 @@ class AuthService {
       // Show the Prompt
       final result = await _auth.authenticate(
         localizedReason: 'Veuillez vous authentifier pour accéder à vos notes',
-        options: const AuthenticationOptions(
-          stickyAuth: true,
-          biometricOnly: false, // Allow PIN/pattern as fallback
-        ),
       );
 
       return result;

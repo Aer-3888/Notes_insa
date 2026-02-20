@@ -5,7 +5,7 @@ import 'models.dart';
 ///
 /// Parses the structure exported by the source into a list of
 /// [TeachingUnit] objects. The expected JSON contains a top-level
-/// `details` array with semester entries (names contain "SEMESTRE<n>").
+/// `details` array with semester entries (names contain "SEMESTRE").
 class JsonCurriculumParser {
   /// Parse a semester JSON payload and return its teaching units.
   ///

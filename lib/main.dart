@@ -3,9 +3,11 @@ import 'services/auth_service.dart';
 import 'services/grades_service.dart';
 import 'screens/login_screen.dart';
 import 'screens/dashboard_screen.dart';
+import 'background_tasks.dart';
 
-void main() {
+void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  await initBackgroundTasks();
   runApp(const MyApp());
 }
 
@@ -28,6 +30,7 @@ class MyApp extends StatelessWidget {
   }
 }
 
+// Authentication gate that decides whether to show Login or Dashboard.
 class AuthGate extends StatefulWidget {
   const AuthGate({super.key});
 

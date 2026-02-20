@@ -47,5 +47,20 @@
 	<true/>
 	<key>UIApplicationSupportsIndirectInputEvents</key>
 	<true/>
+
+	<!-- Background fetch capabilities -->
+	<key>UIBackgroundModes</key>
+	<array>
+		<string>background-fetch</string>
+		<string>background-processing</string>
+	</array>
+
+	<!-- Notification permissions -->
+	<key>NSUserNotificationUsageDescription</key>
+	<string>This app uses notifications to alert you about grade updates.</string>
+
+	<!-- Camera permission for QR scanner -->
+	<key>NSCameraUsageDescription</key>
+	<string>This app uses the camera to scan QR codes for authentication.</string>
 </dict>
 </plist>

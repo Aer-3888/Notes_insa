@@ -9,12 +9,7 @@ class RawJsonViewerScreen extends StatelessWidget {
 
   void _copyToClipboard(BuildContext context, String text) {
     Clipboard.setData(ClipboardData(text: text));
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text('JSON copié dans le presse-papiers'),
-        duration: Duration(seconds: 2),
-      ),
-    );
+    // Copy performed silently (no SnackBar)
   }
 
   String _formatJson(String jsonStr) {
@@ -144,18 +139,6 @@ class RawJsonViewerScreen extends StatelessWidget {
                   ),
 
                   const SizedBox(height: 16),
-
-                  // Copy button at bottom
-                  ElevatedButton.icon(
-                    onPressed: () => _copyToClipboard(context, jsonString),
-                    icon: const Icon(Icons.copy),
-                    label: const Text('Copier tout le JSON'),
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: Colors.indigo,
-                      foregroundColor: Colors.white,
-                      padding: const EdgeInsets.all(16),
-                    ),
-                  ),
                 ],
               ),
             ),
