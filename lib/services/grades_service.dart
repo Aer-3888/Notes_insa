@@ -58,7 +58,7 @@ class GradesService {
       final storedJson = await _storage.read(key: _gradesKey);
       if (storedJson != null && storedJson.isNotEmpty) return storedJson;
     } catch (e) {
-      debugPrint('Error reading stored grades: $e');
+      if (kDebugMode) debugPrint('Error reading stored grades: $e');
     }
     return null;
   }

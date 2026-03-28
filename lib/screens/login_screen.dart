@@ -35,9 +35,11 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
   // Auto-fill username from stored credentials if available
   Future<void> _autoFillUsername() async {
     final credentials = await _authService.getCredentials();
-    if (credentials != null && credentials['username'] != null && mounted) {
+    if (credentials != null &&
+        credentials[AuthService.kUser] != null &&
+        mounted) {
       setState(() {
-        _userController.text = credentials['username']!;
+        _userController.text = credentials[AuthService.kUser]!;
       });
     }
   }
@@ -75,13 +77,6 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
           );
 
       // Only save credentials AFTER successful fetch
-      await _authService.saveCredentials(
-        token: _scannedToken!,
-        username: _userController.text,
-        password: _passController.text,
-      );
-
-      // Also store credentials for background tasks
       await _authService.storeCredentials(
         _userController.text,
         _passController.text,
@@ -237,11 +232,10 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                       if (_scannedToken != null) ...[
                         const SizedBox(height: 8),
                         Text(
-                          'Secret: ${_scannedToken!.substring(0, _scannedToken!.length > 16 ? 16 : _scannedToken!.length)}... (${_scannedToken!.length} chars)',
+                          'Token enregistré',
                           style: TextStyle(
                             fontSize: 11,
                             color: Colors.grey.shade600,
-                            fontFamily: 'monospace',
                           ),
                         ),
                       ],

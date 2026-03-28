@@ -109,9 +109,9 @@ class GradesNotifier extends StateNotifier<GradesState> {
     }
 
     await fetchGrades(
-      credentials['username']!,
-      credentials['password']!,
-      credentials['token']!,
+      credentials[AuthService.kUser]!,
+      credentials[AuthService.kPass]!,
+      credentials[AuthService.kToken]!,
     );
   }
 

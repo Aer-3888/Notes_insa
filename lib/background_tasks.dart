@@ -4,6 +4,7 @@ import 'package:collection/collection.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:flutter/foundation.dart';
 
+import 'services/auth_service.dart';
 import 'services/grades_service.dart';
 import 'services/notification_service.dart';
 import 'data.dart';
@@ -43,17 +44,18 @@ Future<void> performBackgroundFetch() async {
     final prefs = await SharedPreferences.getInstance();
     final fetchEnabled = prefs.getBool('background_fetch_enabled') ?? true;
     if (!fetchEnabled) {
-      if (kDebugMode)
+      if (kDebugMode) {
         debugPrint('[BackgroundTask] Background fetch is disabled');
+      }
       return;
     }
 
     // Notification init and credential reads are independent — run in parallel
     final initResults = await Future.wait([
       NotificationService.initialize(),
-      _secureStorage.read(key: 'username'),
-      _secureStorage.read(key: 'password'),
-      _secureStorage.read(key: 'api_token'),
+      _secureStorage.read(key: AuthService.kUser),
+      _secureStorage.read(key: AuthService.kPass),
+      _secureStorage.read(key: AuthService.kToken),
     ]);
     final username = initResults[1] as String?;
     final password = initResults[2] as String?;
@@ -75,8 +77,9 @@ Future<void> performBackgroundFetch() async {
     final previousJson = await _secureStorage.read(key: 'stored_grades_json');
     final newJson = await GradesService.fetchGrades(username, password, secret);
 
-    if (kDebugMode)
+    if (kDebugMode) {
       debugPrint('[BackgroundTask] Successfully fetched grades data');
+    }
 
     await prefs.setString('last_fetch_time', DateTime.now().toIso8601String());
 
@@ -95,22 +98,25 @@ Future<void> performBackgroundFetch() async {
     final changes = _getChangedSubjectNames(previousJson, newJson);
 
     if (changes['new']!.isEmpty && changes['updated']!.isEmpty) {
-      if (kDebugMode)
+      if (kDebugMode) {
         debugPrint(
           '[BackgroundTask] Raw JSON changed but no grade changes — skipping notification',
         );
+      }
       return;
     }
 
     if (kDebugMode) {
-      if (changes['new']!.isNotEmpty)
+      if (changes['new']!.isNotEmpty) {
         debugPrint(
           '[BackgroundTask] New grade(s): ${changes['new']!.join(", ")}',
         );
-      if (changes['updated']!.isNotEmpty)
+      }
+      if (changes['updated']!.isNotEmpty) {
         debugPrint(
           '[BackgroundTask] Updated grade(s): ${changes['updated']!.join(", ")}',
         );
+      }
     }
 
     if (changes['new']!.isNotEmpty) {
@@ -169,8 +175,9 @@ Map<String, List<String>> _getChangedSubjectNames(
       final oldSubject = oldSubjectMap[newSubject.name];
 
       if (oldSubject == null || oldSubject.grades.isEmpty) {
-        if (kDebugMode)
+        if (kDebugMode) {
           debugPrint('[BackgroundTask] New grade detected: ${newSubject.name}');
+        }
         newGrades.add(newSubject.name);
       } else {
         if (!equality.equals(
@@ -181,8 +188,9 @@ Map<String, List<String>> _getChangedSubjectNames(
               .map((g) => {'label': g.label, 'value': g.value})
               .toList(),
         )) {
-          if (kDebugMode)
+          if (kDebugMode) {
             debugPrint('[BackgroundTask] Grade updated in: ${newSubject.name}');
+          }
           updatedGrades.add(newSubject.name);
         }
       }
@@ -200,10 +208,11 @@ Future<void> initBackgroundTasks() async {
     final prefs = await SharedPreferences.getInstance();
     final fetchInterval = prefs.getInt('background_fetch_interval') ?? 15;
 
-    if (kDebugMode)
+    if (kDebugMode) {
       debugPrint(
         '[BackgroundTask] Initializing with interval: $fetchInterval minutes',
       );
+    }
 
     await Workmanager().initialize(callbackDispatcher);
 
