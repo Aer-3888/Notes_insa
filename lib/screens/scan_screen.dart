@@ -10,8 +10,30 @@ class ScanScreen extends StatefulWidget {
   State<ScanScreen> createState() => _ScanScreenState();
 }
 
-class _ScanScreenState extends State<ScanScreen> {
+class _ScanScreenState extends State<ScanScreen>
+    with SingleTickerProviderStateMixin {
   bool _isScanned = false;
+  late final AnimationController _successController;
+  late final Animation<double> _successFade;
+
+  @override
+  void initState() {
+    super.initState();
+    _successController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 400),
+    );
+    _successFade = CurvedAnimation(
+      parent: _successController,
+      curve: Curves.easeOut,
+    );
+  }
+
+  @override
+  void dispose() {
+    _successController.dispose();
+    super.dispose();
+  }
 
   void _onDetect(BarcodeCapture capture) {
     if (_isScanned) return;
@@ -27,19 +49,18 @@ class _ScanScreenState extends State<ScanScreen> {
         _showError('QR non reconnu. Scannez un code OTP valide.');
         setState(() => _isScanned = false);
       } else if (result.isNotEmpty && mounted) {
-        Navigator.pop(context, result);
+        _successController.forward().then((_) {
+          if (mounted) Navigator.pop(context, result);
+        });
       }
       break;
     }
   }
 
-  /// Returns the base32 secret, empty string when async (account picker),
-  /// or null when the QR is invalid/unrecognized.
   String? _extractSecretFromQR(String rawValue) {
     try {
       final uri = Uri.parse(rawValue);
 
-      // Google Authenticator migration export
       if (uri.scheme == 'otpauth-migration') {
         try {
           final accounts = GoogleAuthMigrationDecoder.decode(rawValue);
@@ -54,25 +75,21 @@ class _ScanScreenState extends State<ScanScreen> {
         }
       }
 
-      // Standard otpauth URI (totp/hotp) from any authenticator app
       if (uri.scheme == 'otpauth' &&
           uri.queryParameters.containsKey('secret')) {
         final secret = uri.queryParameters['secret']!;
         return Base32Codec.isValid(secret) ? secret : null;
       }
 
-      // Any URI that carries a secret param
       if (uri.queryParameters.containsKey('secret')) {
         final secret = uri.queryParameters['secret']!;
         return Base32Codec.isValid(secret) ? secret : null;
       }
 
-      // Raw base32 secret (some services show these directly)
       if (Base32Codec.isValid(rawValue)) return rawValue;
 
       return null;
     } catch (_) {
-      // Not a URI — check if it's a raw base32 secret
       if (Base32Codec.isValid(rawValue)) return rawValue;
       return null;
     }
@@ -81,29 +98,73 @@ class _ScanScreenState extends State<ScanScreen> {
   void _showError(String message) {
     if (!mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text(message), backgroundColor: Colors.red.shade700),
+      SnackBar(
+        content: Text(message),
+        backgroundColor: Colors.red.shade700,
+        behavior: SnackBarBehavior.floating,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+        margin: const EdgeInsets.fromLTRB(16, 0, 16, 24),
+      ),
     );
   }
 
   void _showAccountSelectionDialog(List<OtpAccount> accounts) {
     if (!mounted) return;
 
-    showDialog<String>(
+    showModalBottomSheet<String>(
       context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Text('Sélectionner un compte'),
-        content: Column(
+      backgroundColor: Colors.transparent,
+      isScrollControlled: true,
+      builder: (ctx) => Container(
+        decoration: const BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+        ),
+        padding: const EdgeInsets.fromLTRB(20, 12, 20, 32),
+        child: Column(
           mainAxisSize: MainAxisSize.min,
-          children: accounts
-              .map(
-                (account) => ListTile(
-                  leading: const Icon(Icons.key),
-                  title: Text(account.name),
-                  subtitle: Text(account.issuer),
-                  onTap: () => Navigator.pop(ctx, account.secret),
+          children: [
+            Container(
+              width: 36,
+              height: 4,
+              margin: const EdgeInsets.only(bottom: 20),
+              decoration: BoxDecoration(
+                color: Colors.grey.shade300,
+                borderRadius: BorderRadius.circular(2),
+              ),
+            ),
+            const Align(
+              alignment: Alignment.centerLeft,
+              child: Text(
+                'Sélectionner un compte',
+                style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+              ),
+            ),
+            const SizedBox(height: 16),
+            ...accounts.map(
+              (account) => ListTile(
+                contentPadding: EdgeInsets.zero,
+                leading: Container(
+                  width: 40,
+                  height: 40,
+                  decoration: BoxDecoration(
+                    color: Colors.blue.shade50,
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: Icon(Icons.key, color: Colors.blue.shade700, size: 20),
                 ),
-              )
-              .toList(),
+                title: Text(
+                  account.name,
+                  style: const TextStyle(fontWeight: FontWeight.w600),
+                ),
+                subtitle: Text(
+                  account.issuer,
+                  style: TextStyle(color: Colors.grey.shade500, fontSize: 12),
+                ),
+                onTap: () => Navigator.pop(ctx, account.secret),
+              ),
+            ),
+          ],
         ),
       ),
     ).then((selectedSecret) {
@@ -119,35 +180,100 @@ class _ScanScreenState extends State<ScanScreen> {
   void _showManualEntryDialog() {
     final controller = TextEditingController();
 
-    showDialog<String>(
+    showModalBottomSheet<String>(
       context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Text('Saisir le secret manuellement'),
-        content: TextField(
-          controller: controller,
-          autocorrect: false,
-          textCapitalization: TextCapitalization.characters,
-          decoration: const InputDecoration(
-            hintText: 'Secret base32 (ex: JBSWY3DPEHPK3PXP)',
+      backgroundColor: Colors.transparent,
+      isScrollControlled: true,
+      builder: (ctx) => Padding(
+        padding: EdgeInsets.only(bottom: MediaQuery.of(ctx).viewInsets.bottom),
+        child: Container(
+          decoration: const BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+          ),
+          padding: const EdgeInsets.fromLTRB(20, 12, 20, 32),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Center(
+                child: Container(
+                  width: 36,
+                  height: 4,
+                  margin: const EdgeInsets.only(bottom: 20),
+                  decoration: BoxDecoration(
+                    color: Colors.grey.shade300,
+                    borderRadius: BorderRadius.circular(2),
+                  ),
+                ),
+              ),
+              const Text(
+                'Saisir le secret manuellement',
+                style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+              ),
+              const SizedBox(height: 6),
+              Text(
+                'Entrez le secret base32 fourni par votre service.',
+                style: TextStyle(fontSize: 13, color: Colors.grey.shade500),
+              ),
+              const SizedBox(height: 20),
+              TextField(
+                controller: controller,
+                autocorrect: false,
+                textCapitalization: TextCapitalization.characters,
+                style: const TextStyle(
+                  fontFamily: 'monospace',
+                  letterSpacing: 1.2,
+                ),
+                decoration: InputDecoration(
+                  hintText: 'JBSWY3DPEHPK3PXP',
+                  hintStyle: TextStyle(
+                    color: Colors.grey.shade400,
+                    letterSpacing: 1.2,
+                  ),
+                  filled: true,
+                  fillColor: Colors.grey.shade50,
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                    borderSide: BorderSide(color: Colors.grey.shade200),
+                  ),
+                  enabledBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                    borderSide: BorderSide(color: Colors.grey.shade200),
+                  ),
+                  focusedBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                    borderSide: const BorderSide(color: Colors.blueAccent),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 16),
+              SizedBox(
+                width: double.infinity,
+                child: FilledButton(
+                  onPressed: () {
+                    final value = controller.text.trim().toUpperCase();
+                    if (Base32Codec.isValid(value)) {
+                      Navigator.pop(ctx, value);
+                    } else {
+                      _showError('Secret invalide. Vérifiez le format base32.');
+                    }
+                  },
+                  style: FilledButton.styleFrom(
+                    padding: const EdgeInsets.symmetric(vertical: 14),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                  ),
+                  child: const Text(
+                    'Confirmer',
+                    style: TextStyle(fontSize: 15, fontWeight: FontWeight.w600),
+                  ),
+                ),
+              ),
+            ],
           ),
         ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx),
-            child: const Text('Annuler'),
-          ),
-          TextButton(
-            onPressed: () {
-              final value = controller.text.trim().toUpperCase();
-              if (Base32Codec.isValid(value)) {
-                Navigator.pop(ctx, value);
-              } else {
-                _showError('Secret invalide. Vérifiez le format base32.');
-              }
-            },
-            child: const Text('Confirmer'),
-          ),
-        ],
       ),
     ).then((secret) {
       if (!mounted || secret == null) return;
@@ -158,16 +284,256 @@ class _ScanScreenState extends State<ScanScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Scanner le Token'),
-        actions: [
-          TextButton(
-            onPressed: _showManualEntryDialog,
-            child: const Text('Saisir manuellement'),
+      extendBodyBehindAppBar: true,
+      backgroundColor: Colors.black,
+      body: Stack(
+        fit: StackFit.expand,
+        children: [
+          // Camera feed
+          MobileScanner(onDetect: _onDetect),
+
+          // Overlay
+          _ScanOverlay(isScanned: _isScanned),
+
+          // Success flash
+          FadeTransition(
+            opacity: _successFade,
+            child: Container(color: Colors.white.withValues(alpha: 0.25)),
+          ),
+
+          // Top bar: back button + title
+          Positioned(
+            top: 0,
+            left: 0,
+            right: 0,
+            child: SafeArea(
+              child: Padding(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 16,
+                  vertical: 8,
+                ),
+                child: Row(
+                  children: [
+                    _OverlayButton(
+                      icon: Icons.arrow_back,
+                      onTap: () => Navigator.pop(context),
+                    ),
+                    const SizedBox(width: 12),
+                    const Text(
+                      'Scanner le Token',
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontSize: 18,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+
+          // Bottom bar: instruction + manual entry
+          Positioned(
+            left: 0,
+            right: 0,
+            bottom: 0,
+            child: SafeArea(
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(24, 0, 24, 32),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(
+                      _isScanned
+                          ? 'Code reconnu...'
+                          : 'Pointez vers un QR code OTP',
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 15,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                    const SizedBox(height: 20),
+                    SizedBox(
+                      width: double.infinity,
+                      child: OutlinedButton(
+                        onPressed: _showManualEntryDialog,
+                        style: OutlinedButton.styleFrom(
+                          foregroundColor: Colors.white,
+                          side: BorderSide(
+                            color: Colors.white.withValues(alpha: 0.5),
+                          ),
+                          padding: const EdgeInsets.symmetric(vertical: 14),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                        ),
+                        child: const Text(
+                          'Saisir manuellement',
+                          style: TextStyle(
+                            fontSize: 15,
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
           ),
         ],
       ),
-      body: MobileScanner(onDetect: _onDetect),
+    );
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Scan overlay with viewfinder cutout and corner brackets
+// ---------------------------------------------------------------------------
+
+class _ScanOverlay extends StatelessWidget {
+  final bool isScanned;
+
+  const _ScanOverlay({required this.isScanned});
+
+  @override
+  Widget build(BuildContext context) {
+    final size = MediaQuery.of(context).size;
+    final cutoutSize = size.width * 0.68;
+
+    return CustomPaint(
+      painter: _OverlayPainter(cutoutSize: cutoutSize, isScanned: isScanned),
+      child: SizedBox.expand(),
+    );
+  }
+}
+
+class _OverlayPainter extends CustomPainter {
+  final double cutoutSize;
+  final bool isScanned;
+
+  _OverlayPainter({required this.cutoutSize, required this.isScanned});
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final cx = size.width / 2;
+    final cy = size.height * 0.42;
+    final half = cutoutSize / 2;
+    const radius = 12.0;
+
+    final cutout = RRect.fromLTRBR(
+      cx - half,
+      cy - half,
+      cx + half,
+      cy + half,
+      const Radius.circular(radius),
+    );
+
+    // Dark overlay with hole
+    final overlayPaint = Paint()..color = Colors.black.withValues(alpha: 0.55);
+    final fullRect = Rect.fromLTWH(0, 0, size.width, size.height);
+    final path = Path()
+      ..addRect(fullRect)
+      ..addRRect(cutout)
+      ..fillType = PathFillType.evenOdd;
+    canvas.drawPath(path, overlayPaint);
+
+    // Corner brackets
+    final bracketColor = isScanned ? Colors.greenAccent.shade400 : Colors.white;
+    final bracketPaint = Paint()
+      ..color = bracketColor
+      ..strokeWidth = 3
+      ..style = PaintingStyle.stroke
+      ..strokeCap = StrokeCap.round;
+
+    const arm = 24.0;
+    final l = cx - half;
+    final t = cy - half;
+    final r = cx + half;
+    final b = cy + half;
+
+    // Top-left
+    canvas.drawPath(
+      Path()
+        ..moveTo(l + arm, t)
+        ..lineTo(l + radius, t)
+        ..arcToPoint(
+          Offset(l, t + radius),
+          radius: const Radius.circular(radius),
+          clockwise: false,
+        )
+        ..lineTo(l, t + arm),
+      bracketPaint,
+    );
+    // Top-right
+    canvas.drawPath(
+      Path()
+        ..moveTo(r - arm, t)
+        ..lineTo(r - radius, t)
+        ..arcToPoint(
+          Offset(r, t + radius),
+          radius: const Radius.circular(radius),
+        )
+        ..lineTo(r, t + arm),
+      bracketPaint,
+    );
+    // Bottom-left
+    canvas.drawPath(
+      Path()
+        ..moveTo(l, b - arm)
+        ..lineTo(l, b - radius)
+        ..arcToPoint(
+          Offset(l + radius, b),
+          radius: const Radius.circular(radius),
+          clockwise: false,
+        )
+        ..lineTo(l + arm, b),
+      bracketPaint,
+    );
+    // Bottom-right
+    canvas.drawPath(
+      Path()
+        ..moveTo(r, b - arm)
+        ..lineTo(r, b - radius)
+        ..arcToPoint(
+          Offset(r - radius, b),
+          radius: const Radius.circular(radius),
+        )
+        ..lineTo(r - arm, b),
+      bracketPaint,
+    );
+  }
+
+  @override
+  bool shouldRepaint(_OverlayPainter old) =>
+      old.isScanned != isScanned || old.cutoutSize != cutoutSize;
+}
+
+// ---------------------------------------------------------------------------
+// Overlay icon button
+// ---------------------------------------------------------------------------
+
+class _OverlayButton extends StatelessWidget {
+  final IconData icon;
+  final VoidCallback onTap;
+
+  const _OverlayButton({required this.icon, required this.onTap});
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        width: 40,
+        height: 40,
+        decoration: BoxDecoration(
+          color: Colors.black.withValues(alpha: 0.4),
+          borderRadius: BorderRadius.circular(10),
+        ),
+        child: Icon(icon, color: Colors.white, size: 22),
+      ),
     );
   }
 }
