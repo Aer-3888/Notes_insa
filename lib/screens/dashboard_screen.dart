@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -16,8 +17,14 @@ class DashboardScreen extends ConsumerStatefulWidget {
   ConsumerState<DashboardScreen> createState() => _DashboardScreenState();
 }
 
+enum _PillMode { hidden, loading, cooldown }
+
 class _DashboardScreenState extends ConsumerState<DashboardScreen>
     with WidgetsBindingObserver {
+  _PillMode _pillMode = _PillMode.hidden;
+  int _cooldownSecs = 0;
+  Timer? _cooldownTimer;
+
   @override
   void initState() {
     super.initState();
@@ -26,6 +33,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen>
 
   @override
   void dispose() {
+    _cooldownTimer?.cancel();
     WidgetsBinding.instance.removeObserver(this);
     super.dispose();
   }
@@ -34,6 +42,25 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen>
   void didChangeAppLifecycleState(AppLifecycleState state) {
     if (state == AppLifecycleState.resumed) {
       ref.read(gradesProvider.notifier).loadStoredGrades();
+    }
+  }
+
+  void _showCooldownPill(int secs) {
+    _cooldownTimer?.cancel();
+    setState(() {
+      _pillMode = _PillMode.cooldown;
+      _cooldownSecs = secs;
+    });
+    _cooldownTimer = Timer(const Duration(seconds: 2), () {
+      if (mounted) setState(() => _pillMode = _PillMode.hidden);
+    });
+  }
+
+  Future<void> _onManualRefresh(BuildContext context) async {
+    final started = await ref.read(gradesProvider.notifier).manualRefresh();
+    if (!started && context.mounted) {
+      final remaining = ref.read(gradesProvider).manualRefreshCooldown;
+      _showCooldownPill(remaining?.inSeconds ?? 0);
     }
   }
 
@@ -53,6 +80,8 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen>
     final semesterAverage = ref.watch(semesterAverageProvider);
     final selectedSemester = ref.watch(selectedSemesterProvider);
     final isLoading = ref.watch(gradesProvider).isLoading;
+    final pillMode = isLoading ? _PillMode.loading : _pillMode;
+    final pillVisible = pillMode != _PillMode.hidden;
 
     return AnnotatedRegion<SystemUiOverlayStyle>(
       value: SystemUiOverlayStyle.dark,
@@ -78,24 +107,29 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen>
                     },
                   ),
                   Expanded(
-                    child: UnitCardGrid(
-                      curriculum: curriculum,
-                      onUnitTap: (unit) => _showUEDetails(context, unit),
+                    child: RefreshIndicator(
+                      onRefresh: () => _onManualRefresh(context),
+                      color: Colors.black87,
+                      backgroundColor: Colors.white,
+                      child: UnitCardGrid(
+                        curriculum: curriculum,
+                        onUnitTap: (unit) => _showUEDetails(context, unit),
+                      ),
                     ),
                   ),
                 ],
               ),
-              // Floating refresh pill — overlaid, no layout shift
+              // Floating pill — overlaid, no layout shift
               Positioned(
                 bottom: 24,
                 left: 0,
                 right: 0,
                 child: AnimatedSlide(
-                  offset: isLoading ? Offset.zero : const Offset(0, 0.5),
+                  offset: pillVisible ? Offset.zero : const Offset(0, 0.5),
                   duration: const Duration(milliseconds: 350),
                   curve: Curves.easeOutCubic,
                   child: AnimatedOpacity(
-                    opacity: isLoading ? 1.0 : 0.0,
+                    opacity: pillVisible ? 1.0 : 0.0,
                     duration: const Duration(milliseconds: 350),
                     curve: Curves.easeInOut,
                     child: Center(
@@ -115,29 +149,60 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen>
                             ),
                           ],
                         ),
-                        child: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            SizedBox(
-                              width: 12,
-                              height: 12,
-                              child: CircularProgressIndicator(
-                                strokeWidth: 1.5,
-                                valueColor: AlwaysStoppedAnimation(
-                                  Colors.white.withValues(alpha: 0.9),
+                        child: AnimatedSwitcher(
+                          duration: const Duration(milliseconds: 200),
+                          child: pillMode == _PillMode.cooldown
+                              ? Row(
+                                  key: const ValueKey('cooldown'),
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    Icon(
+                                      Icons.timer_outlined,
+                                      size: 12,
+                                      color: Colors.white.withValues(
+                                        alpha: 0.9,
+                                      ),
+                                    ),
+                                    const SizedBox(width: 6),
+                                    Text(
+                                      'Actualisable dans $_cooldownSecs s',
+                                      style: TextStyle(
+                                        color: Colors.white.withValues(
+                                          alpha: 0.9,
+                                        ),
+                                        fontSize: 12,
+                                        fontWeight: FontWeight.w500,
+                                      ),
+                                    ),
+                                  ],
+                                )
+                              : Row(
+                                  key: const ValueKey('loading'),
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    SizedBox(
+                                      width: 12,
+                                      height: 12,
+                                      child: CircularProgressIndicator(
+                                        strokeWidth: 1.5,
+                                        valueColor: AlwaysStoppedAnimation(
+                                          Colors.white.withValues(alpha: 0.9),
+                                        ),
+                                      ),
+                                    ),
+                                    const SizedBox(width: 8),
+                                    Text(
+                                      'Mise à jour...',
+                                      style: TextStyle(
+                                        color: Colors.white.withValues(
+                                          alpha: 0.9,
+                                        ),
+                                        fontSize: 12,
+                                        fontWeight: FontWeight.w500,
+                                      ),
+                                    ),
+                                  ],
                                 ),
-                              ),
-                            ),
-                            const SizedBox(width: 8),
-                            Text(
-                              'Mise à jour...',
-                              style: TextStyle(
-                                color: Colors.white.withValues(alpha: 0.9),
-                                fontSize: 12,
-                                fontWeight: FontWeight.w500,
-                              ),
-                            ),
-                          ],
                         ),
                       ),
                     ),

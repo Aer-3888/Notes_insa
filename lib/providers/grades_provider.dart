@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter/foundation.dart';
 import 'dart:convert';
@@ -10,12 +11,14 @@ class GradesState {
   final DateTime? lastUpdated;
   final bool isLoading;
   final String? error;
+  final DateTime? lastManualRefresh;
 
   const GradesState({
     this.jsonData = '{}',
     this.lastUpdated,
     this.isLoading = false,
     this.error,
+    this.lastManualRefresh,
   });
 
   GradesState copyWith({
@@ -23,16 +26,27 @@ class GradesState {
     DateTime? lastUpdated,
     bool? isLoading,
     String? error,
+    DateTime? lastManualRefresh,
   }) {
     return GradesState(
       jsonData: jsonData ?? this.jsonData,
       lastUpdated: lastUpdated ?? this.lastUpdated,
       isLoading: isLoading ?? this.isLoading,
       error: error,
+      lastManualRefresh: lastManualRefresh ?? this.lastManualRefresh,
     );
   }
 
   bool get hasData => jsonData != '{}' && jsonData.isNotEmpty;
+
+  /// Returns null if refresh is allowed, or the remaining cooldown duration.
+  Duration? get manualRefreshCooldown {
+    if (lastManualRefresh == null) return null;
+    final elapsed = DateTime.now().difference(lastManualRefresh!);
+    const cooldown = Duration(seconds: 30);
+    if (elapsed >= cooldown) return null;
+    return cooldown - elapsed;
+  }
 }
 
 /// Notifier to manage grades state.
@@ -101,6 +115,19 @@ class GradesNotifier extends StateNotifier<GradesState> {
       credentials['password']!,
       credentials['token']!,
     );
+  }
+
+  /// Manual refresh — enforces a 30-second cooldown and ignores requests
+  /// while a fetch is already in progress.
+  /// Fires the fetch without awaiting so the RefreshIndicator spinner
+  /// dismisses immediately on release; the pill handles loading feedback.
+  /// Returns true if the refresh was started, false otherwise.
+  Future<bool> manualRefresh() async {
+    if (state.isLoading) return false;
+    if (state.manualRefreshCooldown != null) return false;
+    state = state.copyWith(lastManualRefresh: DateTime.now());
+    unawaited(fetchGradesWithStoredCredentials().catchError((_) {}));
+    return true;
   }
 
   /// Clear all grades data (called on logout).
