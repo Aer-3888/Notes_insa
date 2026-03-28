@@ -79,7 +79,9 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen>
     final curriculum = ref.watch(curriculumProvider);
     final semesterAverage = ref.watch(semesterAverageProvider);
     final selectedSemester = ref.watch(selectedSemesterProvider);
-    final isLoading = ref.watch(gradesProvider).isLoading;
+    final gradesState = ref.watch(gradesProvider);
+    final isLoading = gradesState.isLoading;
+    final lastUpdated = gradesState.lastUpdated;
     final pillMode = isLoading ? _PillMode.loading : _pillMode;
     final pillVisible = pillMode != _PillMode.hidden;
 
@@ -97,6 +99,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen>
                       title: departmentName,
                       average: semesterAverage,
                       onMenuPressed: () => Scaffold.of(context).openDrawer(),
+                      lastUpdated: lastUpdated,
                     ),
                   ),
                   SemesterSelector(

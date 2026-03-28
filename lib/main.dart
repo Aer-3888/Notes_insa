@@ -9,7 +9,8 @@ import 'background_tasks.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  await initBackgroundTasks();
+  // Don't await — background task setup doesn't need to block the first frame
+  unawaited(initBackgroundTasks());
   runApp(const ProviderScope(child: MyApp()));
 }
 
@@ -36,11 +37,12 @@ class MyApp extends StatelessWidget {
 final authCheckProvider = FutureProvider<bool>((ref) async {
   final authService = AuthService();
 
-  // Load stored grades first for instant display
-  await ref.read(gradesProvider.notifier).loadStoredGrades();
-
-  // Check if we have credentials stored
-  final hasCreds = await authService.isLoggedIn();
+  // Run in parallel — both are independent secure storage reads
+  final results = await Future.wait([
+    ref.read(gradesProvider.notifier).loadStoredGrades(),
+    authService.isLoggedIn(),
+  ]);
+  final hasCreds = results[1] as bool;
 
   if (!hasCreds) return false;
 

@@ -1,7 +1,6 @@
 import 'dart:async';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter/foundation.dart';
-import 'dart:convert';
 import '../services/grades_service.dart';
 import '../services/auth_service.dart';
 
@@ -57,10 +56,9 @@ class GradesNotifier extends StateNotifier<GradesState> {
   Future<void> loadStoredGrades() async {
     try {
       final gradesService = GradesService();
-      final storedData = await gradesService.getLastSavedGrades();
+      final jsonString = await gradesService.getLastSavedGrades();
 
-      if (storedData != null) {
-        final jsonString = json.encode(storedData);
+      if (jsonString != null) {
         state = state.copyWith(
           jsonData: jsonString,
           lastUpdated: DateTime.now(),

@@ -61,11 +61,16 @@ class AuthService {
 
   // Get stored credentials (returns Map for compatibility with background tasks)
   Future<Map<String, String?>> getStoredCredentials() async {
-    final token = await _storage.read(key: _kToken);
-    final user = await _storage.read(key: _kUser);
-    final pass = await _storage.read(key: _kPass);
-
-    return {'token': token, 'username': user, 'password': pass};
+    final results = await Future.wait([
+      _storage.read(key: _kToken),
+      _storage.read(key: _kUser),
+      _storage.read(key: _kPass),
+    ]);
+    return {
+      'token': results[0],
+      'username': results[1],
+      'password': results[2],
+    };
   }
 
   // Legacy method for existing code compatibility
@@ -103,9 +108,13 @@ class AuthService {
   // Returns true if Biometrics passes OR if the device has no Biometrics (Fail-open)
   Future<bool> authenticate() async {
     try {
-      // Check if hardware supports it
-      final bool canCheckBiometrics = await _auth.canCheckBiometrics;
-      final bool isDeviceSupported = await _auth.isDeviceSupported();
+      // Check both in parallel — they're independent hardware queries
+      final results = await Future.wait([
+        _auth.canCheckBiometrics,
+        _auth.isDeviceSupported(),
+      ]);
+      final bool canCheckBiometrics = results[0];
+      final bool isDeviceSupported = results[1];
 
       if (!canCheckBiometrics || !isDeviceSupported) {
         // Fallback: If phone has no biometric hardware, allow access in non-production

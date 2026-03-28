@@ -1,16 +1,26 @@
 import 'package:flutter/material.dart';
 import '../models.dart';
 
+String _formatLastUpdated(DateTime dt) {
+  final diff = DateTime.now().difference(dt);
+  if (diff.inSeconds < 60) return 'Mis à jour à l\'instant';
+  if (diff.inMinutes < 60) return 'Mis à jour il y a ${diff.inMinutes} min';
+  if (diff.inHours < 24) return 'Mis à jour il y a ${diff.inHours} h';
+  return 'Mis à jour il y a ${diff.inDays} j';
+}
+
 class DashboardHeader extends StatelessWidget {
   final double? average;
   final String title;
   final VoidCallback onMenuPressed;
+  final DateTime? lastUpdated;
 
   const DashboardHeader({
     super.key,
     required this.average,
     required this.title,
     required this.onMenuPressed,
+    this.lastUpdated,
   });
 
   @override
@@ -26,7 +36,7 @@ class DashboardHeader extends StatelessWidget {
           ),
           const SizedBox(width: 8),
 
-          // Department Title
+          // Department Title + last updated
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -39,6 +49,15 @@ class DashboardHeader extends StatelessWidget {
                     color: Colors.black87,
                   ),
                 ),
+                if (lastUpdated != null)
+                  Text(
+                    _formatLastUpdated(lastUpdated!),
+                    style: TextStyle(
+                      fontSize: 11,
+                      color: Colors.grey.shade500,
+                      fontWeight: FontWeight.w400,
+                    ),
+                  ),
               ],
             ),
           ),

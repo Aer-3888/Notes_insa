@@ -94,13 +94,11 @@ class GradesService {
     }
   }
 
-  /// Get last saved grades data as parsed JSON
-  Future<Map<String, dynamic>?> getLastSavedGrades() async {
+  /// Get last saved grades as the raw JSON string (no decode/re-encode waste).
+  Future<String?> getLastSavedGrades() async {
     try {
       final storedJson = await _storage.read(key: _gradesKey);
-      if (storedJson != null && storedJson.isNotEmpty) {
-        return json.decode(storedJson) as Map<String, dynamic>;
-      }
+      if (storedJson != null && storedJson.isNotEmpty) return storedJson;
     } catch (e) {
       debugPrint('Error reading stored grades: $e');
     }
