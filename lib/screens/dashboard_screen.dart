@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../models.dart';
 import '../providers/dashboard_providers.dart';
@@ -52,31 +53,34 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen>
     final semesterAverage = ref.watch(semesterAverageProvider);
     final selectedSemester = ref.watch(selectedSemesterProvider);
 
-    return Scaffold(
-      drawer: const AppDrawer(selected: DrawerItem.notes),
-      body: SafeArea(
-        child: Column(
-          children: [
-            Builder(
-              builder: (context) => DashboardHeader(
-                title: departmentName,
-                average: semesterAverage,
-                onMenuPressed: () => Scaffold.of(context).openDrawer(),
+    return AnnotatedRegion<SystemUiOverlayStyle>(
+      value: SystemUiOverlayStyle.dark,
+      child: Scaffold(
+        drawer: const AppDrawer(selected: DrawerItem.notes),
+        body: SafeArea(
+          child: Column(
+            children: [
+              Builder(
+                builder: (context) => DashboardHeader(
+                  title: departmentName,
+                  average: semesterAverage,
+                  onMenuPressed: () => Scaffold.of(context).openDrawer(),
+                ),
               ),
-            ),
-            SemesterSelector(
-              selectedSemester: selectedSemester,
-              onSemesterChanged: (newSem) {
-                ref.read(selectedSemesterProvider.notifier).state = newSem;
-              },
-            ),
-            Expanded(
-              child: UnitCardGrid(
-                curriculum: curriculum,
-                onUnitTap: (unit) => _showUEDetails(context, unit),
+              SemesterSelector(
+                selectedSemester: selectedSemester,
+                onSemesterChanged: (newSem) {
+                  ref.read(selectedSemesterProvider.notifier).state = newSem;
+                },
               ),
-            ),
-          ],
+              Expanded(
+                child: UnitCardGrid(
+                  curriculum: curriculum,
+                  onUnitTap: (unit) => _showUEDetails(context, unit),
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );

@@ -21,7 +21,7 @@ class DashboardHeader extends StatelessWidget {
         children: [
           // Menu Button
           IconButton(
-            icon: const Icon(Icons.menu, size: 28),
+            icon: const Icon(Icons.menu, size: 28, color: Colors.black87),
             onPressed: onMenuPressed,
           ),
           const SizedBox(width: 8),
@@ -36,6 +36,7 @@ class DashboardHeader extends StatelessWidget {
                   style: const TextStyle(
                     fontSize: 28,
                     fontWeight: FontWeight.bold,
+                    color: Colors.black87,
                   ),
                 ),
               ],
