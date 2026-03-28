@@ -8,8 +8,11 @@ class NotificationService {
       FlutterLocalNotificationsPlugin();
 
   static bool _isInitialized = false;
-  static int _notificationIdCounter =
-      1000; // Start from 1000 to avoid conflicts.
+
+  // Fixed IDs so each notification type replaces the previous one
+  // rather than stacking up across process restarts.
+  static const int _idNewGrades = 1;
+  static const int _idUpdatedGrades = 2;
 
   // Initialize notifications and create channel on Android.
   static Future<void> initialize() async {
@@ -86,21 +89,21 @@ class NotificationService {
     );
 
     try {
-      String body = 'You have new grades.';
+      String body = 'Vous avez de nouvelles notes.';
       if (subjectNames.isNotEmpty) {
         if (subjectNames.length == 1) {
-          body = 'New grade: ${subjectNames[0]}';
+          body = 'Nouvelle note : ${subjectNames[0]}';
         } else if (subjectNames.length <= 3) {
-          body = 'New grades: ${subjectNames.join(', ')}';
+          body = 'Nouvelles notes : ${subjectNames.join(', ')}';
         } else {
           body =
-              'New grades: ${subjectNames.take(3).join(', ')} and ${subjectNames.length - 3} more';
+              'Nouvelles notes : ${subjectNames.take(3).join(', ')} et ${subjectNames.length - 3} autre(s)';
         }
       }
 
       await _notifications.show(
-        id: _notificationIdCounter++,
-        title: 'New Grades Available!',
+        id: _idNewGrades,
+        title: 'Nouvelles notes disponibles',
         body: body,
         notificationDetails: details,
         payload: 'new_grades',
@@ -133,21 +136,21 @@ class NotificationService {
     );
 
     try {
-      String body = 'Your grades have been updated.';
+      String body = 'Vos notes ont été mises à jour.';
       if (subjectNames.isNotEmpty) {
         if (subjectNames.length == 1) {
-          body = 'Grade updated: ${subjectNames[0]}';
+          body = 'Note mise à jour : ${subjectNames[0]}';
         } else if (subjectNames.length <= 3) {
-          body = 'Grades updated: ${subjectNames.join(', ')}';
+          body = 'Notes mises à jour : ${subjectNames.join(', ')}';
         } else {
           body =
-              'Grades updated: ${subjectNames.take(3).join(', ')} and ${subjectNames.length - 3} more';
+              'Notes mises à jour : ${subjectNames.take(3).join(', ')} et ${subjectNames.length - 3} autre(s)';
         }
       }
 
       await _notifications.show(
-        id: _notificationIdCounter++,
-        title: 'Grades Updated!',
+        id: _idUpdatedGrades,
+        title: 'Notes mises à jour',
         body: body,
         notificationDetails: details,
         payload: 'updated_grades',

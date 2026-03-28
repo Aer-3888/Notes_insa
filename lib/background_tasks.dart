@@ -1,6 +1,5 @@
 import 'package:background_fetch/background_fetch.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'dart:convert';
 import 'package:collection/collection.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:flutter/foundation.dart';
@@ -37,7 +36,7 @@ void backgroundFetchHeadlessTask(HeadlessTask task) async {
   }
 
   try {
-    await NotificationService.initialize();
+    // performBackgroundFetch already initializes notifications internally
     await performBackgroundFetch();
   } catch (error, stackTrace) {
     _logError('backgroundFetchHeadlessTask', error, stackTrace);
@@ -50,127 +49,86 @@ void backgroundFetchHeadlessTask(HeadlessTask task) async {
 // and notify only if there's a change.
 Future<void> performBackgroundFetch() async {
   try {
-    await NotificationService.initialize();
-
+    // Check settings before initializing anything — cheapest exit possible
     final prefs = await SharedPreferences.getInstance();
-
     final fetchEnabled = prefs.getBool('background_fetch_enabled') ?? true;
     if (!fetchEnabled) {
-      if (kDebugMode) {
+      if (kDebugMode)
         debugPrint('[BackgroundFetch] Background fetch is disabled');
-      }
       return;
     }
 
-    final username = await _secureStorage.read(key: 'username');
-    final password = await _secureStorage.read(key: 'password');
-    final secret = await _secureStorage.read(key: 'api_token') ?? '';
+    // Notification init and credential reads are independent — run in parallel
+    final initResults = await Future.wait([
+      NotificationService.initialize(),
+      _secureStorage.read(key: 'username'),
+      _secureStorage.read(key: 'password'),
+      _secureStorage.read(key: 'api_token'),
+    ]);
+    final username = initResults[1] as String?;
+    final password = initResults[2] as String?;
+    final secret = (initResults[3] as String?) ?? '';
 
     if (username == null || password == null) {
-      _logError(
-        'performBackgroundFetch',
-        'Missing credentials - username or password is null',
-      );
+      _logError('performBackgroundFetch', 'Missing credentials');
       return;
     }
 
     if (kDebugMode) {
       debugPrint('[BackgroundFetch] Fetching grades for user: $username');
       debugPrint(
-        '[BackgroundFetch] Secret/token ${secret.isEmpty ? "is empty or not found" : "loaded successfully"}',
+        '[BackgroundFetch] Secret/token ${secret.isEmpty ? "not found" : "loaded"}',
       );
     }
 
-    final gradesService = GradesService();
-    final newData = await gradesService.fetchGradesForBackground(
-      username,
-      password,
-      secret: secret,
-    );
+    // Read previous JSON before fetching — avoids writing to the same key concurrently
+    final previousJson = await _secureStorage.read(key: 'stored_grades_json');
+    final newJson = await GradesService.fetchGrades(username, password, secret);
 
-    if (newData == null) {
-      _logError(
-        'performBackgroundFetch',
-        'Grade fetch returned null - API may be down or credentials invalid',
-      );
+    if (kDebugMode)
+      debugPrint('[BackgroundFetch] Successfully fetched grades data');
+
+    await prefs.setString('last_fetch_time', DateTime.now().toIso8601String());
+
+    // Fast path: raw string equality — skip all parsing if nothing changed
+    if (previousJson == newJson) {
+      if (kDebugMode) debugPrint('[BackgroundFetch] No changes detected');
+      return;
+    }
+
+    if (previousJson == null) {
+      if (kDebugMode) debugPrint('[BackgroundFetch] First fetch - data stored');
+      return;
+    }
+
+    // Data changed — pass raw strings directly, no intermediate decode/re-encode
+    final changes = _getChangedSubjectNames(previousJson, newJson);
+
+    if (changes['new']!.isEmpty && changes['updated']!.isEmpty) {
+      if (kDebugMode)
+        debugPrint(
+          '[BackgroundFetch] Raw JSON changed but no grade changes — skipping notification',
+        );
       return;
     }
 
     if (kDebugMode) {
-      debugPrint('[BackgroundFetch] Successfully fetched grades data');
+      if (changes['new']!.isNotEmpty)
+        debugPrint(
+          '[BackgroundFetch] New grade(s): ${changes['new']!.join(", ")}',
+        );
+      if (changes['updated']!.isNotEmpty)
+        debugPrint(
+          '[BackgroundFetch] Updated grade(s): ${changes['updated']!.join(", ")}',
+        );
     }
 
-    final previousDataJson = await _secureStorage.read(key: 'last_grades_data');
-
-    if (previousDataJson != null) {
-      final previousData = json.decode(previousDataJson);
-      if (hasDataChanged(previousData, newData)) {
-        if (kDebugMode) {
-          debugPrint('[BackgroundFetch] Data changed - updating stored data');
-        }
-
-        await _secureStorage.write(
-          key: 'last_grades_data',
-          value: json.encode(newData),
-        );
-        await prefs.setString(
-          'last_fetch_time',
-          DateTime.now().toIso8601String(),
-        );
-
-        final changes = _getChangedSubjectNames(previousData, newData);
-
-        // Only notify if there are actual grade changes (prevents false notifications from metadata changes)
-        if (changes['new']!.isNotEmpty || changes['updated']!.isNotEmpty) {
-          if (kDebugMode) {
-            if (changes['new']!.isNotEmpty) {
-              debugPrint(
-                '[BackgroundFetch] Sending notification for ${changes['new']!.length} new grade(s): ${changes['new']!.join(", ")}',
-              );
-            }
-            if (changes['updated']!.isNotEmpty) {
-              debugPrint(
-                '[BackgroundFetch] Sending notification for ${changes['updated']!.length} updated grade(s): ${changes['updated']!.join(", ")}',
-              );
-            }
-          }
-
-          // Send notification for new grades
-          if (changes['new']!.isNotEmpty) {
-            await NotificationService.showNewGradesNotification(
-              changes['new']!,
-            );
-          }
-
-          // Send notification for updated grades
-          if (changes['updated']!.isNotEmpty) {
-            await NotificationService.showUpdatedGradesNotification(
-              changes['updated']!,
-            );
-          }
-        } else {
-          if (kDebugMode) {
-            debugPrint(
-              '[BackgroundFetch] Data changed but no grade changes detected - skipping notification',
-            );
-          }
-        }
-      } else {
-        if (kDebugMode) {
-          debugPrint('[BackgroundFetch] No changes detected in grades');
-        }
-      }
-    } else {
-      if (kDebugMode) {
-        debugPrint('[BackgroundFetch] First fetch - storing initial data');
-      }
-      await _secureStorage.write(
-        key: 'last_grades_data',
-        value: json.encode(newData),
-      );
-      await prefs.setString(
-        'last_fetch_time',
-        DateTime.now().toIso8601String(),
+    if (changes['new']!.isNotEmpty) {
+      await NotificationService.showNewGradesNotification(changes['new']!);
+    }
+    if (changes['updated']!.isNotEmpty) {
+      await NotificationService.showUpdatedGradesNotification(
+        changes['updated']!,
       );
     }
   } catch (error, stackTrace) {
@@ -203,17 +161,13 @@ List<Subject> _getAllSubjects(String jsonData) {
 
 // Compare old and new subjects to find which ones are new vs updated.
 Map<String, List<String>> _getChangedSubjectNames(
-  dynamic oldData,
-  dynamic newData,
+  String oldJsonString,
+  String newJsonString,
 ) {
   final newGrades = <String>[];
   final updatedGrades = <String>[];
 
   try {
-    // Convert both to JSON strings if needed.
-    final oldJsonString = oldData is String ? oldData : json.encode(oldData);
-    final newJsonString = newData is String ? newData : json.encode(newData);
-
     // Parse into Subject objects using UI logic.
     final oldSubjects = _getAllSubjects(oldJsonString);
     final newSubjects = _getAllSubjects(newJsonString);
@@ -267,17 +221,6 @@ Map<String, List<String>> _getChangedSubjectNames(
   return {'new': newGrades, 'updated': updatedGrades};
 }
 
-// Check if data has changed using deep equality comparison.
-// Returns true if any change detected (ignores JSON key reordering).
-bool hasDataChanged(dynamic oldData, dynamic newData) {
-  try {
-    const equality = DeepCollectionEquality();
-    return !equality.equals(oldData, newData);
-  } catch (_) {
-    return true;
-  }
-}
-
 // Configure and start background fetch with user-defined interval.
 Future<void> initBackgroundTasks() async {
   try {
@@ -300,7 +243,7 @@ Future<void> initBackgroundTasks() async {
         requiresDeviceIdle: false,
         requiresBatteryNotLow: false,
         requiresStorageNotLow: false,
-        forceAlarmManager: true,
+        forceAlarmManager: false,
         requiredNetworkType: NetworkType.ANY,
       ),
       (String taskId) async {
