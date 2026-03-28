@@ -24,16 +24,22 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen>
   _PillMode _pillMode = _PillMode.hidden;
   int _cooldownSecs = 0;
   Timer? _cooldownTimer;
+  Timer? _clockTimer;
 
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
+    // Rebuild every minute so the "last updated" label stays accurate
+    _clockTimer = Timer.periodic(const Duration(minutes: 1), (_) {
+      if (mounted) setState(() {});
+    });
   }
 
   @override
   void dispose() {
     _cooldownTimer?.cancel();
+    _clockTimer?.cancel();
     WidgetsBinding.instance.removeObserver(this);
     super.dispose();
   }
