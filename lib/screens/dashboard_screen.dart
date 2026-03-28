@@ -52,31 +52,96 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen>
     final curriculum = ref.watch(curriculumProvider);
     final semesterAverage = ref.watch(semesterAverageProvider);
     final selectedSemester = ref.watch(selectedSemesterProvider);
+    final isLoading = ref.watch(gradesProvider).isLoading;
 
     return AnnotatedRegion<SystemUiOverlayStyle>(
       value: SystemUiOverlayStyle.dark,
       child: Scaffold(
         drawer: const AppDrawer(selected: DrawerItem.notes),
         body: SafeArea(
-          child: Column(
+          child: Stack(
             children: [
-              Builder(
-                builder: (context) => DashboardHeader(
-                  title: departmentName,
-                  average: semesterAverage,
-                  onMenuPressed: () => Scaffold.of(context).openDrawer(),
-                ),
+              Column(
+                children: [
+                  Builder(
+                    builder: (context) => DashboardHeader(
+                      title: departmentName,
+                      average: semesterAverage,
+                      onMenuPressed: () => Scaffold.of(context).openDrawer(),
+                    ),
+                  ),
+                  SemesterSelector(
+                    selectedSemester: selectedSemester,
+                    onSemesterChanged: (newSem) {
+                      ref.read(selectedSemesterProvider.notifier).state =
+                          newSem;
+                    },
+                  ),
+                  Expanded(
+                    child: UnitCardGrid(
+                      curriculum: curriculum,
+                      onUnitTap: (unit) => _showUEDetails(context, unit),
+                    ),
+                  ),
+                ],
               ),
-              SemesterSelector(
-                selectedSemester: selectedSemester,
-                onSemesterChanged: (newSem) {
-                  ref.read(selectedSemesterProvider.notifier).state = newSem;
-                },
-              ),
-              Expanded(
-                child: UnitCardGrid(
-                  curriculum: curriculum,
-                  onUnitTap: (unit) => _showUEDetails(context, unit),
+              // Floating refresh pill — overlaid, no layout shift
+              Positioned(
+                bottom: 24,
+                left: 0,
+                right: 0,
+                child: AnimatedSlide(
+                  offset: isLoading ? Offset.zero : const Offset(0, 0.5),
+                  duration: const Duration(milliseconds: 350),
+                  curve: Curves.easeOutCubic,
+                  child: AnimatedOpacity(
+                    opacity: isLoading ? 1.0 : 0.0,
+                    duration: const Duration(milliseconds: 350),
+                    curve: Curves.easeInOut,
+                    child: Center(
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 14,
+                          vertical: 7,
+                        ),
+                        decoration: BoxDecoration(
+                          color: Colors.black87,
+                          borderRadius: BorderRadius.circular(20),
+                          boxShadow: [
+                            BoxShadow(
+                              color: Colors.black.withValues(alpha: 0.15),
+                              blurRadius: 8,
+                              offset: const Offset(0, 2),
+                            ),
+                          ],
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            SizedBox(
+                              width: 12,
+                              height: 12,
+                              child: CircularProgressIndicator(
+                                strokeWidth: 1.5,
+                                valueColor: AlwaysStoppedAnimation(
+                                  Colors.white.withValues(alpha: 0.9),
+                                ),
+                              ),
+                            ),
+                            const SizedBox(width: 8),
+                            Text(
+                              'Mise à jour...',
+                              style: TextStyle(
+                                color: Colors.white.withValues(alpha: 0.9),
+                                fontSize: 12,
+                                fontWeight: FontWeight.w500,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ),
                 ),
               ),
             ],
@@ -200,7 +265,7 @@ class _UEDetailSheet extends StatelessWidget {
                         controller: scrollController,
                         padding: const EdgeInsets.fromLTRB(16, 16, 16, 32),
                         itemCount: unit.subjects.length,
-                        separatorBuilder: (_, __) => const SizedBox(height: 10),
+                        separatorBuilder: (_, _) => const SizedBox(height: 10),
                         itemBuilder: (_, i) =>
                             _SubjectCard(subject: unit.subjects[i]),
                       ),

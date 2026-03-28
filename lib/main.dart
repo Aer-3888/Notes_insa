@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'services/auth_service.dart';
@@ -48,14 +49,16 @@ final authCheckProvider = FutureProvider<bool>((ref) async {
 
   if (!bioSuccess) return false;
 
-  // Fetch grades using stored credentials
-  try {
-    await ref.read(gradesProvider.notifier).fetchGradesWithStoredCredentials();
-    return true;
-  } catch (_) {
-    // Even if fetch fails, allow login if biometrics passed
-    return true;
-  }
+  // Show the dashboard immediately with cached data, refresh in background.
+  // catchError silences the unhandled-future exception — the error is already
+  // stored in gradesProvider state before the rethrow.
+  unawaited(
+    ref
+        .read(gradesProvider.notifier)
+        .fetchGradesWithStoredCredentials()
+        .catchError((_) {}),
+  );
+  return true;
 });
 
 // Authentication gate that decides whether to show Login or Dashboard.

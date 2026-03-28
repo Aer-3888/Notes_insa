@@ -53,8 +53,9 @@ class GradesNotifier extends StateNotifier<GradesState> {
         );
       }
     } catch (e) {
-      if (kDebugMode)
+      if (kDebugMode) {
         debugPrint('[GradesProvider] Failed to load stored grades: $e');
+      }
     }
   }
 
