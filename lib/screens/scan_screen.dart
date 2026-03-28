@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:mobile_scanner/mobile_scanner.dart';
 import '../utils/google_auth_migration_decoder.dart';
+import '../utils/base32_codec.dart';
 
 class ScanScreen extends StatefulWidget {
   const ScanScreen({super.key});
@@ -10,131 +11,162 @@ class ScanScreen extends StatefulWidget {
 }
 
 class _ScanScreenState extends State<ScanScreen> {
-  // Prevent processing the same barcode multiple times while handling a detection
   bool _isScanned = false;
 
   void _onDetect(BarcodeCapture capture) {
     if (_isScanned) return;
 
-    final List<Barcode> barcodes = capture.barcodes;
-    for (final barcode in barcodes) {
-      if (barcode.rawValue != null) {
-        setState(() {
-          _isScanned = true;
-        });
+    for (final barcode in capture.barcodes) {
+      if (barcode.rawValue == null) continue;
 
-        // Parse the scanned value and attempt to extract the OTP secret
-        String secret = _extractSecretFromQR(barcode.rawValue!);
+      setState(() => _isScanned = true);
 
-        // Only close and return a secret when one was extracted immediately.
-        // If multiple accounts are found, the selection dialog will handle
-        // returning the chosen secret asynchronously.
-        if (secret.isNotEmpty && mounted) Navigator.pop(context, secret);
-        break;
+      final result = _extractSecretFromQR(barcode.rawValue!);
+
+      if (result == null) {
+        _showError('QR non reconnu. Scannez un code OTP valide.');
+        setState(() => _isScanned = false);
+      } else if (result.isNotEmpty && mounted) {
+        Navigator.pop(context, result);
       }
+      break;
     }
   }
 
-  /// Parse a scanned QR value and extract the base32 secret used for OTP.
-  /// Supports standard 'otpauth' URIs and Google Authenticator migration URIs.
-  String _extractSecretFromQR(String rawValue) {
+  /// Returns the base32 secret, empty string when async (account picker),
+  /// or null when the QR is invalid/unrecognized.
+  String? _extractSecretFromQR(String rawValue) {
     try {
       final uri = Uri.parse(rawValue);
 
-      // Handle Google Authenticator migration URI (contains multiple accounts)
+      // Google Authenticator migration export
       if (uri.scheme == 'otpauth-migration') {
         try {
           final accounts = GoogleAuthMigrationDecoder.decode(rawValue);
-
-          if (accounts.isEmpty) {
-            // No decoded accounts; return raw value as fallback
-            return rawValue;
-          }
-
-          // Multiple accounts: show a selection dialog and do not return a
-          // secret synchronously. The dialog will close the scanner and
-          // return the selected secret when the user picks one.
+          if (accounts.isEmpty) return null;
           if (accounts.length > 1) {
             _showAccountSelectionDialog(accounts);
             return '';
           }
-
-          // Single account: return its secret
           return accounts[0].secret;
-        } catch (e) {
-          // Decoding failed; allow scanning again (fail silently)
-          if (mounted) {
-            setState(() {
-              _isScanned = false;
-            });
-          }
-          return '';
+        } catch (_) {
+          return null;
         }
       }
 
-      // Standard otpauth URI with a 'secret' query parameter
+      // Standard otpauth URI (totp/hotp) from any authenticator app
       if (uri.scheme == 'otpauth' &&
           uri.queryParameters.containsKey('secret')) {
-        return uri.queryParameters['secret']!;
+        final secret = uri.queryParameters['secret']!;
+        return Base32Codec.isValid(secret) ? secret : null;
       }
 
-      // Some OTP providers may use other URI schemes but still include
-      // a 'secret' query parameter — handle that as a fallback.
+      // Any URI that carries a secret param
       if (uri.queryParameters.containsKey('secret')) {
-        return uri.queryParameters['secret']!;
+        final secret = uri.queryParameters['secret']!;
+        return Base32Codec.isValid(secret) ? secret : null;
       }
 
-      // If nothing matched, return the raw scanned value (it might already be the secret)
-      return rawValue;
-    } catch (e) {
-      // If the scanned value is not a valid URI, return the raw value
-      return rawValue;
+      // Raw base32 secret (some services show these directly)
+      if (Base32Codec.isValid(rawValue)) return rawValue;
+
+      return null;
+    } catch (_) {
+      // Not a URI — check if it's a raw base32 secret
+      if (Base32Codec.isValid(rawValue)) return rawValue;
+      return null;
     }
   }
 
-  /// Show a dialog to pick one account from a migration payload.
-  /// When the user selects an account, the dialog will return its secret and
-  /// close the scanner screen with that value.
+  void _showError(String message) {
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text(message), backgroundColor: Colors.red.shade700),
+    );
+  }
+
   void _showAccountSelectionDialog(List<OtpAccount> accounts) {
     if (!mounted) return;
 
-    showDialog(
+    showDialog<String>(
       context: context,
       builder: (ctx) => AlertDialog(
         title: const Text('Sélectionner un compte'),
         content: Column(
           mainAxisSize: MainAxisSize.min,
-          children: accounts.map((account) {
-            return ListTile(
-              leading: const Icon(Icons.key),
-              title: Text(account.name),
-              subtitle: Text(account.issuer),
-              onTap: () {
-                // Return the chosen secret to the dialog caller
-                Navigator.pop(ctx, account.secret);
-              },
-            );
-          }).toList(),
+          children: accounts
+              .map(
+                (account) => ListTile(
+                  leading: const Icon(Icons.key),
+                  title: Text(account.name),
+                  subtitle: Text(account.issuer),
+                  onTap: () => Navigator.pop(ctx, account.secret),
+                ),
+              )
+              .toList(),
         ),
       ),
     ).then((selectedSecret) {
       if (!mounted) return;
       if (selectedSecret != null) {
-        // Close the scanner screen and pass back the selected secret
         Navigator.pop(context, selectedSecret);
       } else {
-        // If the dialog was dismissed without selection, allow scanning again
-        setState(() {
-          _isScanned = false;
-        });
+        setState(() => _isScanned = false);
       }
+    });
+  }
+
+  void _showManualEntryDialog() {
+    final controller = TextEditingController();
+
+    showDialog<String>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Saisir le secret manuellement'),
+        content: TextField(
+          controller: controller,
+          autocorrect: false,
+          textCapitalization: TextCapitalization.characters,
+          decoration: const InputDecoration(
+            hintText: 'Secret base32 (ex: JBSWY3DPEHPK3PXP)',
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('Annuler'),
+          ),
+          TextButton(
+            onPressed: () {
+              final value = controller.text.trim().toUpperCase();
+              if (Base32Codec.isValid(value)) {
+                Navigator.pop(ctx, value);
+              } else {
+                _showError('Secret invalide. Vérifiez le format base32.');
+              }
+            },
+            child: const Text('Confirmer'),
+          ),
+        ],
+      ),
+    ).then((secret) {
+      if (!mounted || secret == null) return;
+      Navigator.pop(context, secret);
     });
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text("Scanner le Token")),
+      appBar: AppBar(
+        title: const Text('Scanner le Token'),
+        actions: [
+          TextButton(
+            onPressed: _showManualEntryDialog,
+            child: const Text('Saisir manuellement'),
+          ),
+        ],
+      ),
       body: MobileScanner(onDetect: _onDetect),
     );
   }

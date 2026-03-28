@@ -35,6 +35,15 @@ class Base32Codec {
     return result.toString();
   }
 
+  /// Returns true if [data] looks like a valid base32 secret.
+  /// Strips padding, checks charset, and requires at least 16 characters
+  /// (80 bits — the minimum for a usable TOTP secret).
+  static bool isValid(String data) {
+    final stripped = data.replaceAll('=', '').toUpperCase().trim();
+    if (stripped.length < 16) return false;
+    return stripped.split('').every((c) => _alphabet.contains(c));
+  }
+
   /// Decode base32 string to bytes
   static Uint8List decode(String data) {
     // Remove padding
