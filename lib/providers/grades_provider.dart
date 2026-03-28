@@ -132,11 +132,6 @@ class GradesNotifier extends StateNotifier<GradesState> {
   void clearGrades() {
     state = const GradesState(jsonData: '{}');
   }
-
-  /// Update grades data directly (used by background tasks).
-  void updateGradesData(String jsonData) {
-    state = state.copyWith(jsonData: jsonData, lastUpdated: DateTime.now());
-  }
 }
 
 /// Provider for grades state.

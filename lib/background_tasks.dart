@@ -1,4 +1,4 @@
-import 'package:background_fetch/background_fetch.dart';
+import 'package:workmanager/workmanager.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:collection/collection.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
@@ -9,40 +9,30 @@ import 'services/notification_service.dart';
 import 'data.dart';
 import 'models.dart';
 
+const _taskUniqueName = 'grades_fetch';
+const _taskName = 'grades_fetch_task';
+
 // Secure storage instance (uses custom ciphers for security and background task compatibility).
 const _secureStorage = FlutterSecureStorage();
 
 // Log error for debugging while failing silently in production.
 void _logError(String context, dynamic error, [StackTrace? stackTrace]) {
   if (kDebugMode) {
-    debugPrint('[BackgroundFetch] Error in $context: $error');
-    if (stackTrace != null) {
-      debugPrint('Stack trace: $stackTrace');
-    }
+    debugPrint('[BackgroundTask] Error in $context: $error');
+    if (stackTrace != null) debugPrint('Stack trace: $stackTrace');
   }
-  // In production, errors are logged silently - could be extended to file logging or crash reporting.
 }
 
-// Headless background fetch entry point.
+// WorkManager callback dispatcher — must be a top-level function.
+// The OS spawns a fresh Dart isolate and calls this directly.
 @pragma('vm:entry-point')
-void backgroundFetchHeadlessTask(HeadlessTask task) async {
-  final String taskId = task.taskId;
-  final bool isTimeout = task.timeout;
-
-  if (isTimeout) {
-    _logError('backgroundFetchHeadlessTask', 'Task timed out: $taskId');
-    BackgroundFetch.finish(taskId);
-    return;
-  }
-
-  try {
-    // performBackgroundFetch already initializes notifications internally
-    await performBackgroundFetch();
-  } catch (error, stackTrace) {
-    _logError('backgroundFetchHeadlessTask', error, stackTrace);
-  } finally {
-    BackgroundFetch.finish(taskId);
-  }
+void callbackDispatcher() {
+  Workmanager().executeTask((taskName, inputData) async {
+    if (taskName == _taskName) {
+      await performBackgroundFetch();
+    }
+    return true;
+  });
 }
 
 // Perform one background fetch: fetch grades, compare to stored snapshot,
@@ -54,7 +44,7 @@ Future<void> performBackgroundFetch() async {
     final fetchEnabled = prefs.getBool('background_fetch_enabled') ?? true;
     if (!fetchEnabled) {
       if (kDebugMode)
-        debugPrint('[BackgroundFetch] Background fetch is disabled');
+        debugPrint('[BackgroundTask] Background fetch is disabled');
       return;
     }
 
@@ -75,9 +65,9 @@ Future<void> performBackgroundFetch() async {
     }
 
     if (kDebugMode) {
-      debugPrint('[BackgroundFetch] Fetching grades for user: $username');
+      debugPrint('[BackgroundTask] Fetching grades for user: $username');
       debugPrint(
-        '[BackgroundFetch] Secret/token ${secret.isEmpty ? "not found" : "loaded"}',
+        '[BackgroundTask] Secret/token ${secret.isEmpty ? "not found" : "loaded"}',
       );
     }
 
@@ -86,18 +76,18 @@ Future<void> performBackgroundFetch() async {
     final newJson = await GradesService.fetchGrades(username, password, secret);
 
     if (kDebugMode)
-      debugPrint('[BackgroundFetch] Successfully fetched grades data');
+      debugPrint('[BackgroundTask] Successfully fetched grades data');
 
     await prefs.setString('last_fetch_time', DateTime.now().toIso8601String());
 
     // Fast path: raw string equality — skip all parsing if nothing changed
     if (previousJson == newJson) {
-      if (kDebugMode) debugPrint('[BackgroundFetch] No changes detected');
+      if (kDebugMode) debugPrint('[BackgroundTask] No changes detected');
       return;
     }
 
     if (previousJson == null) {
-      if (kDebugMode) debugPrint('[BackgroundFetch] First fetch - data stored');
+      if (kDebugMode) debugPrint('[BackgroundTask] First fetch - data stored');
       return;
     }
 
@@ -107,7 +97,7 @@ Future<void> performBackgroundFetch() async {
     if (changes['new']!.isEmpty && changes['updated']!.isEmpty) {
       if (kDebugMode)
         debugPrint(
-          '[BackgroundFetch] Raw JSON changed but no grade changes — skipping notification',
+          '[BackgroundTask] Raw JSON changed but no grade changes — skipping notification',
         );
       return;
     }
@@ -115,11 +105,11 @@ Future<void> performBackgroundFetch() async {
     if (kDebugMode) {
       if (changes['new']!.isNotEmpty)
         debugPrint(
-          '[BackgroundFetch] New grade(s): ${changes['new']!.join(", ")}',
+          '[BackgroundTask] New grade(s): ${changes['new']!.join(", ")}',
         );
       if (changes['updated']!.isNotEmpty)
         debugPrint(
-          '[BackgroundFetch] Updated grade(s): ${changes['updated']!.join(", ")}',
+          '[BackgroundTask] Updated grade(s): ${changes['updated']!.join(", ")}',
         );
     }
 
@@ -139,15 +129,12 @@ Future<void> performBackgroundFetch() async {
 // Get all subjects with grades from parsed data across all semesters.
 List<Subject> _getAllSubjects(String jsonData) {
   final allSubjects = <Subject>[];
-
   try {
     final availableSemesters = JsonCurriculumParser.getAvailableSemesters(
       jsonData,
     );
-
     for (final semesterNum in availableSemesters) {
       final units = JsonCurriculumParser.parseSemester(jsonData, semesterNum);
-
       for (final unit in units) {
         allSubjects.addAll(unit.subjects);
       }
@@ -155,7 +142,6 @@ List<Subject> _getAllSubjects(String jsonData) {
   } catch (error, stackTrace) {
     _logError('_getAllSubjects', error, stackTrace);
   }
-
   return allSubjects;
 }
 
@@ -168,35 +154,25 @@ Map<String, List<String>> _getChangedSubjectNames(
   final updatedGrades = <String>[];
 
   try {
-    // Parse into Subject objects using UI logic.
     final oldSubjects = _getAllSubjects(oldJsonString);
     final newSubjects = _getAllSubjects(newJsonString);
 
-    // Create maps for easier comparison (key = subject name).
-    final oldSubjectMap = <String, Subject>{};
-    for (final subject in oldSubjects) {
-      oldSubjectMap[subject.name] = subject;
-    }
+    final oldSubjectMap = <String, Subject>{
+      for (final s in oldSubjects) s.name: s,
+    };
 
     const equality = DeepCollectionEquality();
 
     for (final newSubject in newSubjects) {
-      if (newSubject.grades.isEmpty) {
-        continue;
-      }
+      if (newSubject.grades.isEmpty) continue;
 
       final oldSubject = oldSubjectMap[newSubject.name];
 
       if (oldSubject == null || oldSubject.grades.isEmpty) {
-        // New subject or subject that previously had no grades.
-        if (kDebugMode) {
-          debugPrint(
-            '[BackgroundFetch] New grade detected: ${newSubject.name}',
-          );
-        }
+        if (kDebugMode)
+          debugPrint('[BackgroundTask] New grade detected: ${newSubject.name}');
         newGrades.add(newSubject.name);
       } else {
-        // Compare grades lists for existing subjects with grades.
         if (!equality.equals(
           oldSubject.grades
               .map((g) => {'label': g.label, 'value': g.value})
@@ -205,11 +181,8 @@ Map<String, List<String>> _getChangedSubjectNames(
               .map((g) => {'label': g.label, 'value': g.value})
               .toList(),
         )) {
-          if (kDebugMode) {
-            debugPrint(
-              '[BackgroundFetch] Grade updated in: ${newSubject.name}',
-            );
-          }
+          if (kDebugMode)
+            debugPrint('[BackgroundTask] Grade updated in: ${newSubject.name}');
           updatedGrades.add(newSubject.name);
         }
       }
@@ -221,59 +194,44 @@ Map<String, List<String>> _getChangedSubjectNames(
   return {'new': newGrades, 'updated': updatedGrades};
 }
 
-// Configure and start background fetch with user-defined interval.
+// Initialize WorkManager and register the periodic grades fetch task.
 Future<void> initBackgroundTasks() async {
   try {
     final prefs = await SharedPreferences.getInstance();
     final fetchInterval = prefs.getInt('background_fetch_interval') ?? 15;
 
-    if (kDebugMode) {
+    if (kDebugMode)
       debugPrint(
-        '[BackgroundFetch] Initializing with interval: $fetchInterval minutes',
+        '[BackgroundTask] Initializing with interval: $fetchInterval minutes',
       );
-    }
 
-    await BackgroundFetch.configure(
-      BackgroundFetchConfig(
-        minimumFetchInterval: fetchInterval,
-        stopOnTerminate: false,
-        enableHeadless: true,
-        startOnBoot: true,
+    await Workmanager().initialize(callbackDispatcher);
+
+    await Workmanager().registerPeriodicTask(
+      _taskUniqueName,
+      _taskName,
+      frequency: Duration(minutes: fetchInterval),
+      existingWorkPolicy: ExistingPeriodicWorkPolicy.replace,
+      constraints: Constraints(
+        networkType: NetworkType.connected,
+        requiresBatteryNotLow: false,
         requiresCharging: false,
         requiresDeviceIdle: false,
-        requiresBatteryNotLow: false,
         requiresStorageNotLow: false,
-        forceAlarmManager: false,
-        requiredNetworkType: NetworkType.ANY,
       ),
-      (String taskId) async {
-        if (kDebugMode) debugPrint('[BackgroundFetch] Task triggered: $taskId');
-        await performBackgroundFetch();
-        BackgroundFetch.finish(taskId);
-      },
-      (String taskId) async {
-        _logError(
-          'initBackgroundTasks timeout handler',
-          'Task timed out: $taskId',
-        );
-        BackgroundFetch.finish(taskId);
-      },
     );
 
-    BackgroundFetch.registerHeadlessTask(backgroundFetchHeadlessTask);
-    await BackgroundFetch.start();
-
-    if (kDebugMode) debugPrint('[BackgroundFetch] Successfully started');
+    if (kDebugMode) debugPrint('[BackgroundTask] Successfully registered');
   } catch (error, stackTrace) {
     _logError('initBackgroundTasks', error, stackTrace);
   }
 }
 
-// Stop background fetch tasks.
+// Cancel the periodic grades fetch task.
 Future<void> stopBackgroundTasks() async {
   try {
-    await BackgroundFetch.stop();
-    if (kDebugMode) debugPrint('[BackgroundFetch] Successfully stopped');
+    await Workmanager().cancelByUniqueName(_taskUniqueName);
+    if (kDebugMode) debugPrint('[BackgroundTask] Successfully stopped');
   } catch (error, stackTrace) {
     _logError('stopBackgroundTasks', error, stackTrace);
   }

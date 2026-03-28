@@ -109,15 +109,10 @@ class AuthService {
   Future<bool> authenticate() async {
     try {
       // Check both in parallel — they're independent hardware queries
-      final results = await Future.wait([
-        _auth.canCheckBiometrics,
-        _auth.isDeviceSupported(),
-      ]);
-      final bool canCheckBiometrics = results[0];
-      final bool isDeviceSupported = results[1];
+      final bool isDeviceSupported = await _auth.isDeviceSupported();
 
-      if (!canCheckBiometrics || !isDeviceSupported) {
-        // Fallback: If phone has no biometric hardware, allow access in non-production
+      if (!isDeviceSupported) {
+        // No biometric hardware at all — allow access
         return true;
       }
 

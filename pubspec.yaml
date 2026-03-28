@@ -45,8 +45,8 @@ dependencies:
   permission_handler: ^12.0.1
   # For decoding Google Authenticator migration QR codes
   protobuf: ^6.0.0
-  # Background fetch support
-  background_fetch: ^1.5.0
+  # Background task scheduling (Android)
+  workmanager: ^0.9.0+3
   # Local notifications
   flutter_local_notifications: ^20.1.0
   # Persistence for snapshots

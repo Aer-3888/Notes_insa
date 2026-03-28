@@ -44,8 +44,9 @@ class SettingsNotifier extends StateNotifier<SettingsState> {
       final savedInterval = prefs.getInt(_fetchIntervalKey);
       final savedEnabled = prefs.getBool(_fetchEnabledKey) ?? true;
 
+      final interval = (savedInterval ?? 15).clamp(15, 60);
       state = state.copyWith(
-        fetchInterval: savedInterval ?? 15,
+        fetchInterval: interval,
         fetchEnabled: savedEnabled,
         isLoading: false,
       );
@@ -122,12 +123,11 @@ final settingsProvider = StateNotifierProvider<SettingsNotifier, SettingsState>(
 
 /// Convenience provider for available fetch intervals
 final availableIntervalsProvider = Provider<List<int>>((ref) {
-  return [1, 5, 15, 30, 60];
+  return [15, 30, 60];
 });
 
 /// Convenience provider for formatted interval label
 final intervalLabelProvider = Provider.family<String, int>((ref, minutes) {
-  if (minutes == 1) return '1 minute';
   if (minutes < 60) return '$minutes minutes';
   final hours = minutes ~/ 60;
   return '$hours hour${hours > 1 ? 's' : ''}';

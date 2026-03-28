@@ -78,7 +78,7 @@ class SettingsScreen extends ConsumerWidget {
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
                                   Text(
-                                    'Background Fetch Interval',
+                                    'Intervalle de mise à jour',
                                     style: TextStyle(
                                       fontSize: 18,
                                       fontWeight: FontWeight.bold,
@@ -87,7 +87,7 @@ class SettingsScreen extends ConsumerWidget {
                                   ),
                                   const SizedBox(height: 4),
                                   Text(
-                                    'How often to check for new grades',
+                                    'Fréquence de vérification des nouvelles notes',
                                     style: TextStyle(
                                       fontSize: 14,
                                       color: Colors.grey.shade600,
