@@ -34,21 +34,18 @@ class GradesService {
   }
 
   /// Calls the native Android AAR via MethodChannel.
-  /// Expects the native side to return a JSON string containing grades.
+  /// Expects the native side to return a JSON string containing grades with coefficients.
   /// On success this function returns the JSON string containing grades and saves locally.
   static Future<String> fetchGrades(
     String username,
     String password,
     String secret,
   ) async {
-    // Log parameters (hide password for security) - intentionally not logging in production
-
     try {
-      final result = await _channel.invokeMethod<String>('FetchGrades', {
-        'username': username,
-        'password': password,
-        'secret': secret,
-      });
+      final result = await _channel.invokeMethod<String>(
+        'FetchGradesWithCoeffs',
+        {'username': username, 'password': password, 'secret': secret},
+      );
 
       if (result == null) {
         throw PlatformException(
@@ -76,11 +73,10 @@ class GradesService {
     String secret = '',
   }) async {
     try {
-      final result = await _channel.invokeMethod<String>('FetchGrades', {
-        'username': username,
-        'password': password,
-        'secret': secret,
-      });
+      final result = await _channel.invokeMethod<String>(
+        'FetchGradesWithCoeffs',
+        {'username': username, 'password': password, 'secret': secret},
+      );
 
       if (result == null) {
         return null;

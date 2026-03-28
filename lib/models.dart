@@ -141,8 +141,11 @@ String titleCase(String input) {
 class GradeInstance {
   final String label;
   final double value;
+  final String coeff;
 
-  GradeInstance(this.label, this.value);
+  GradeInstance(this.label, this.value, {this.coeff = ''});
+
+  double? get coeffValue => coeff.isEmpty ? null : double.tryParse(coeff);
 }
 
 class Subject {
@@ -156,8 +159,20 @@ class Subject {
 
   double? get average {
     if (grades.isEmpty) return null;
-    final sum = grades.fold<double>(0, (prev, curr) => prev + curr.value);
-    return sum / grades.length;
+    final hasAnyCoeff = grades.any((g) => g.coeffValue != null);
+    if (hasAnyCoeff) {
+      double totalScore = 0;
+      double totalCoeff = 0;
+      for (final g in grades) {
+        final c = g.coeffValue ?? 1.0;
+        totalScore += g.value * c;
+        totalCoeff += c;
+      }
+      if (totalCoeff == 0) return null;
+      return totalScore / totalCoeff;
+    }
+    return grades.fold<double>(0, (prev, curr) => prev + curr.value) /
+        grades.length;
   }
 }
 

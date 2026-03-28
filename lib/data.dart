@@ -54,7 +54,8 @@ class JsonCurriculumParser {
             if (subjectNode is! Map<String, dynamic>) continue;
 
             final String subjectName = subjectNode['name'] ?? 'Unknown Subject';
-            final double subjectCoeff = 1.0; // default
+            final double subjectCoeff =
+                double.tryParse(subjectNode['coeff'] as String? ?? '') ?? 1.0;
 
             final List<GradeInstance> grades = [];
 
@@ -80,7 +81,13 @@ class JsonCurriculumParser {
                 if (gradeScore != null && !gradeScore.contains('Aucun')) {
                   final double? gradeValue = GradeUtils.parseDouble(gradeScore);
                   if (gradeValue != null) {
-                    grades.add(GradeInstance(gradeName, gradeValue));
+                    grades.add(
+                      GradeInstance(
+                        gradeName,
+                        gradeValue,
+                        coeff: gradeNode['coeff'] as String? ?? '',
+                      ),
+                    );
                   }
                 }
               }
