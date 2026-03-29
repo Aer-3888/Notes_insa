@@ -1,23 +1,7 @@
-# worker/wrangler.toml.template
-# This template should be committed; the real `wrangler.toml` (with real IDs)
-# must be kept out of version control (see top-level .gitignore).
-
-name = 'notesinsa'
+name = "notesinsa"
 main = "src/index.ts"
 compatibility_date = "2024-09-23"
 compatibility_flags = ["nodejs_compat"]
-
-type = "javascript"
-
-[build]
-upload = { format = "modules" }
-
-# Deploy to workers.dev since we don't have a custom domain
-workers_dev = true
-preview_urls = false
-
-# Replace these placeholders with real values before deployment
-account_id = "ACCOUNT_ID"
 
 [[d1_databases]]
 binding = "DB"
