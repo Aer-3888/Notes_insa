@@ -1,0 +1,88 @@
+name: Deploy Cloudflare Worker
+
+on:
+  push:
+    branches: [ main ]
+
+jobs:
+  deploy:
+    name: Deploy worker
+    runs-on: ubuntu-latest
+    # Avoid overlapping deployments for the same branch
+    concurrency:
+      group: deploy-worker-${{ github.ref }}
+      cancel-in-progress: true
+    # Limit permissions to only what's needed for the workflow
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          # Full history can be useful for reproducible builds; set to 0 to speed up if not needed
+          fetch-depth: 0
+
+      - name: Setup Node.js (with cache)
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+          cache: 'npm'
+          cache-dependency-path: worker/package-lock.json
+
+      - name: Install dependencies
+        working-directory: worker
+        run: npm ci
+
+      - name: Create wrangler.toml from template (if present)
+        shell: bash
+        env:
+          CF_ACCOUNT_ID: ${{ secrets.CF_ACCOUNT_ID }}
+          D1_ID: ${{ secrets.D1_ID }}
+          KV_ID: ${{ secrets.KV_ID }}
+        working-directory: worker
+        run: |
+          set -euo pipefail
+          if [ -f wrangler.toml.template ]; then
+            cp wrangler.toml.template wrangler.toml
+            # Only replace placeholders when corresponding secrets are set
+            if [ -n "${CF_ACCOUNT_ID:-}" ]; then sed -i "s/ACCOUNT_ID/${CF_ACCOUNT_ID}/g" wrangler.toml; fi
+            if [ -n "${D1_ID:-}" ]; then sed -i "s/D1_DATABASE_ID/${D1_ID}/g" wrangler.toml; fi
+            if [ -n "${KV_ID:-}" ]; then sed -i "s/KV_NAMESPACE_ID/${KV_ID}/g" wrangler.toml; fi
+            # Force workers_dev=true since we are deploying only to workers.dev (no custom domain)
+            sed -i "s/workers_dev = false/workers_dev = true/" wrangler.toml || true
+          else
+            echo "No wrangler.toml.template found; expecting worker/wrangler.toml to exist already."
+          fi
+
+      - name: Show wrangler.toml (masked)
+        if: always()
+        working-directory: worker
+        run: |
+          echo "--- wrangler.toml (showing non-secret lines) ---"
+          # Hide lines that likely contain secrets (very basic heuristic)
+          grep -E -v "(account_id|api_token|kv_namespace_id|d1_database_id)" wrangler.toml || true
+
+      - name: Verify Wrangler & Token
+        working-directory: worker
+        env:
+          CF_API_TOKEN: ${{ secrets.CF_API_TOKEN }}
+        run: |
+          set -euo pipefail
+          npx wrangler --version
+          # Verify token works (whoami prints account details) — won't print the token itself
+          if [ -n "${CF_API_TOKEN:-}" ]; then
+            npx wrangler whoami || true
+          else
+            echo "No CF_API_TOKEN provided; deployment may rely on workers_dev or other auth."
+          fi
+
+      - name: Deploy with Wrangler
+        working-directory: worker
+        env:
+          CF_API_TOKEN: ${{ secrets.CF_API_TOKEN }}
+        run: |
+          set -euo pipefail
+          # Deploy to workers.dev (this repository is configured for Cloudflare Workers only — no custom domain)
+          npx wrangler deploy --verbose
+
+

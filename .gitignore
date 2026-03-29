@@ -63,3 +63,6 @@ npm-debug.log*
 *.keystore
 *.jks
 key.properties
+
+# Cloudfare
+worker/wrangler.toml
