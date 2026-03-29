@@ -21,7 +21,7 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683  # v4.2.2
+        uses: actions/checkout@v4
         with:
           fetch-depth: 2
 
@@ -47,21 +47,21 @@ jobs:
 
       - name: Setup Java
         if: steps.version.outputs.skip == 'false'
-        uses: actions/setup-java@3a4f6e1af504cf6a31855fa899c6aa5355ba6c12  # v4.7.0
+        uses: actions/setup-java@v4
         with:
           distribution: temurin
           java-version: 17
 
       - name: Setup Flutter
         if: steps.version.outputs.skip == 'false'
-        uses: subosito/flutter-action@f2c4f6686ca8e8d6e6d0f28410eeef506ed66aff  # v2.18.0
+        uses: subosito/flutter-action@v2
         with:
           channel: stable
           cache: true
 
       - name: Cache Gradle
         if: steps.version.outputs.skip == 'false'
-        uses: actions/cache@6849a6489940f00c2f30c0fb92c6274307ccb58a  # v4.1.2
+        uses: actions/cache@v4
         with:
           path: |
             ~/.gradle/caches
