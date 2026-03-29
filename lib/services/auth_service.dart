@@ -1,43 +1,44 @@
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:local_auth/local_auth.dart';
+import '../constants.dart';
 
 class AuthService {
   // Safe for background tasks
   static const _storage = FlutterSecureStorage();
   final _auth = LocalAuthentication();
 
-  static const kToken = 'api_token';
-  static const kUser = 'username';
-  static const kPass = 'password';
-
   Future<void> storeCredentials(
     String username,
     String password, {
     String? token,
   }) async {
-    await _storage.write(key: kUser, value: username);
-    await _storage.write(key: kPass, value: password);
+    await _storage.write(key: kStorageUser, value: username);
+    await _storage.write(key: kStoragePass, value: password);
     if (token != null) {
-      await _storage.write(key: kToken, value: token);
+      await _storage.write(key: kStorageToken, value: token);
     }
   }
 
   Future<Map<String, String>?> getCredentials() async {
     final results = await Future.wait([
-      _storage.read(key: kToken),
-      _storage.read(key: kUser),
-      _storage.read(key: kPass),
+      _storage.read(key: kStorageToken),
+      _storage.read(key: kStorageUser),
+      _storage.read(key: kStoragePass),
     ]);
     final token = results[0];
     final username = results[1];
     final password = results[2];
     if (token == null || username == null || password == null) return null;
-    return {kToken: token, kUser: username, kPass: password};
+    return {
+      kStorageToken: token,
+      kStorageUser: username,
+      kStoragePass: password,
+    };
   }
 
   // Login checker
   Future<bool> isLoggedIn() async {
-    final token = await _storage.read(key: kToken);
+    final token = await _storage.read(key: kStorageToken);
     return token != null;
   }
 

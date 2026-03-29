@@ -3,10 +3,9 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:collection/collection.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:flutter/foundation.dart';
-
-import 'services/auth_service.dart';
 import 'services/grades_service.dart';
 import 'services/notification_service.dart';
+import 'constants.dart';
 import 'data.dart';
 import 'models.dart';
 
@@ -53,9 +52,9 @@ Future<void> performBackgroundFetch() async {
     // Notification init and credential reads are independent — run in parallel
     final initResults = await Future.wait([
       NotificationService.initialize(),
-      _secureStorage.read(key: AuthService.kUser),
-      _secureStorage.read(key: AuthService.kPass),
-      _secureStorage.read(key: AuthService.kToken),
+      _secureStorage.read(key: kStorageUser),
+      _secureStorage.read(key: kStoragePass),
+      _secureStorage.read(key: kStorageToken),
     ]);
     final username = initResults[1] as String?;
     final password = initResults[2] as String?;
