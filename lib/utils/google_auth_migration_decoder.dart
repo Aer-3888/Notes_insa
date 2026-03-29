@@ -141,6 +141,7 @@ class GoogleAuthMigrationDecoder {
     int shift = 0;
 
     while (offset < data.length) {
+      if (shift >= 63) throw FormatException('Varint too large');
       final byte = data[offset];
       value |= (byte & 0x7F) << shift;
       offset++;
@@ -186,9 +187,6 @@ class OtpAccount {
 
   @override
   String toString() {
-    final preview = secret.length > 10
-        ? '${secret.substring(0, 10)}...'
-        : secret;
-    return 'OtpAccount(name: $name, issuer: $issuer, secret: $preview)';
+    return 'OtpAccount(name: $name, issuer: $issuer, secret: [REDACTED])';
   }
 }

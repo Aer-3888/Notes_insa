@@ -14,8 +14,8 @@ class GradesService {
   static Future<void> saveGrades(String gradesJson) async {
     try {
       await _storage.write(key: _gradesKey, value: gradesJson);
-    } catch (_) {
-      // ignore write errors
+    } catch (e) {
+      if (kDebugMode) debugPrint('[GradesService] saveGrades failed: $e');
     }
   }
 

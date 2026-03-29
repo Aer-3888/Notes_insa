@@ -2,16 +2,20 @@ import 'package:flutter/material.dart';
 
 class SemesterSelector extends StatelessWidget {
   final int selectedSemester;
+  final List<int> availableSemesters;
   final Function(int) onSemesterChanged;
 
   const SemesterSelector({
     super.key,
     required this.selectedSemester,
+    required this.availableSemesters,
     required this.onSemesterChanged,
   });
 
   @override
   Widget build(BuildContext context) {
+    if (availableSemesters.isEmpty) return const SizedBox.shrink();
+
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 20),
       child: Container(
@@ -23,10 +27,11 @@ class SemesterSelector extends StatelessWidget {
           border: Border.all(color: Colors.grey.shade200),
         ),
         child: Row(
-          children: [
-            Expanded(child: _buildSemButton(5, "Semestre 5")),
-            Expanded(child: _buildSemButton(6, "Semestre 6")),
-          ],
+          children: availableSemesters
+              .map(
+                (sem) => Expanded(child: _buildSemButton(sem, "Semestre $sem")),
+              )
+              .toList(),
         ),
       ),
     );

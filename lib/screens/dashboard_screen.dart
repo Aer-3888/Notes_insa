@@ -110,6 +110,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen>
                   ),
                   SemesterSelector(
                     selectedSemester: selectedSemester,
+                    availableSemesters: ref.watch(availableSemestersProvider),
                     onSemesterChanged: (newSem) {
                       ref.read(selectedSemesterProvider.notifier).state =
                           newSem;

@@ -152,10 +152,10 @@ class Subject {
   final String name;
   final double coeff;
   final Map<String, String> jsonKeys;
+  final List<GradeInstance> grades;
 
-  List<GradeInstance> grades = [];
-
-  Subject(this.name, this.coeff, this.jsonKeys);
+  Subject(this.name, this.coeff, this.jsonKeys, {List<GradeInstance>? grades})
+    : grades = grades ?? [];
 
   double? get average {
     if (grades.isEmpty) return null;

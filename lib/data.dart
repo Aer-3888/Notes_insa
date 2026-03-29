@@ -93,8 +93,12 @@ class JsonCurriculumParser {
               }
             }
 
-            final Subject subject = Subject(subjectName, subjectCoeff, {});
-            subject.grades = grades;
+            final subject = Subject(
+              subjectName,
+              subjectCoeff,
+              {},
+              grades: grades,
+            );
             subjects.add(subject);
           }
         }

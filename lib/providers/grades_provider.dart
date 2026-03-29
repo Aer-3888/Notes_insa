@@ -20,19 +20,25 @@ class GradesState {
     this.lastManualRefresh,
   });
 
+  static const _keep = Object();
+
   GradesState copyWith({
     String? jsonData,
-    DateTime? lastUpdated,
+    Object? lastUpdated = _keep,
     bool? isLoading,
     String? error,
-    DateTime? lastManualRefresh,
+    Object? lastManualRefresh = _keep,
   }) {
     return GradesState(
       jsonData: jsonData ?? this.jsonData,
-      lastUpdated: lastUpdated ?? this.lastUpdated,
+      lastUpdated: lastUpdated == _keep
+          ? this.lastUpdated
+          : lastUpdated as DateTime?,
       isLoading: isLoading ?? this.isLoading,
       error: error,
-      lastManualRefresh: lastManualRefresh ?? this.lastManualRefresh,
+      lastManualRefresh: lastManualRefresh == _keep
+          ? this.lastManualRefresh
+          : lastManualRefresh as DateTime?,
     );
   }
 

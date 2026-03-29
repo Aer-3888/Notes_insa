@@ -85,9 +85,9 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
 
       if (mounted) {
         // Go to Dashboard only on successful fetch
-        Navigator.pushReplacement(
-          context,
+        Navigator.of(context).pushAndRemoveUntil(
           MaterialPageRoute(builder: (_) => const DashboardScreen()),
+          (_) => false,
         );
       }
     } on PlatformException catch (e) {
@@ -142,6 +142,24 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
           ),
         );
       }
+    } catch (e) {
+      if (mounted) {
+        await showDialog<void>(
+          context: context,
+          builder: (ctx) => AlertDialog(
+            title: const Text('Erreur de synchronisation'),
+            content: Text(
+              kDebugMode ? e.toString() : 'Une erreur inattendue est survenue.',
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.of(ctx).pop(),
+                child: const Text('OK'),
+              ),
+            ],
+          ),
+        );
+      }
     } finally {
       if (mounted) {
         setState(() {
@@ -158,6 +176,8 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
         _userController.text.isNotEmpty &&
         _passController.text.isNotEmpty;
 
+    final canGoBack = Navigator.canPop(context);
+
     return Scaffold(
       backgroundColor: Colors.white,
       body: SafeArea(
@@ -166,7 +186,16 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              const SizedBox(height: 40),
+              if (canGoBack)
+                Align(
+                  alignment: Alignment.centerLeft,
+                  child: IconButton(
+                    icon: const Icon(Icons.arrow_back),
+                    onPressed: () => Navigator.of(context).pop(),
+                    tooltip: 'Retour',
+                  ),
+                ),
+              SizedBox(height: canGoBack ? 16 : 40),
               const Icon(Icons.school, size: 80, color: Colors.indigo),
               const SizedBox(height: 24),
               const Text(

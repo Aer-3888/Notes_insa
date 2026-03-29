@@ -60,6 +60,7 @@ class SettingsNotifier extends StateNotifier<SettingsState> {
 
   /// Update fetch interval and restart background tasks
   Future<void> setFetchInterval(int interval) async {
+    final previous = state.fetchInterval;
     try {
       state = state.copyWith(isLoading: true);
 
@@ -81,12 +82,14 @@ class SettingsNotifier extends StateNotifier<SettingsState> {
       if (kDebugMode) {
         debugPrint('[SettingsProvider] Failed to set fetch interval: $e');
       }
-      state = state.copyWith(isLoading: false);
+      // Restore previous value — background task was not reconfigured
+      state = state.copyWith(fetchInterval: previous, isLoading: false);
     }
   }
 
   /// Toggle background fetch enabled/disabled
   Future<void> setFetchEnabled(bool enabled) async {
+    final previous = state.fetchEnabled;
     try {
       state = state.copyWith(isLoading: true);
 
@@ -109,7 +112,8 @@ class SettingsNotifier extends StateNotifier<SettingsState> {
       if (kDebugMode) {
         debugPrint('[SettingsProvider] Failed to set fetch enabled: $e');
       }
-      state = state.copyWith(isLoading: false);
+      // Restore previous value — background task was not reconfigured
+      state = state.copyWith(fetchEnabled: previous, isLoading: false);
     }
   }
 }
@@ -130,5 +134,5 @@ final availableIntervalsProvider = Provider<List<int>>((ref) {
 final intervalLabelProvider = Provider.family<String, int>((ref, minutes) {
   if (minutes < 60) return '$minutes minutes';
   final hours = minutes ~/ 60;
-  return '$hours hour${hours > 1 ? 's' : ''}';
+  return '$hours heure${hours > 1 ? 's' : ''}';
 });
