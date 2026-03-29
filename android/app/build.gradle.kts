@@ -31,9 +31,28 @@ android {
         }
     }
 
+    val keystorePath = System.getenv("KEYSTORE_PATH")
+    val isCI = System.getenv("CI") != null
+
+    if (keystorePath != null) {
+        signingConfigs {
+            create("release") {
+                storeFile = file(keystorePath)
+                storePassword = System.getenv("KEY_STORE_PASSWORD")
+                keyAlias = System.getenv("KEY_ALIAS")
+                keyPassword = System.getenv("KEY_PASSWORD")
+            }
+        }
+    } else if (isCI) {
+        throw GradleException("KEYSTORE_PATH must be set in CI for release builds")
+    }
+
     buildTypes {
         release {
-            signingConfig = signingConfigs.getByName("debug")
+            signingConfig = if (keystorePath != null)
+                signingConfigs.getByName("release")
+            else
+                signingConfigs.getByName("debug")  // local dev only
         }
     }
 

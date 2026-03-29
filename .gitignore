@@ -58,3 +58,8 @@ npm-debug.log*
 
 # Markdown files
 *.md
+
+# Android signing
+*.keystore
+*.jks
+key.properties
