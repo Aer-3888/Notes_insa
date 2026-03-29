@@ -69,7 +69,7 @@ class ConfigScreen extends ConsumerWidget {
                 mainAxisSize: MainAxisSize.min,
                 children: const [
                   Text(
-                    'Config',
+                    'Profils',
                     style: TextStyle(
                       fontSize: 20,
                       fontWeight: FontWeight.w700,
@@ -78,7 +78,7 @@ class ConfigScreen extends ConsumerWidget {
                   ),
                   SizedBox(height: 4),
                   Text(
-                    'Profils et paramètres',
+                    'Semestres et cursus',
                     style: TextStyle(fontSize: 12, color: Colors.white70),
                   ),
                 ],

@@ -1,4 +1,3 @@
-// App navigation drawer.
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../services/auth_service.dart';
@@ -11,7 +10,6 @@ import '../screens/dashboard_screen.dart';
 
 enum DrawerItem { notes, rawJson, config, settings }
 
-// Navigation drawer widget.
 class AppDrawer extends ConsumerWidget {
   final DrawerItem selected;
   const AppDrawer({super.key, this.selected = DrawerItem.notes});
@@ -19,174 +17,207 @@ class AppDrawer extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     return Drawer(
-      child: ListView(
-        padding: EdgeInsets.zero,
+      child: Column(
         children: [
-          DrawerHeader(
-            decoration: const BoxDecoration(color: Colors.indigo),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              mainAxisAlignment: MainAxisAlignment.end,
-              children: const [
-                CircleAvatar(
-                  backgroundColor: Colors.white,
-                  radius: 30,
-                  child: Icon(Icons.person, size: 35, color: Colors.indigo),
-                ),
-                SizedBox(height: 10),
-                Text(
-                  "Étudiant",
-                  style: TextStyle(
-                    color: Colors.white,
-                    fontSize: 18,
-                    fontWeight: FontWeight.bold,
+          // Gradient header matching AppBars
+          Container(
+            width: double.infinity,
+            padding: EdgeInsets.only(
+              top: MediaQuery.of(context).padding.top + 20,
+              bottom: 20,
+              left: 20,
+              right: 20,
+            ),
+            decoration: const BoxDecoration(
+              gradient: LinearGradient(
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+                colors: [Color(0xFF283593), Color(0xFF5C6BC0)],
+              ),
+            ),
+            child: Row(
+              children: [
+                Container(
+                  width: 48,
+                  height: 48,
+                  decoration: BoxDecoration(
+                    color: Colors.white.withValues(alpha: 0.2),
+                    shape: BoxShape.circle,
                   ),
+                  child: const Icon(
+                    Icons.school,
+                    color: Colors.white,
+                    size: 26,
+                  ),
+                ),
+                const SizedBox(width: 14),
+                const Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Insa Notes',
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontSize: 18,
+                        fontWeight: FontWeight.bold,
+                        letterSpacing: 0.3,
+                      ),
+                    ),
+                    SizedBox(height: 2),
+                    Text(
+                      'Étudiant',
+                      style: TextStyle(color: Colors.white70, fontSize: 13),
+                    ),
+                  ],
                 ),
               ],
             ),
           ),
-          ListTile(
-            leading: Icon(
-              Icons.school,
-              color: selected == DrawerItem.notes ? Colors.indigo : Colors.grey,
-            ),
-            title: Text(
-              'Mes Notes',
-              style: TextStyle(
-                fontWeight: selected == DrawerItem.notes
-                    ? FontWeight.bold
-                    : FontWeight.normal,
-                color: selected == DrawerItem.notes
-                    ? Colors.indigo
-                    : Colors.black87,
-              ),
-            ),
-            selected: selected == DrawerItem.notes,
-            selectedTileColor: Colors.indigo.withValues(alpha: .12),
-            onTap: () {
-              Navigator.pop(context);
 
-              if (selected != DrawerItem.notes) {
-                Navigator.pushReplacement(
-                  context,
-                  MaterialPageRoute(
-                    builder: (context) => const DashboardScreen(),
-                  ),
-                );
-              }
-            },
-          ),
-
-          ListTile(
-            leading: Icon(
-              Icons.code,
-              color: selected == DrawerItem.rawJson
-                  ? Colors.indigo
-                  : Colors.grey,
-            ),
-            title: Text(
-              'Voir JSON Brut',
-              style: TextStyle(
-                color: selected == DrawerItem.rawJson
-                    ? Colors.indigo
-                    : Colors.black87,
-              ),
-            ),
-            selected: selected == DrawerItem.rawJson,
-            selectedTileColor: Colors.indigo.withValues(alpha: .08),
-            onTap: () {
-              Navigator.pop(context);
-              Navigator.push(
-                context,
-                MaterialPageRoute(
-                  builder: (context) => const RawJsonViewerScreen(),
+          // Nav items
+          Expanded(
+            child: ListView(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+              children: [
+                _NavTile(
+                  icon: Icons.school_outlined,
+                  selectedIcon: Icons.school,
+                  label: 'Mes Notes',
+                  isSelected: selected == DrawerItem.notes,
+                  onTap: () {
+                    Navigator.pop(context);
+                    if (selected != DrawerItem.notes) {
+                      Navigator.pushReplacement(
+                        context,
+                        MaterialPageRoute(
+                          builder: (_) => const DashboardScreen(),
+                        ),
+                      );
+                    }
+                  },
                 ),
-              );
-            },
-          ),
+                _NavTile(
+                  icon: Icons.layers_outlined,
+                  selectedIcon: Icons.layers,
+                  label: 'Profils',
+                  isSelected: selected == DrawerItem.config,
+                  onTap: () {
+                    Navigator.pop(context);
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(builder: (_) => const ConfigScreen()),
+                    );
+                  },
+                ),
+                _NavTile(
+                  icon: Icons.tune_outlined,
+                  selectedIcon: Icons.tune,
+                  label: 'Paramètres',
+                  isSelected: selected == DrawerItem.settings,
+                  onTap: () {
+                    Navigator.pop(context);
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(builder: (_) => const SettingsScreen()),
+                    );
+                  },
+                ),
+                _NavTile(
+                  icon: Icons.data_object_outlined,
+                  selectedIcon: Icons.data_object,
+                  label: 'JSON Brut',
+                  isSelected: selected == DrawerItem.rawJson,
+                  onTap: () {
+                    Navigator.pop(context);
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) => const RawJsonViewerScreen(),
+                      ),
+                    );
+                  },
+                ),
 
-          ListTile(
-            leading: Icon(
-              Icons.settings,
-              color: selected == DrawerItem.config
-                  ? Colors.indigo
-                  : Colors.grey,
+                const SizedBox(height: 8),
+                Divider(color: Colors.grey.shade200, height: 1),
+                const SizedBox(height: 8),
+
+                // Logout
+                ListTile(
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  contentPadding: const EdgeInsets.symmetric(horizontal: 16),
+                  leading: Icon(
+                    Icons.logout,
+                    color: Colors.red.shade400,
+                    size: 22,
+                  ),
+                  title: Text(
+                    'Déconnexion',
+                    style: TextStyle(
+                      color: Colors.red.shade400,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                  onTap: () async {
+                    ref.read(gradesProvider.notifier).clearGrades();
+                    await AuthService().clear();
+                    if (context.mounted) {
+                      Navigator.pop(context);
+                      Navigator.pushAndRemoveUntil(
+                        context,
+                        MaterialPageRoute(builder: (_) => const LoginScreen()),
+                        (route) => false,
+                      );
+                    }
+                  },
+                ),
+              ],
             ),
-            title: Text(
-              'Config',
-              style: TextStyle(
-                color: selected == DrawerItem.config
-                    ? Colors.indigo
-                    : Colors.black87,
-              ),
-            ),
-            selected: selected == DrawerItem.config,
-            selectedTileColor: Colors.indigo.withValues(alpha: .08),
-            onTap: () {
-              Navigator.pop(context);
-              Navigator.push(
-                context,
-                MaterialPageRoute(builder: (context) => const ConfigScreen()),
-              );
-            },
-          ),
-
-          ListTile(
-            leading: Icon(
-              Icons.tune,
-              color: selected == DrawerItem.settings
-                  ? Colors.indigo
-                  : Colors.grey,
-            ),
-            title: Text(
-              'Settings',
-              style: TextStyle(
-                color: selected == DrawerItem.settings
-                    ? Colors.indigo
-                    : Colors.black87,
-              ),
-            ),
-            selected: selected == DrawerItem.settings,
-            selectedTileColor: Colors.indigo.withValues(alpha: .08),
-            onTap: () {
-              Navigator.pop(context);
-              Navigator.push(
-                context,
-                MaterialPageRoute(builder: (context) => const SettingsScreen()),
-              );
-            },
-          ),
-
-          const Divider(),
-
-          // Logout Option
-          ListTile(
-            leading: const Icon(Icons.logout, color: Colors.red),
-            title: const Text(
-              'Déconnexion',
-              style: TextStyle(color: Colors.red),
-            ),
-            onTap: () async {
-              // Clear Riverpod grades state
-              ref.read(gradesProvider.notifier).clearGrades();
-
-              // Delete credentials from secure storage
-              await AuthService().clear();
-
-              if (context.mounted) {
-                Navigator.pop(context);
-
-                // Reset App to Login Screen
-                Navigator.pushAndRemoveUntil(
-                  context,
-                  MaterialPageRoute(builder: (context) => const LoginScreen()),
-                  (route) => false,
-                );
-              }
-            },
           ),
         ],
       ),
+    );
+  }
+}
+
+class _NavTile extends StatelessWidget {
+  final IconData icon;
+  final IconData selectedIcon;
+  final String label;
+  final bool isSelected;
+  final VoidCallback onTap;
+
+  const _NavTile({
+    required this.icon,
+    required this.selectedIcon,
+    required this.label,
+    required this.isSelected,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return ListTile(
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      contentPadding: const EdgeInsets.symmetric(horizontal: 16),
+      leading: Icon(
+        isSelected ? selectedIcon : icon,
+        color: isSelected ? const Color(0xFF283593) : Colors.grey.shade600,
+        size: 22,
+      ),
+      title: Text(
+        label,
+        style: TextStyle(
+          fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal,
+          color: isSelected ? const Color(0xFF283593) : Colors.black87,
+          fontSize: 15,
+        ),
+      ),
+      selected: isSelected,
+      selectedTileColor: const Color(0xFF283593).withValues(alpha: 0.1),
+      onTap: onTap,
     );
   }
 }

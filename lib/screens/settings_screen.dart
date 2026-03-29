@@ -45,7 +45,7 @@ class SettingsScreen extends ConsumerWidget {
           children: [
             Expanded(
               child: const Text(
-                'Settings',
+                'Paramètres',
                 style: TextStyle(
                   fontSize: 20,
                   fontWeight: FontWeight.w700,
