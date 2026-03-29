@@ -67,24 +67,25 @@ jobs:
       - name: Verify Wrangler & Token
         working-directory: worker
         env:
-          CF_API_TOKEN: ${{ secrets.CF_API_TOKEN }}
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
         run: |
           set -euo pipefail
+          # Fail fast if the required token is not set
+          if [ -z "${CLOUDFLARE_API_TOKEN:-}" ]; then
+            echo "ERROR: CLOUDFLARE_API_TOKEN secret is not set. Aborting deployment."
+            exit 1
+          fi
           npx wrangler --version
           # Verify token works (whoami prints account details) — won't print the token itself
-          if [ -n "${CF_API_TOKEN:-}" ]; then
-            npx wrangler whoami || true
-          else
-            echo "No CF_API_TOKEN provided; deployment may rely on workers_dev or other auth."
-          fi
+          npx wrangler whoami
 
       - name: Deploy with Wrangler
         working-directory: worker
         env:
-          CF_API_TOKEN: ${{ secrets.CF_API_TOKEN }}
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
         run: |
           set -euo pipefail
           # Deploy to workers.dev (this repository is configured for Cloudflare Workers only — no custom domain)
-          npx wrangler deploy --verbose
+          npx wrangler deploy
 
 
