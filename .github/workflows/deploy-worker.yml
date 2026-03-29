@@ -25,7 +25,9 @@ jobs:
       - name: Setup Node.js (with cache)
         uses: actions/setup-node@v4
         with:
-          node-version: '18'
+          # Use the current LTS release (tracks official LTS like Node 20, Node 24 when it becomes LTS)
+          # This gives you newer LTS updates while avoiding bleeding-edge breaking changes.
+          node-version: 'lts/*'
           cache: 'npm'
           cache-dependency-path: worker/package-lock.json
 
