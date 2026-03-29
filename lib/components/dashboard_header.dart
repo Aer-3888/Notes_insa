@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../models.dart';
+import '../app_colors.dart';
 
 String _formatLastUpdated(DateTime dt) {
   final diff = DateTime.now().difference(dt);
@@ -153,7 +154,7 @@ class _AnimatedSemesterSelector extends StatelessWidget {
                 width: itemWidth,
                 child: Container(
                   decoration: BoxDecoration(
-                    color: Colors.indigo,
+                    color: AppColors.primary,
                     borderRadius: BorderRadius.circular(12),
                   ),
                 ),

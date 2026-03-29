@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'app_colors.dart';
 
 /// Utilities for parsing grade strings and mapping grades to colors.
 class GradeUtils {
@@ -19,9 +20,9 @@ class GradeUtils {
   /// Returns a color appropriate for the given grade.
   static Color getColor(double? grade) {
     if (grade == null) return Colors.grey;
-    if (grade >= 14) return Colors.green.shade700;
-    if (grade >= 10) return Colors.blue.shade700;
-    return Colors.orange.shade800;
+    if (grade >= 14) return AppColors.gradeExcellent;
+    if (grade >= 10) return AppColors.gradePassing;
+    return AppColors.gradeWarning;
   }
 }
 

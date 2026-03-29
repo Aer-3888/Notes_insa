@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../app_colors.dart';
 import '../services/auth_service.dart';
 import '../providers/grades_provider.dart';
 import '../screens/login_screen.dart';
@@ -32,7 +33,7 @@ class AppDrawer extends ConsumerWidget {
               gradient: LinearGradient(
                 begin: Alignment.topLeft,
                 end: Alignment.bottomRight,
-                colors: [Color(0xFF283593), Color(0xFF5C6BC0)],
+                colors: AppColors.headerGradient,
               ),
             ),
             child: Row(
@@ -204,19 +205,19 @@ class _NavTile extends StatelessWidget {
       contentPadding: const EdgeInsets.symmetric(horizontal: 16),
       leading: Icon(
         isSelected ? selectedIcon : icon,
-        color: isSelected ? const Color(0xFF283593) : Colors.grey.shade600,
+        color: isSelected ? AppColors.primary : Colors.grey.shade600,
         size: 22,
       ),
       title: Text(
         label,
         style: TextStyle(
           fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal,
-          color: isSelected ? const Color(0xFF283593) : Colors.black87,
+          color: isSelected ? AppColors.primary : Colors.black87,
           fontSize: 15,
         ),
       ),
       selected: isSelected,
-      selectedTileColor: const Color(0xFF283593).withValues(alpha: 0.1),
+      selectedTileColor: AppColors.primary.withValues(alpha: 0.08),
       onTap: onTap,
     );
   }

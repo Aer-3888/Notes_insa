@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../app_colors.dart';
 import '../services/auth_service.dart';
 import '../providers/grades_provider.dart';
 import 'scan_screen.dart';
@@ -188,7 +189,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
               gradient: LinearGradient(
                 begin: Alignment.topLeft,
                 end: Alignment.bottomRight,
-                colors: [Color(0xFF283593), Color(0xFF5C6BC0)],
+                colors: AppColors.headerGradient,
               ),
             ),
             child: SafeArea(
@@ -257,11 +258,11 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                         padding: const EdgeInsets.all(16),
                         decoration: BoxDecoration(
                           color: _scannedToken != null
-                              ? Colors.green.shade50
+                              ? AppColors.statusPositive.withValues(alpha: 0.1)
                               : Colors.grey.shade100,
                           border: Border.all(
                             color: _scannedToken != null
-                                ? Colors.green
+                                ? AppColors.statusPositive
                                 : Colors.grey.shade300,
                           ),
                           borderRadius: BorderRadius.circular(12),
@@ -276,8 +277,8 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                                       ? Icons.check_circle
                                       : Icons.qr_code_scanner,
                                   color: _scannedToken != null
-                                      ? Colors.green
-                                      : Colors.indigo,
+                                      ? AppColors.statusPositive
+                                      : AppColors.primary,
                                 ),
                                 const SizedBox(width: 16),
                                 Expanded(
@@ -287,7 +288,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                                         : "Scanner le QR Code",
                                     style: TextStyle(
                                       color: _scannedToken != null
-                                          ? Colors.green.shade700
+                                          ? AppColors.statusPositive
                                           : Colors.black87,
                                       fontWeight: FontWeight.bold,
                                     ),
@@ -363,8 +364,8 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                       onPressed: (isReady && !_isLoading) ? _handleLogin : null,
                       style: ElevatedButton.styleFrom(
                         padding: const EdgeInsets.all(16),
-                        backgroundColor: Colors.indigo,
-                        disabledBackgroundColor: Colors.indigo.withValues(
+                        backgroundColor: AppColors.primary,
+                        disabledBackgroundColor: AppColors.primary.withValues(
                           alpha: .3,
                         ),
                         shape: RoundedRectangleBorder(

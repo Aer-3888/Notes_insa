@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
+import '../app_colors.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../models.dart';
@@ -326,7 +327,7 @@ class _UEDetailSheetState extends State<_UEDetailSheet> {
                             style: TextStyle(
                               fontSize: 12,
                               color: widget.unit.isValidated
-                                  ? Colors.green.shade600
+                                  ? AppColors.statusPositive
                                   : Colors.grey.shade500,
                               fontWeight: FontWeight.w500,
                             ),

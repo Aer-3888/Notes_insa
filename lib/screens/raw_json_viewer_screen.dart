@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../app_colors.dart';
 import 'dart:convert';
 import '../providers/grades_provider.dart';
 import '../components/app_drawer.dart';
@@ -136,7 +137,7 @@ class RawJsonViewerScreen extends ConsumerWidget {
             gradient: LinearGradient(
               begin: Alignment.topLeft,
               end: Alignment.bottomRight,
-              colors: [Color(0xFF283593), Color(0xFF5C6BC0)],
+              colors: AppColors.headerGradient,
             ),
           ),
         ),
@@ -204,21 +205,18 @@ class RawJsonViewerScreen extends ConsumerWidget {
                 children: [
                   // Info card
                   Card(
-                    color: Colors.indigo.shade50,
+                    color: AppColors.scaffoldBg,
                     child: Padding(
                       padding: const EdgeInsets.all(12),
                       child: Row(
                         children: [
-                          Icon(
-                            Icons.info_outline,
-                            color: Colors.indigo.shade400,
-                          ),
+                          Icon(Icons.info_outline, color: AppColors.primary),
                           const SizedBox(width: 12),
                           Text(
                             'JSON des notes — ${(jsonString.length / 1024).toStringAsFixed(1)} KB',
                             style: TextStyle(
                               fontSize: 13,
-                              color: Colors.indigo.shade700,
+                              color: AppColors.textDark,
                               fontWeight: FontWeight.w500,
                             ),
                           ),

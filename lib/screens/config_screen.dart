@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../app_colors.dart';
 import '../models.dart';
 import '../data.dart';
 import '../providers/grades_provider.dart';
@@ -46,7 +47,7 @@ class ConfigScreen extends ConsumerWidget {
             gradient: LinearGradient(
               begin: Alignment.topLeft,
               end: Alignment.bottomRight,
-              colors: [Color(0xFF283593), Color(0xFF5C6BC0)],
+              colors: AppColors.headerGradient,
             ),
           ),
         ),
@@ -163,16 +164,12 @@ class _ProfileCard extends StatelessWidget {
                   const SizedBox(height: 8),
                   Row(
                     children: [
-                      Icon(
-                        Icons.layers,
-                        size: 16,
-                        color: Colors.indigo.shade700,
-                      ),
+                      Icon(Icons.layers, size: 16, color: AppColors.textMuted),
                       const SizedBox(width: 6),
                       Text(
                         '${profile.unitCount} UE',
                         style: TextStyle(
-                          color: Colors.indigo.shade700,
+                          color: AppColors.textMuted,
                           fontWeight: FontWeight.w600,
                         ),
                       ),
@@ -207,13 +204,11 @@ class _ProfileCard extends StatelessWidget {
                   width: 12,
                   height: 12,
                   decoration: BoxDecoration(
-                    color: Colors.greenAccent.shade700,
+                    color: AppColors.statusPositive,
                     shape: BoxShape.circle,
                     boxShadow: [
                       BoxShadow(
-                        color: Colors.greenAccent.shade700.withValues(
-                          alpha: .4,
-                        ),
+                        color: AppColors.statusPositive.withValues(alpha: .4),
                         blurRadius: 6,
                         spreadRadius: 1,
                       ),
@@ -261,13 +256,13 @@ class _AddProfileCard extends StatelessWidget {
                 Icon(
                   Icons.add_circle_outline,
                   size: iconSize,
-                  color: Colors.indigo.shade300,
+                  color: AppColors.textMuted,
                 ),
                 SizedBox(height: 6 * scale),
                 Text(
                   'Ajouter un profil',
                   style: TextStyle(
-                    color: Colors.indigo.shade300,
+                    color: AppColors.textMuted,
                     fontWeight: FontWeight.w600,
                     fontSize: titleSize,
                   ),

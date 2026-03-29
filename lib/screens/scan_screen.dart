@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../app_colors.dart';
 import 'package:mobile_scanner/mobile_scanner.dart';
 import '../utils/google_auth_migration_decoder.dart';
 import '../utils/base32_codec.dart';
@@ -148,10 +149,10 @@ class _ScanScreenState extends State<ScanScreen>
                   width: 40,
                   height: 40,
                   decoration: BoxDecoration(
-                    color: Colors.blue.shade50,
+                    color: AppColors.primary.withValues(alpha: 0.1),
                     borderRadius: BorderRadius.circular(10),
                   ),
-                  child: Icon(Icons.key, color: Colors.blue.shade700, size: 20),
+                  child: Icon(Icons.key, color: AppColors.primary, size: 20),
                 ),
                 title: Text(
                   account.name,
@@ -243,7 +244,7 @@ class _ScanScreenState extends State<ScanScreen>
                   ),
                   focusedBorder: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(12),
-                    borderSide: const BorderSide(color: Colors.blueAccent),
+                    borderSide: const BorderSide(color: AppColors.primary),
                   ),
                 ),
               ),
@@ -441,7 +442,7 @@ class _OverlayPainter extends CustomPainter {
     canvas.drawPath(path, overlayPaint);
 
     // Corner brackets
-    final bracketColor = isScanned ? Colors.greenAccent.shade400 : Colors.white;
+    final bracketColor = isScanned ? AppColors.statusPositive : Colors.white;
     final bracketPaint = Paint()
       ..color = bracketColor
       ..strokeWidth = 3

@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'app_colors.dart';
 import 'services/auth_service.dart';
 import 'providers/grades_provider.dart';
 import 'screens/login_screen.dart';
@@ -23,8 +24,8 @@ class MyApp extends StatelessWidget {
       title: 'Insa Notes',
       theme: ThemeData(
         brightness: Brightness.light,
-        primarySwatch: Colors.indigo,
-        scaffoldBackgroundColor: const Color(0xFFF0F2F5),
+        primarySwatch: Colors.blue,
+        scaffoldBackgroundColor: AppColors.scaffoldBg,
         useMaterial3: true,
       ),
       home: const AuthGate(),
@@ -75,18 +76,18 @@ class _SplashScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return const Scaffold(
-      backgroundColor: Color(0xFFF0F2F5),
+      backgroundColor: AppColors.scaffoldBg,
       body: Align(
         alignment: Alignment(0, -0.65),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(Icons.school, size: 72, color: Color(0xFF3949AB)),
+            Icon(Icons.school, size: 72, color: AppColors.primary),
             SizedBox(height: 16),
             Text(
               'Notes INSA',
               style: TextStyle(
-                color: Color(0xFF3949AB),
+                color: AppColors.primary,
                 fontSize: 24,
                 fontWeight: FontWeight.bold,
                 letterSpacing: 1.2,
@@ -180,7 +181,7 @@ class _BiometricScreenState extends ConsumerState<_BiometricScreen>
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFFF0F2F5),
+      backgroundColor: AppColors.scaffoldBg,
       body: Align(
         alignment: _failed ? Alignment.center : const Alignment(0, -0.65),
         child: Padding(
@@ -197,9 +198,7 @@ class _BiometricScreenState extends ConsumerState<_BiometricScreen>
                 child: Icon(
                   _failed ? Icons.fingerprint : Icons.school,
                   size: 72,
-                  color: _failed
-                      ? Colors.grey.shade400
-                      : const Color(0xFF3949AB),
+                  color: _failed ? Colors.grey.shade400 : AppColors.primary,
                 ),
               ),
               const SizedBox(height: 16),
@@ -208,9 +207,7 @@ class _BiometricScreenState extends ConsumerState<_BiometricScreen>
                 style: TextStyle(
                   fontSize: _failed ? 20 : 24,
                   fontWeight: FontWeight.bold,
-                  color: _failed
-                      ? Colors.grey.shade700
-                      : const Color(0xFF3949AB),
+                  color: _failed ? Colors.grey.shade700 : AppColors.primary,
                   letterSpacing: 1.2,
                 ),
               ),
@@ -228,7 +225,7 @@ class _BiometricScreenState extends ConsumerState<_BiometricScreen>
                     icon: const Icon(Icons.fingerprint),
                     label: const Text('Réessayer'),
                     style: ElevatedButton.styleFrom(
-                      backgroundColor: const Color(0xFF3949AB),
+                      backgroundColor: AppColors.primary,
                       foregroundColor: Colors.white,
                       padding: const EdgeInsets.symmetric(vertical: 14),
                       shape: RoundedRectangleBorder(

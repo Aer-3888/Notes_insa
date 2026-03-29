@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:permission_handler/permission_handler.dart';
+import '../app_colors.dart';
 import '../components/app_drawer.dart';
 import '../providers/settings_provider.dart';
 
@@ -30,7 +31,7 @@ class SettingsScreen extends ConsumerWidget {
             gradient: LinearGradient(
               begin: Alignment.topLeft,
               end: Alignment.bottomRight,
-              colors: [Color(0xFF283593), Color(0xFF5C6BC0)],
+              colors: AppColors.headerGradient,
             ),
           ),
         ),
@@ -90,7 +91,7 @@ class SettingsScreen extends ConsumerWidget {
                                     style: TextStyle(
                                       fontSize: 18,
                                       fontWeight: FontWeight.bold,
-                                      color: Colors.indigo.shade900,
+                                      color: AppColors.textDark,
                                     ),
                                   ),
                                   const SizedBox(height: 4),
@@ -113,8 +114,9 @@ class SettingsScreen extends ConsumerWidget {
                                       .read(settingsProvider.notifier)
                                       .setFetchEnabled(enabled);
                                 },
-                                activeThumbColor: Colors.green,
-                                activeTrackColor: Colors.green.shade200,
+                                activeThumbColor: AppColors.statusPositive,
+                                activeTrackColor: AppColors.statusPositive
+                                    .withValues(alpha: 0.4),
                               ),
                             ),
                           ],
@@ -182,11 +184,11 @@ class _IntervalSelector extends StatelessWidget {
                 width: itemWidth,
                 child: Container(
                   decoration: BoxDecoration(
-                    color: Colors.indigo,
+                    color: AppColors.primary,
                     borderRadius: BorderRadius.circular(12),
                     boxShadow: [
                       BoxShadow(
-                        color: Colors.indigo.withValues(alpha: 0.25),
+                        color: AppColors.primary.withValues(alpha: 0.25),
                         blurRadius: 8,
                         offset: const Offset(0, 2),
                       ),
@@ -287,7 +289,7 @@ class _NotificationPermissionCardState
               color: isUnknown
                   ? Colors.grey.shade400
                   : isGranted
-                  ? Colors.green.shade600
+                  ? AppColors.statusPositive
                   : Colors.orange.shade700,
               size: 28,
             ),
@@ -301,7 +303,7 @@ class _NotificationPermissionCardState
                     style: TextStyle(
                       fontSize: 18,
                       fontWeight: FontWeight.bold,
-                      color: Colors.indigo.shade900,
+                      color: AppColors.textDark,
                     ),
                   ),
                   const SizedBox(height: 4),
@@ -316,7 +318,7 @@ class _NotificationPermissionCardState
                       color: isUnknown
                           ? Colors.grey.shade400
                           : isGranted
-                          ? Colors.green.shade600
+                          ? AppColors.statusPositive
                           : Colors.orange.shade700,
                     ),
                   ),
