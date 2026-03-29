@@ -116,66 +116,49 @@ class SettingsScreen extends ConsumerWidget {
                           opacity: settingsState.fetchEnabled ? 1.0 : 0.4,
                           child: IgnorePointer(
                             ignoring: !settingsState.fetchEnabled,
-                            child: Column(
-                              children: [
-                                ...availableIntervals.map((interval) {
-                                  final isSelected =
-                                      settingsState.fetchInterval == interval;
-                                  return Padding(
-                                    padding: const EdgeInsets.only(bottom: 8.0),
-                                    child: InkWell(
-                                      onTap: () {
-                                        ref
-                                            .read(settingsProvider.notifier)
-                                            .setFetchInterval(interval);
-                                      },
-                                      borderRadius: BorderRadius.circular(8),
-                                      child: Container(
-                                        padding: const EdgeInsets.symmetric(
-                                          horizontal: 16,
-                                          vertical: 12,
-                                        ),
-                                        decoration: BoxDecoration(
-                                          color: isSelected
-                                              ? Colors.indigo.shade50
-                                              : Colors.grey.shade50,
-                                          borderRadius: BorderRadius.circular(
-                                            8,
+                            child: SizedBox(
+                              width: double.infinity,
+                              child: SegmentedButton<int>(
+                                segments: availableIntervals
+                                    .map(
+                                      (interval) => ButtonSegment<int>(
+                                        value: interval,
+                                        label: Text(
+                                          ref.watch(
+                                            intervalLabelProvider(interval),
                                           ),
-                                          border: Border.all(
-                                            color: isSelected
-                                                ? Colors.indigo.shade700
-                                                : Colors.grey.shade300,
-                                            width: isSelected ? 2 : 1,
-                                          ),
-                                        ),
-                                        child: Row(
-                                          children: [
-                                            Expanded(
-                                              child: Text(
-                                                ref.watch(
-                                                  intervalLabelProvider(
-                                                    interval,
-                                                  ),
-                                                ),
-                                                style: TextStyle(
-                                                  fontSize: 16,
-                                                  fontWeight: isSelected
-                                                      ? FontWeight.w600
-                                                      : FontWeight.normal,
-                                                  color: isSelected
-                                                      ? Colors.indigo.shade900
-                                                      : Colors.grey.shade700,
-                                                ),
-                                              ),
-                                            ),
-                                          ],
+                                          overflow: TextOverflow.ellipsis,
                                         ),
                                       ),
-                                    ),
-                                  );
-                                }),
-                              ],
+                                    )
+                                    .toList(),
+                                selected: {settingsState.fetchInterval},
+                                onSelectionChanged: (selection) {
+                                  ref
+                                      .read(settingsProvider.notifier)
+                                      .setFetchInterval(selection.first);
+                                },
+                                style: ButtonStyle(
+                                  backgroundColor:
+                                      WidgetStateProperty.resolveWith((states) {
+                                        if (states.contains(
+                                          WidgetState.selected,
+                                        )) {
+                                          return Colors.indigo.shade50;
+                                        }
+                                        return Colors.grey.shade50;
+                                      }),
+                                  foregroundColor:
+                                      WidgetStateProperty.resolveWith((states) {
+                                        if (states.contains(
+                                          WidgetState.selected,
+                                        )) {
+                                          return Colors.indigo.shade900;
+                                        }
+                                        return Colors.grey.shade700;
+                                      }),
+                                ),
+                              ),
                             ),
                           ),
                         ),

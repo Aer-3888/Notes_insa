@@ -14,6 +14,9 @@ class DashboardHeader extends StatelessWidget {
   final String title;
   final VoidCallback onMenuPressed;
   final DateTime? lastUpdated;
+  final int selectedSemester;
+  final List<int> availableSemesters;
+  final ValueChanged<int> onSemesterChanged;
 
   const DashboardHeader({
     super.key,
@@ -21,73 +24,141 @@ class DashboardHeader extends StatelessWidget {
     required this.title,
     required this.onMenuPressed,
     this.lastUpdated,
+    required this.selectedSemester,
+    required this.availableSemesters,
+    required this.onSemesterChanged,
   });
 
   @override
   Widget build(BuildContext context) {
     return Padding(
       padding: const EdgeInsets.fromLTRB(16, 16, 24, 0),
-      child: Row(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          // Menu Button
-          IconButton(
-            icon: const Icon(Icons.menu, size: 28, color: Colors.black87),
-            onPressed: onMenuPressed,
-          ),
-          const SizedBox(width: 8),
+          Row(
+            children: [
+              // Menu Button
+              IconButton(
+                icon: const Icon(Icons.menu, size: 28, color: Colors.black87),
+                onPressed: onMenuPressed,
+              ),
+              const SizedBox(width: 8),
 
-          // Department Title + last updated
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  title,
-                  style: const TextStyle(
-                    fontSize: 28,
-                    fontWeight: FontWeight.bold,
-                    color: Colors.black87,
-                  ),
-                ),
-                if (lastUpdated != null)
-                  Text(
-                    _formatLastUpdated(lastUpdated!),
-                    style: TextStyle(
-                      fontSize: 11,
-                      color: Colors.grey.shade500,
-                      fontWeight: FontWeight.w400,
+              // Department Title + last updated
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      title,
+                      style: const TextStyle(
+                        fontSize: 28,
+                        fontWeight: FontWeight.bold,
+                        color: Colors.black87,
+                      ),
                     ),
-                  ),
-              ],
-            ),
-          ),
-
-          // Average Circle
-          Container(
-            width: 70,
-            height: 70,
-            decoration: BoxDecoration(
-              shape: BoxShape.circle,
-              color: GradeUtils.getColor(average),
-              boxShadow: [
-                BoxShadow(
-                  color: GradeUtils.getColor(average).withValues(alpha: .4),
-                  blurRadius: 15,
-                  offset: const Offset(0, 5),
+                    if (lastUpdated != null)
+                      Text(
+                        _formatLastUpdated(lastUpdated!),
+                        style: TextStyle(
+                          fontSize: 11,
+                          color: Colors.grey.shade500,
+                          fontWeight: FontWeight.w400,
+                        ),
+                      ),
+                  ],
                 ),
-              ],
-            ),
-            alignment: Alignment.center,
-            child: Text(
-              average?.toStringAsFixed(2) ?? "-",
-              style: const TextStyle(
+              ),
+
+              // Average Circle
+              Container(
+                width: 70,
+                height: 70,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  color: GradeUtils.getColor(average),
+                  boxShadow: [
+                    BoxShadow(
+                      color: GradeUtils.getColor(average).withValues(alpha: .4),
+                      blurRadius: 15,
+                      offset: const Offset(0, 5),
+                    ),
+                  ],
+                ),
+                alignment: Alignment.center,
+                child: Text(
+                  average?.toStringAsFixed(2) ?? "-",
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 20,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          if (availableSemesters.isNotEmpty) ...[
+            const SizedBox(height: 12),
+            Container(
+              padding: const EdgeInsets.all(4),
+              decoration: BoxDecoration(
                 color: Colors.white,
-                fontSize: 20,
-                fontWeight: FontWeight.bold,
+                borderRadius: BorderRadius.circular(16),
+                border: Border.all(color: Colors.grey.shade200),
+              ),
+              child: Row(
+                children: availableSemesters
+                    .map(
+                      (sem) => Expanded(
+                        child: _SemButton(
+                          sem: sem,
+                          isSelected: selectedSemester == sem,
+                          onTap: () => onSemesterChanged(sem),
+                        ),
+                      ),
+                    )
+                    .toList(),
               ),
             ),
-          ),
+            const SizedBox(height: 12),
+          ],
         ],
+      ),
+    );
+  }
+}
+
+class _SemButton extends StatelessWidget {
+  final int sem;
+  final bool isSelected;
+  final VoidCallback onTap;
+
+  const _SemButton({
+    required this.sem,
+    required this.isSelected,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        alignment: Alignment.center,
+        padding: const EdgeInsets.symmetric(vertical: 10),
+        decoration: BoxDecoration(
+          color: isSelected ? Colors.indigo : Colors.transparent,
+          borderRadius: BorderRadius.circular(12),
+        ),
+        child: Text(
+          'Semestre $sem',
+          style: TextStyle(
+            color: isSelected ? Colors.white : Colors.grey.shade600,
+            fontWeight: FontWeight.bold,
+            fontSize: 14,
+          ),
+        ),
       ),
     );
   }

@@ -1,19 +1,37 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_staggered_animations/flutter_staggered_animations.dart';
+import 'package:shimmer/shimmer.dart';
 import '../models.dart';
 
 class UnitCardGrid extends StatelessWidget {
   final List<TeachingUnit> curriculum;
   final Function(TeachingUnit) onUnitTap;
+  final bool isLoading;
 
   const UnitCardGrid({
     super.key,
     required this.curriculum,
     required this.onUnitTap,
+    this.isLoading = false,
   });
 
   @override
   Widget build(BuildContext context) {
+    if (isLoading && curriculum.isEmpty) {
+      return GridView.builder(
+        padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+        physics: const NeverScrollableScrollPhysics(),
+        gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+          crossAxisCount: 2,
+          childAspectRatio: 0.85,
+          crossAxisSpacing: 16,
+          mainAxisSpacing: 16,
+        ),
+        itemCount: 6,
+        itemBuilder: (_, _) => const _SkeletonCard(),
+      );
+    }
+
     if (curriculum.isEmpty) {
       return const Center(
         child: Text("Aucune donnée.", style: TextStyle(color: Colors.grey)),
@@ -117,6 +135,79 @@ class UnitCardGrid extends StatelessWidget {
             ),
           );
         },
+      ),
+    );
+  }
+}
+
+class _SkeletonCard extends StatelessWidget {
+  const _SkeletonCard();
+
+  @override
+  Widget build(BuildContext context) {
+    return Shimmer.fromColors(
+      baseColor: Colors.grey.shade300,
+      highlightColor: Colors.grey.shade100,
+      child: Container(
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(24),
+        ),
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Container(
+                  width: 40,
+                  height: 40,
+                  decoration: const BoxDecoration(
+                    color: Colors.white,
+                    shape: BoxShape.circle,
+                  ),
+                ),
+                Container(
+                  width: 48,
+                  height: 20,
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(6),
+                  ),
+                ),
+              ],
+            ),
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Container(
+                  width: double.infinity,
+                  height: 14,
+                  color: Colors.white,
+                ),
+                const SizedBox(height: 6),
+                Container(width: 80, height: 14, color: Colors.white),
+              ],
+            ),
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Container(width: 60, height: 12, color: Colors.white),
+                const SizedBox(height: 6),
+                Container(
+                  width: double.infinity,
+                  height: 4,
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(4),
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ),
       ),
     );
   }

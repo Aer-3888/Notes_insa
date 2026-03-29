@@ -7,7 +7,6 @@ import '../providers/dashboard_providers.dart';
 import '../providers/grades_provider.dart';
 import '../components/app_drawer.dart';
 import '../components/dashboard_header.dart';
-import '../components/semester_selector.dart';
 import '../components/unit_card_grid.dart';
 
 class DashboardScreen extends ConsumerStatefulWidget {
@@ -106,15 +105,13 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen>
                       average: semesterAverage,
                       onMenuPressed: () => Scaffold.of(context).openDrawer(),
                       lastUpdated: lastUpdated,
+                      selectedSemester: selectedSemester,
+                      availableSemesters: ref.watch(availableSemestersProvider),
+                      onSemesterChanged: (newSem) {
+                        ref.read(selectedSemesterProvider.notifier).state =
+                            newSem;
+                      },
                     ),
-                  ),
-                  SemesterSelector(
-                    selectedSemester: selectedSemester,
-                    availableSemesters: ref.watch(availableSemestersProvider),
-                    onSemesterChanged: (newSem) {
-                      ref.read(selectedSemesterProvider.notifier).state =
-                          newSem;
-                    },
                   ),
                   Expanded(
                     child: RefreshIndicator(
@@ -123,6 +120,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen>
                       backgroundColor: Colors.white,
                       child: UnitCardGrid(
                         curriculum: curriculum,
+                        isLoading: isLoading,
                         onUnitTap: (unit) => _showUEDetails(context, unit),
                       ),
                     ),
@@ -231,14 +229,27 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen>
 // Bottom sheet
 // ---------------------------------------------------------------------------
 
-class _UEDetailSheet extends StatelessWidget {
+class _UEDetailSheet extends StatefulWidget {
   final TeachingUnit unit;
 
   const _UEDetailSheet({required this.unit});
 
   @override
+  State<_UEDetailSheet> createState() => _UEDetailSheetState();
+}
+
+class _UEDetailSheetState extends State<_UEDetailSheet> {
+  final _scrolled = ValueNotifier<bool>(false);
+
+  @override
+  void dispose() {
+    _scrolled.dispose();
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
-    final ueColor = GradeUtils.getColor(unit.average);
+    final ueColor = GradeUtils.getColor(widget.unit.average);
 
     return DraggableScrollableSheet(
       initialChildSize: 0.75,
@@ -276,7 +287,7 @@ class _UEDetailSheet extends StatelessWidget {
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Text(
-                            titleCase(unit.name),
+                            titleCase(widget.unit.name),
                             style: const TextStyle(
                               fontSize: 20,
                               fontWeight: FontWeight.bold,
@@ -285,10 +296,10 @@ class _UEDetailSheet extends StatelessWidget {
                           ),
                           const SizedBox(height: 4),
                           Text(
-                            unit.isValidated ? 'Validé' : 'En cours',
+                            widget.unit.isValidated ? 'Validé' : 'En cours',
                             style: TextStyle(
                               fontSize: 12,
-                              color: unit.isValidated
+                              color: widget.unit.isValidated
                                   ? Colors.green.shade600
                                   : Colors.grey.shade500,
                               fontWeight: FontWeight.w500,
@@ -315,7 +326,7 @@ class _UEDetailSheet extends StatelessWidget {
                       ),
                       alignment: Alignment.center,
                       child: Text(
-                        unit.average?.toStringAsFixed(2) ?? '–',
+                        widget.unit.average?.toStringAsFixed(2) ?? '–',
                         style: const TextStyle(
                           color: Colors.white,
                           fontSize: 16,
@@ -326,23 +337,51 @@ class _UEDetailSheet extends StatelessWidget {
                   ],
                 ),
               ),
-              Divider(height: 1, color: Colors.grey.shade200),
+              // Scroll shadow divider
+              ValueListenableBuilder<bool>(
+                valueListenable: _scrolled,
+                builder: (_, isScrolled, _) => AnimatedContainer(
+                  duration: const Duration(milliseconds: 150),
+                  height: 1,
+                  decoration: BoxDecoration(
+                    color: isScrolled
+                        ? Colors.grey.shade200
+                        : Colors.transparent,
+                    boxShadow: isScrolled
+                        ? [
+                            BoxShadow(
+                              color: Colors.black.withValues(alpha: 0.06),
+                              blurRadius: 4,
+                              offset: const Offset(0, 2),
+                            ),
+                          ]
+                        : null,
+                  ),
+                ),
+              ),
               // Subject list
               Expanded(
-                child: unit.subjects.isEmpty
+                child: widget.unit.subjects.isEmpty
                     ? Center(
                         child: Text(
                           'Aucune matière',
                           style: TextStyle(color: Colors.grey.shade400),
                         ),
                       )
-                    : ListView.separated(
-                        controller: scrollController,
-                        padding: const EdgeInsets.fromLTRB(16, 16, 16, 32),
-                        itemCount: unit.subjects.length,
-                        separatorBuilder: (_, _) => const SizedBox(height: 10),
-                        itemBuilder: (_, i) =>
-                            _SubjectCard(subject: unit.subjects[i]),
+                    : NotificationListener<ScrollNotification>(
+                        onNotification: (n) {
+                          _scrolled.value = n.metrics.pixels > 0;
+                          return false;
+                        },
+                        child: ListView.separated(
+                          controller: scrollController,
+                          padding: const EdgeInsets.fromLTRB(16, 16, 16, 32),
+                          itemCount: widget.unit.subjects.length,
+                          separatorBuilder: (_, _) =>
+                              const SizedBox(height: 12),
+                          itemBuilder: (_, i) =>
+                              _SubjectCard(subject: widget.unit.subjects[i]),
+                        ),
                       ),
               ),
             ],

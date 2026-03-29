@@ -64,6 +64,8 @@ dependencies:
   riverpod_annotation: ^2.6.1
   # Staggered list/grid entry animations
   flutter_staggered_animations: ^1.1.1
+  # Shimmer skeleton loading effect
+  shimmer: ^3.0.0
 
 dev_dependencies:
   flutter_test:

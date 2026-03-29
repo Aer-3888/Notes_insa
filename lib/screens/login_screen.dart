@@ -179,176 +179,221 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
     final canGoBack = Navigator.canPop(context);
 
     return Scaffold(
-      backgroundColor: Colors.white,
-      body: SafeArea(
-        child: SingleChildScrollView(
-          padding: const EdgeInsets.all(24.0),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              if (canGoBack)
-                Align(
-                  alignment: Alignment.centerLeft,
-                  child: IconButton(
-                    icon: const Icon(Icons.arrow_back),
-                    onPressed: () => Navigator.of(context).pop(),
-                    tooltip: 'Retour',
-                  ),
-                ),
-              SizedBox(height: canGoBack ? 16 : 40),
-              const Icon(Icons.school, size: 80, color: Colors.indigo),
-              const SizedBox(height: 24),
-              const Text(
-                "Connexion",
-                textAlign: TextAlign.center,
-                style: TextStyle(fontSize: 28, fontWeight: FontWeight.bold),
+      body: Column(
+        children: [
+          // Gradient header
+          Container(
+            width: double.infinity,
+            decoration: const BoxDecoration(
+              gradient: LinearGradient(
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+                colors: [Color(0xFF283593), Color(0xFF5C6BC0)],
               ),
-              const SizedBox(height: 20),
-
-              // Qr Code Scan Section
-              Text(
-                "Étape 1 : Token d'accès",
-                style: TextStyle(
-                  color: Colors.grey.shade600,
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-              const SizedBox(height: 10),
-              GestureDetector(
-                onTap: _scanToken,
-                child: Container(
-                  padding: const EdgeInsets.all(16),
-                  decoration: BoxDecoration(
-                    color: _scannedToken != null
-                        ? Colors.green.shade50
-                        : Colors.grey.shade100,
-                    border: Border.all(
-                      color: _scannedToken != null
-                          ? Colors.green
-                          : Colors.grey.shade300,
-                    ),
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Row(
-                        children: [
-                          Icon(
-                            _scannedToken != null
-                                ? Icons.check_circle
-                                : Icons.qr_code_scanner,
-                            color: _scannedToken != null
-                                ? Colors.green
-                                : Colors.indigo,
+            ),
+            child: SafeArea(
+              bottom: false,
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(4, 8, 24, 32),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.center,
+                  children: [
+                    if (canGoBack)
+                      Align(
+                        alignment: Alignment.centerLeft,
+                        child: IconButton(
+                          icon: const Icon(
+                            Icons.arrow_back,
+                            color: Colors.white,
                           ),
-                          const SizedBox(width: 16),
-                          Expanded(
-                            child: Text(
-                              _scannedToken != null
-                                  ? "Token Scanné"
-                                  : "Scanner le QR Code",
-                              style: TextStyle(
-                                color: _scannedToken != null
-                                    ? Colors.green.shade700
-                                    : Colors.black87,
-                                fontWeight: FontWeight.bold,
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
-                      if (_scannedToken != null) ...[
-                        const SizedBox(height: 8),
-                        Text(
-                          'Token enregistré',
-                          style: TextStyle(
-                            fontSize: 11,
-                            color: Colors.grey.shade600,
-                          ),
-                        ),
-                      ],
-                    ],
-                  ),
-                ),
-              ),
-              const SizedBox(height: 30),
-
-              // Form Section
-              Text(
-                "Étape 2 : Identifiants ENT",
-                style: TextStyle(
-                  color: Colors.grey.shade600,
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-              const SizedBox(height: 10),
-              TextField(
-                controller: _userController,
-                onChanged: (_) => setState(() {}),
-                decoration: const InputDecoration(
-                  labelText: "Nom d'utilisateur",
-                  border: OutlineInputBorder(),
-                  prefixIcon: Icon(Icons.person_outline),
-                ),
-              ),
-              const SizedBox(height: 16),
-              TextField(
-                controller: _passController,
-                onChanged: (_) => setState(() {}),
-                obscureText: _obscurePassword,
-                decoration: InputDecoration(
-                  labelText: "Mot de passe",
-                  border: const OutlineInputBorder(),
-                  prefixIcon: const Icon(Icons.lock_outline),
-                  suffixIcon: IconButton(
-                    icon: Icon(
-                      _obscurePassword
-                          ? Icons.visibility
-                          : Icons.visibility_off,
-                    ),
-                    onPressed: () {
-                      setState(() {
-                        _obscurePassword = !_obscurePassword;
-                      });
-                    },
-                    tooltip: _obscurePassword
-                        ? 'Afficher le mot de passe'
-                        : 'Masquer le mot de passe',
-                  ),
-                ),
-              ),
-
-              const SizedBox(height: 40),
-
-              // Login Button
-              ElevatedButton(
-                onPressed: (isReady && !_isLoading) ? _handleLogin : null,
-                style: ElevatedButton.styleFrom(
-                  padding: const EdgeInsets.all(16),
-                  backgroundColor: Colors.indigo,
-                  disabledBackgroundColor: Colors.indigo.withValues(alpha: .3),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                ),
-                child: _isLoading
-                    ? const SizedBox(
-                        width: 20,
-                        height: 20,
-                        child: CircularProgressIndicator(
-                          color: Colors.white,
-                          strokeWidth: 2,
+                          onPressed: () => Navigator.of(context).pop(),
+                          tooltip: 'Retour',
                         ),
                       )
-                    : const Text(
-                        "Se connecter",
-                        style: TextStyle(color: Colors.white, fontSize: 16),
+                    else
+                      const SizedBox(height: 16),
+                    const Icon(Icons.school, size: 64, color: Colors.white),
+                    const SizedBox(height: 12),
+                    const Text(
+                      'Connexion',
+                      style: TextStyle(
+                        fontSize: 26,
+                        fontWeight: FontWeight.bold,
+                        color: Colors.white,
                       ),
+                    ),
+                    const SizedBox(height: 4),
+                  ],
+                ),
               ),
-            ],
+            ),
           ),
-        ),
+          // White form section
+          Expanded(
+            child: Container(
+              decoration: const BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+              ),
+              child: SingleChildScrollView(
+                padding: const EdgeInsets.all(24.0),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    const SizedBox(height: 8),
+
+                    // Qr Code Scan Section
+                    Text(
+                      "Étape 1 : Token d'accès",
+                      style: TextStyle(
+                        color: Colors.grey.shade600,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                    const SizedBox(height: 10),
+                    GestureDetector(
+                      onTap: _scanToken,
+                      child: Container(
+                        padding: const EdgeInsets.all(16),
+                        decoration: BoxDecoration(
+                          color: _scannedToken != null
+                              ? Colors.green.shade50
+                              : Colors.grey.shade100,
+                          border: Border.all(
+                            color: _scannedToken != null
+                                ? Colors.green
+                                : Colors.grey.shade300,
+                          ),
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Row(
+                              children: [
+                                Icon(
+                                  _scannedToken != null
+                                      ? Icons.check_circle
+                                      : Icons.qr_code_scanner,
+                                  color: _scannedToken != null
+                                      ? Colors.green
+                                      : Colors.indigo,
+                                ),
+                                const SizedBox(width: 16),
+                                Expanded(
+                                  child: Text(
+                                    _scannedToken != null
+                                        ? "Token Scanné"
+                                        : "Scanner le QR Code",
+                                    style: TextStyle(
+                                      color: _scannedToken != null
+                                          ? Colors.green.shade700
+                                          : Colors.black87,
+                                      fontWeight: FontWeight.bold,
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                            if (_scannedToken != null) ...[
+                              const SizedBox(height: 8),
+                              Text(
+                                'Token enregistré',
+                                style: TextStyle(
+                                  fontSize: 11,
+                                  color: Colors.grey.shade600,
+                                ),
+                              ),
+                            ],
+                          ],
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 30),
+
+                    // Form Section
+                    Text(
+                      "Étape 2 : Identifiants ENT",
+                      style: TextStyle(
+                        color: Colors.grey.shade600,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                    const SizedBox(height: 10),
+                    TextField(
+                      controller: _userController,
+                      onChanged: (_) => setState(() {}),
+                      decoration: const InputDecoration(
+                        labelText: "Nom d'utilisateur",
+                        border: OutlineInputBorder(),
+                        prefixIcon: Icon(Icons.person_outline),
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+                    TextField(
+                      controller: _passController,
+                      onChanged: (_) => setState(() {}),
+                      obscureText: _obscurePassword,
+                      decoration: InputDecoration(
+                        labelText: "Mot de passe",
+                        border: const OutlineInputBorder(),
+                        prefixIcon: const Icon(Icons.lock_outline),
+                        suffixIcon: IconButton(
+                          icon: Icon(
+                            _obscurePassword
+                                ? Icons.visibility
+                                : Icons.visibility_off,
+                          ),
+                          onPressed: () {
+                            setState(() {
+                              _obscurePassword = !_obscurePassword;
+                            });
+                          },
+                          tooltip: _obscurePassword
+                              ? 'Afficher le mot de passe'
+                              : 'Masquer le mot de passe',
+                        ),
+                      ),
+                    ),
+
+                    const SizedBox(height: 40),
+
+                    // Login Button
+                    ElevatedButton(
+                      onPressed: (isReady && !_isLoading) ? _handleLogin : null,
+                      style: ElevatedButton.styleFrom(
+                        padding: const EdgeInsets.all(16),
+                        backgroundColor: Colors.indigo,
+                        disabledBackgroundColor: Colors.indigo.withValues(
+                          alpha: .3,
+                        ),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                      ),
+                      child: _isLoading
+                          ? const SizedBox(
+                              width: 20,
+                              height: 20,
+                              child: CircularProgressIndicator(
+                                color: Colors.white,
+                                strokeWidth: 2,
+                              ),
+                            )
+                          : const Text(
+                              "Se connecter",
+                              style: TextStyle(
+                                color: Colors.white,
+                                fontSize: 16,
+                              ),
+                            ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }

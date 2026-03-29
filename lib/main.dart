@@ -61,7 +61,7 @@ class _AuthGateState extends ConsumerState<AuthGate> {
         .watch(_hasCredentialsProvider)
         .when(
           loading: () => const _SplashScreen(),
-          error: (_, __) => const LoginScreen(),
+          error: (_, _) => const LoginScreen(),
           data: (hasCreds) =>
               hasCreds ? const _BiometricScreen() : const LoginScreen(),
         );
@@ -109,14 +109,37 @@ class _BiometricScreen extends ConsumerStatefulWidget {
   ConsumerState<_BiometricScreen> createState() => _BiometricScreenState();
 }
 
-class _BiometricScreenState extends ConsumerState<_BiometricScreen> {
+class _BiometricScreenState extends ConsumerState<_BiometricScreen>
+    with TickerProviderStateMixin {
   bool _failed = false;
   bool _authenticating = false;
+
+  late final AnimationController _shakeController;
+  late final Animation<double> _shakeAnimation;
 
   @override
   void initState() {
     super.initState();
+    _shakeController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 400),
+    );
+    _shakeAnimation =
+        TweenSequence<double>([
+          TweenSequenceItem(tween: Tween(begin: 0.0, end: -8.0), weight: 1),
+          TweenSequenceItem(tween: Tween(begin: -8.0, end: 8.0), weight: 2),
+          TweenSequenceItem(tween: Tween(begin: 8.0, end: -8.0), weight: 2),
+          TweenSequenceItem(tween: Tween(begin: -8.0, end: 0.0), weight: 1),
+        ]).animate(
+          CurvedAnimation(parent: _shakeController, curve: Curves.easeInOut),
+        );
     WidgetsBinding.instance.addPostFrameCallback((_) => _authenticate());
+  }
+
+  @override
+  void dispose() {
+    _shakeController.dispose();
+    super.dispose();
   }
 
   Future<void> _authenticate() async {
@@ -143,6 +166,7 @@ class _BiometricScreenState extends ConsumerState<_BiometricScreen> {
         _failed = true;
         _authenticating = false;
       });
+      _shakeController.forward(from: 0.0);
     }
   }
 
@@ -164,10 +188,19 @@ class _BiometricScreenState extends ConsumerState<_BiometricScreen> {
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Icon(
-                _failed ? Icons.fingerprint : Icons.school,
-                size: 72,
-                color: _failed ? Colors.red.shade300 : const Color(0xFF3949AB),
+              AnimatedBuilder(
+                animation: _shakeAnimation,
+                builder: (_, child) => Transform.translate(
+                  offset: Offset(_failed ? _shakeAnimation.value : 0.0, 0),
+                  child: child,
+                ),
+                child: Icon(
+                  _failed ? Icons.fingerprint : Icons.school,
+                  size: 72,
+                  color: _failed
+                      ? Colors.grey.shade400
+                      : const Color(0xFF3949AB),
+                ),
               ),
               const SizedBox(height: 16),
               Text(
@@ -176,7 +209,7 @@ class _BiometricScreenState extends ConsumerState<_BiometricScreen> {
                   fontSize: _failed ? 20 : 24,
                   fontWeight: FontWeight.bold,
                   color: _failed
-                      ? Colors.red.shade400
+                      ? Colors.grey.shade700
                       : const Color(0xFF3949AB),
                   letterSpacing: 1.2,
                 ),
