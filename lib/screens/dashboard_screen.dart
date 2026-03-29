@@ -61,6 +61,22 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen>
     });
   }
 
+  void _swipeSemester(DragEndDetails details) {
+    final available = ref.read(availableSemestersProvider);
+    if (available.length <= 1) return;
+    final velocity = details.primaryVelocity ?? 0;
+    if (velocity.abs() < 300) return;
+    final current = ref.read(selectedSemesterProvider);
+    final idx = available.indexOf(current);
+    if (idx == -1) return;
+    final newIdx = velocity < 0
+        ? (idx + 1).clamp(0, available.length - 1)
+        : (idx - 1).clamp(0, available.length - 1);
+    if (newIdx != idx) {
+      ref.read(selectedSemesterProvider.notifier).state = available[newIdx];
+    }
+  }
+
   Future<void> _onManualRefresh(BuildContext context) async {
     final started = await ref.read(gradesProvider.notifier).manualRefresh();
     if (!started && context.mounted) {
@@ -114,14 +130,18 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen>
                     ),
                   ),
                   Expanded(
-                    child: RefreshIndicator(
-                      onRefresh: () => _onManualRefresh(context),
-                      color: Colors.black87,
-                      backgroundColor: Colors.white,
-                      child: UnitCardGrid(
-                        curriculum: curriculum,
-                        isLoading: isLoading,
-                        onUnitTap: (unit) => _showUEDetails(context, unit),
+                    child: GestureDetector(
+                      onHorizontalDragEnd: _swipeSemester,
+                      behavior: HitTestBehavior.opaque,
+                      child: RefreshIndicator(
+                        onRefresh: () => _onManualRefresh(context),
+                        color: Colors.black87,
+                        backgroundColor: Colors.white,
+                        child: UnitCardGrid(
+                          curriculum: curriculum,
+                          isLoading: isLoading,
+                          onUnitTap: (unit) => _showUEDetails(context, unit),
+                        ),
                       ),
                     ),
                   ),

@@ -100,26 +100,10 @@ class DashboardHeader extends StatelessWidget {
           ),
           if (availableSemesters.isNotEmpty) ...[
             const SizedBox(height: 12),
-            Container(
-              padding: const EdgeInsets.all(4),
-              decoration: BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.circular(16),
-                border: Border.all(color: Colors.grey.shade200),
-              ),
-              child: Row(
-                children: availableSemesters
-                    .map(
-                      (sem) => Expanded(
-                        child: _SemButton(
-                          sem: sem,
-                          isSelected: selectedSemester == sem,
-                          onTap: () => onSemesterChanged(sem),
-                        ),
-                      ),
-                    )
-                    .toList(),
-              ),
+            _AnimatedSemesterSelector(
+              availableSemesters: availableSemesters,
+              selectedSemester: selectedSemester,
+              onSemesterChanged: onSemesterChanged,
             ),
             const SizedBox(height: 12),
           ],
@@ -129,36 +113,88 @@ class DashboardHeader extends StatelessWidget {
   }
 }
 
-class _SemButton extends StatelessWidget {
-  final int sem;
-  final bool isSelected;
-  final VoidCallback onTap;
+class _AnimatedSemesterSelector extends StatelessWidget {
+  final List<int> availableSemesters;
+  final int selectedSemester;
+  final ValueChanged<int> onSemesterChanged;
 
-  const _SemButton({
-    required this.sem,
-    required this.isSelected,
-    required this.onTap,
+  const _AnimatedSemesterSelector({
+    required this.availableSemesters,
+    required this.selectedSemester,
+    required this.onSemesterChanged,
   });
 
   @override
   Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        alignment: Alignment.center,
-        padding: const EdgeInsets.symmetric(vertical: 10),
-        decoration: BoxDecoration(
-          color: isSelected ? Colors.indigo : Colors.transparent,
-          borderRadius: BorderRadius.circular(12),
-        ),
-        child: Text(
-          'Semestre $sem',
-          style: TextStyle(
-            color: isSelected ? Colors.white : Colors.grey.shade600,
-            fontWeight: FontWeight.bold,
-            fontSize: 14,
-          ),
-        ),
+    final n = availableSemesters.length;
+    final rawIdx = availableSemesters.indexOf(selectedSemester);
+    final selectedIndex = rawIdx < 0 ? 0 : rawIdx;
+
+    return Container(
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: Colors.grey.shade200),
+      ),
+      padding: const EdgeInsets.all(4),
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          final itemWidth = constraints.maxWidth / n;
+
+          return TweenAnimationBuilder<double>(
+            tween: Tween(end: selectedIndex.toDouble()),
+            duration: const Duration(milliseconds: 300),
+            curve: Curves.easeOutCubic,
+            builder: (_, t, __) {
+              return Stack(
+                children: [
+                  // Sliding blue pill
+                  Positioned(
+                    left: t * itemWidth,
+                    top: 0,
+                    bottom: 0,
+                    width: itemWidth,
+                    child: Container(
+                      decoration: BoxDecoration(
+                        color: Colors.indigo,
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                    ),
+                  ),
+                  // Labels (rendered above the pill)
+                  Row(
+                    children: List.generate(n, (i) {
+                      final progress = (1.0 - (t - i).abs()).clamp(0.0, 1.0);
+                      final textColor = Color.lerp(
+                        Colors.grey.shade600,
+                        Colors.white,
+                        progress,
+                      )!;
+
+                      return Expanded(
+                        child: GestureDetector(
+                          onTap: () => onSemesterChanged(availableSemesters[i]),
+                          child: Container(
+                            alignment: Alignment.center,
+                            padding: const EdgeInsets.symmetric(vertical: 10),
+                            child: Text(
+                              'Semestre ${availableSemesters[i]}',
+                              style: TextStyle(
+                                color: textColor,
+                                fontWeight: FontWeight.bold,
+                                fontSize: 14,
+                              ),
+                            ),
+                          ),
+                        ),
+                      );
+                    }),
+                  ),
+                ],
+              );
+            },
+          );
+        },
       ),
     );
   }
