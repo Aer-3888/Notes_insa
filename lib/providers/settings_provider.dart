@@ -54,20 +54,16 @@ class SettingsNotifier extends StateNotifier<SettingsState> {
       if (kDebugMode) {
         debugPrint('[SettingsProvider] Failed to load settings: $e');
       }
-      state = state.copyWith(isLoading: false);
     }
   }
 
   /// Update fetch interval and restart background tasks
   Future<void> setFetchInterval(int interval) async {
     final previous = state.fetchInterval;
+    state = state.copyWith(fetchInterval: interval);
     try {
-      state = state.copyWith(isLoading: true);
-
       final prefs = await SharedPreferences.getInstance();
       await prefs.setInt(_fetchIntervalKey, interval);
-
-      state = state.copyWith(fetchInterval: interval, isLoading: false);
 
       // Restart background tasks with new interval
       await stopBackgroundTasks();
@@ -83,20 +79,17 @@ class SettingsNotifier extends StateNotifier<SettingsState> {
         debugPrint('[SettingsProvider] Failed to set fetch interval: $e');
       }
       // Restore previous value — background task was not reconfigured
-      state = state.copyWith(fetchInterval: previous, isLoading: false);
+      state = state.copyWith(fetchInterval: previous);
     }
   }
 
   /// Toggle background fetch enabled/disabled
   Future<void> setFetchEnabled(bool enabled) async {
     final previous = state.fetchEnabled;
+    state = state.copyWith(fetchEnabled: enabled);
     try {
-      state = state.copyWith(isLoading: true);
-
       final prefs = await SharedPreferences.getInstance();
       await prefs.setBool(_fetchEnabledKey, enabled);
-
-      state = state.copyWith(fetchEnabled: enabled, isLoading: false);
 
       // Start or stop background tasks based on enabled state
       if (enabled) {
@@ -113,7 +106,7 @@ class SettingsNotifier extends StateNotifier<SettingsState> {
         debugPrint('[SettingsProvider] Failed to set fetch enabled: $e');
       }
       // Restore previous value — background task was not reconfigured
-      state = state.copyWith(fetchEnabled: previous, isLoading: false);
+      state = state.copyWith(fetchEnabled: previous);
     }
   }
 }

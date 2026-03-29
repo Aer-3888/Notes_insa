@@ -14,15 +14,24 @@ class NotificationService {
   static const int _idNewGrades = 1;
   static const int _idUpdatedGrades = 2;
 
+  // Request notification permission — call this from the foreground UI only.
+  static Future<void> requestPermission() async {
+    if (Platform.isAndroid) {
+      await Permission.notification.request();
+    } else if (Platform.isIOS) {
+      await _notifications
+          .resolvePlatformSpecificImplementation<
+            IOSFlutterLocalNotificationsPlugin
+          >()
+          ?.requestPermissions(alert: true, badge: true, sound: true);
+    }
+  }
+
   // Initialize notifications and create channel on Android.
   static Future<void> initialize() async {
     if (_isInitialized) return;
 
     try {
-      if (Platform.isAndroid) {
-        await Permission.notification.request();
-      }
-
       const androidSettings = AndroidInitializationSettings(
         '@mipmap/ic_launcher',
       );

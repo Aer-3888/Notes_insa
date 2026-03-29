@@ -141,58 +141,52 @@ class _AnimatedSemesterSelector extends StatelessWidget {
         builder: (context, constraints) {
           final itemWidth = constraints.maxWidth / n;
 
-          return TweenAnimationBuilder<double>(
-            tween: Tween(end: selectedIndex.toDouble()),
-            duration: const Duration(milliseconds: 300),
-            curve: Curves.easeOutCubic,
-            builder: (_, t, __) {
-              return Stack(
-                children: [
-                  // Sliding blue pill
-                  Positioned(
-                    left: t * itemWidth,
-                    top: 0,
-                    bottom: 0,
-                    width: itemWidth,
-                    child: Container(
-                      decoration: BoxDecoration(
-                        color: Colors.indigo,
-                        borderRadius: BorderRadius.circular(12),
+          return Stack(
+            children: [
+              // Pill animates independently — does not rebuild gesture detectors
+              AnimatedPositioned(
+                duration: const Duration(milliseconds: 300),
+                curve: Curves.easeOutCubic,
+                left: selectedIndex * itemWidth,
+                top: 0,
+                bottom: 0,
+                width: itemWidth,
+                child: Container(
+                  decoration: BoxDecoration(
+                    color: Colors.indigo,
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                ),
+              ),
+              // Stable gesture detectors — never rebuilt during animation
+              Row(
+                children: List.generate(
+                  n,
+                  (i) => Expanded(
+                    child: GestureDetector(
+                      behavior: HitTestBehavior.opaque,
+                      onTap: () => onSemesterChanged(availableSemesters[i]),
+                      child: Container(
+                        alignment: Alignment.center,
+                        padding: const EdgeInsets.symmetric(vertical: 10),
+                        child: AnimatedDefaultTextStyle(
+                          duration: const Duration(milliseconds: 300),
+                          curve: Curves.easeOutCubic,
+                          style: TextStyle(
+                            color: i == selectedIndex
+                                ? Colors.white
+                                : Colors.grey.shade600,
+                            fontWeight: FontWeight.bold,
+                            fontSize: 14,
+                          ),
+                          child: Text('Semestre ${availableSemesters[i]}'),
+                        ),
                       ),
                     ),
                   ),
-                  // Labels (rendered above the pill)
-                  Row(
-                    children: List.generate(n, (i) {
-                      final progress = (1.0 - (t - i).abs()).clamp(0.0, 1.0);
-                      final textColor = Color.lerp(
-                        Colors.grey.shade600,
-                        Colors.white,
-                        progress,
-                      )!;
-
-                      return Expanded(
-                        child: GestureDetector(
-                          onTap: () => onSemesterChanged(availableSemesters[i]),
-                          child: Container(
-                            alignment: Alignment.center,
-                            padding: const EdgeInsets.symmetric(vertical: 10),
-                            child: Text(
-                              'Semestre ${availableSemesters[i]}',
-                              style: TextStyle(
-                                color: textColor,
-                                fontWeight: FontWeight.bold,
-                                fontSize: 14,
-                              ),
-                            ),
-                          ),
-                        ),
-                      );
-                    }),
-                  ),
-                ],
-              );
-            },
+                ),
+              ),
+            ],
           );
         },
       ),

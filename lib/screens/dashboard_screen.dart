@@ -8,6 +8,7 @@ import '../providers/grades_provider.dart';
 import '../components/app_drawer.dart';
 import '../components/dashboard_header.dart';
 import '../components/unit_card_grid.dart';
+import '../services/notification_service.dart';
 
 class DashboardScreen extends ConsumerStatefulWidget {
   const DashboardScreen({super.key});
@@ -33,6 +34,8 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen>
     _clockTimer = Timer.periodic(const Duration(minutes: 1), (_) {
       if (mounted) setState(() {});
     });
+    // Request notification permission the first time the dashboard is shown
+    unawaited(NotificationService.requestPermission());
   }
 
   @override
@@ -73,7 +76,10 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen>
         ? (idx + 1).clamp(0, available.length - 1)
         : (idx - 1).clamp(0, available.length - 1);
     if (newIdx != idx) {
+      HapticFeedback.lightImpact();
       ref.read(selectedSemesterProvider.notifier).state = available[newIdx];
+    } else {
+      HapticFeedback.lightImpact();
     }
   }
 
