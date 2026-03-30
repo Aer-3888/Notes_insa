@@ -101,7 +101,9 @@ jobs:
           KEY_STORE_PASSWORD: ${{ secrets.KEY_STORE_PASSWORD }}
           KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
           KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
-        run: flutter build apk --release
+        run: |
+          flutter build apk --release \
+            --dart-define=APP_SECRET=${{ secrets.APP_SECRET }}
 
       - name: Rename APK
         if: steps.version.outputs.skip == 'false'
