@@ -1,6 +1,5 @@
 import 'dart:async';
 import 'dart:convert';
-import 'package:crypto/crypto.dart';
 import 'package:http/http.dart' as http;
 import '../constants.dart';
 import '../models.dart';
@@ -23,8 +22,6 @@ class AveragesService {
     final username = credentials[kStorageUser];
     if (username == null || username.isEmpty) return;
 
-    final userHash = computeUserHash(username);
-
     final List<Future<void>> futures = [];
     for (final sem in availableSems) {
       final units = JsonCurriculumParser.parseSemester(gradesJson, sem);
@@ -34,19 +31,11 @@ class AveragesService {
           department: department,
           semester: sem,
           units: units,
-          userHash: userHash,
+          username: username,
         ),
       );
     }
     await Future.wait(futures);
-  }
-
-  /// Returns a stable anonymous identifier for a student username.
-  /// SHA-256(username + salt) — same student always produces the same hash,
-  /// preventing duplicate rows across reinstalls or IP changes.
-  static String computeUserHash(String username) {
-    final bytes = utf8.encode('$username$kUserHashSalt');
-    return sha256.convert(bytes).toString();
   }
 
   /// Submit grades for one semester anonymously. Throws on failure.
@@ -54,7 +43,7 @@ class AveragesService {
     required String department,
     required int semester,
     required List<TeachingUnit> units,
-    required String userHash,
+    required String username,
   }) async {
     final subjects = [
       for (final unit in units)
@@ -69,7 +58,7 @@ class AveragesService {
       'department': department,
       'semester': semester,
       'subjects': subjects,
-      'user_hash': userHash,
+      'username': username,
     });
 
     final response = await http

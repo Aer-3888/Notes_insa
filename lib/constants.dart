@@ -9,13 +9,6 @@ const kAppSecret = String.fromEnvironment(
   defaultValue: 'development_fallback',
 );
 
-/// Salt for computing the anonymous user hash.
-/// Pass this at build time using: --dart-define=USER_HASH_SALT=your_salt_here
-const kUserHashSalt = String.fromEnvironment(
-  'USER_HASH_SALT',
-  defaultValue: 'notes-insa-user-v1',
-);
-
 /// Storage keys for FlutterSecureStorage.
 const kStorageToken = 'api_token';
 const kStorageUser = 'username';
