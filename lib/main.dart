@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'app_colors.dart';
 import 'services/auth_service.dart';
 import 'providers/grades_provider.dart';
+import 'providers/settings_provider.dart';
 import 'screens/login_screen.dart';
 import 'screens/dashboard_screen.dart';
 import 'background_tasks.dart';
@@ -161,7 +162,8 @@ class _BiometricScreenState extends ConsumerState<_BiometricScreen>
             .fetchGradesWithStoredCredentials()
             .catchError((_) {}),
       );
-      _replaceWith(const DashboardScreen());
+      final needsConsent = !ref.read(settingsProvider).sharingConsentAsked;
+      _replaceWith(DashboardScreen(showConsentOnMount: needsConsent));
     } else {
       setState(() {
         _failed = true;

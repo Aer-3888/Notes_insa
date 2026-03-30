@@ -979,7 +979,7 @@ class _GradeHistogram extends StatelessWidget {
 
   static int? _bucketIndex(double grade) {
     if (grade < 0 || grade > 20) return null;
-    return (grade / 2).floor().clamp(0, 9);
+    return grade.floor().clamp(0, 19);
   }
 
   @override
@@ -1012,23 +1012,26 @@ class _HistogramPainter extends CustomPainter {
   @override
   void paint(Canvas canvas, Size size) {
     const labelHeight = 20.0;
-    const barGap = 4.0;
+    const barInset = 1.5; // gap between tick and bar edge
 
     final maxCount = buckets.fold<int>(0, (m, b) => b > m ? b : m);
     if (maxCount == 0) return;
 
     final n = buckets.length; // 10
-    final barWidth = (size.width - barGap * (n - 1)) / n;
+    // Each bar occupies an equal slot; label centered under bar center
+    final slotWidth = size.width / n;
+    final barWidth = slotWidth - barInset * 2;
 
     final barPaint = Paint()..style = PaintingStyle.fill;
-    final labelStyle = TextStyle(fontSize: 11, color: Colors.grey.shade500);
+    final labelStyle = TextStyle(fontSize: 9, color: Colors.grey.shade500);
     final markerPaint = Paint()..style = PaintingStyle.fill;
 
     for (int i = 0; i < n; i++) {
-      final x = i * (barWidth + barGap);
+      final slotCenter = i * slotWidth + slotWidth / 2;
+      final barLeft = slotCenter - barWidth / 2;
       final count = buckets[i];
 
-      // Bar height
+      // Bar
       double barH = count == 0
           ? 0
           : (count / maxCount) * (size.height - labelHeight);
@@ -1040,9 +1043,9 @@ class _HistogramPainter extends CustomPainter {
       if (barH > 0) {
         final top = size.height - labelHeight - barH;
         final rect = RRect.fromRectAndCorners(
-          Rect.fromLTWH(x, top, barWidth, barH),
-          topLeft: const Radius.circular(4),
-          topRight: const Radius.circular(4),
+          Rect.fromLTWH(barLeft, top, barWidth, barH),
+          topLeft: const Radius.circular(3),
+          topRight: const Radius.circular(3),
         );
         canvas.drawRRect(rect, barPaint);
 
@@ -1050,36 +1053,38 @@ class _HistogramPainter extends CustomPainter {
         if (isMyBar) {
           markerPaint.color = myBucketColor;
           const markerSize = 6.0;
-          final cx = x + barWidth / 2;
           final path = Path()
-            ..moveTo(cx - markerSize / 2, top - 6)
-            ..lineTo(cx + markerSize / 2, top - 6)
-            ..lineTo(cx, top - 1)
+            ..moveTo(slotCenter - markerSize / 2, top - 6)
+            ..lineTo(slotCenter + markerSize / 2, top - 6)
+            ..lineTo(slotCenter, top - 1)
             ..close();
           canvas.drawPath(path, markerPaint);
         }
       }
 
-      // X-axis label: 0, 2, 4, ... 18 (left edge of each bucket)
-      final label = (i * 2).toString();
-      final tp = TextPainter(
-        text: TextSpan(text: label, style: labelStyle),
-        textDirection: TextDirection.ltr,
-      )..layout();
-      tp.paint(
-        canvas,
-        Offset(x + barWidth / 2 - tp.width / 2, size.height - labelHeight + 4),
-      );
+      // Label every 2 bars: 0, 2, 4, ..., 18
+      if (i % 2 == 0 && i < n - 1) {
+        final label = i.toString();
+        final tp = TextPainter(
+          text: TextSpan(text: label, style: labelStyle),
+          textDirection: TextDirection.ltr,
+        )..layout();
+        tp.paint(
+          canvas,
+          Offset(slotCenter - tp.width / 2, size.height - labelHeight + 4),
+        );
+      }
     }
 
-    // Extra label "20" at the right end
+    // "20" centered under the last bar (bar 19 = [19,20])
+    final lastSlotCenter = (n - 1) * slotWidth + slotWidth / 2;
     final tp20 = TextPainter(
       text: TextSpan(text: '20', style: labelStyle),
       textDirection: TextDirection.ltr,
     )..layout();
     tp20.paint(
       canvas,
-      Offset(size.width - tp20.width, size.height - labelHeight + 4),
+      Offset(lastSlotCenter - tp20.width / 2, size.height - labelHeight + 4),
     );
   }
 

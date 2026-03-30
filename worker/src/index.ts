@@ -28,17 +28,27 @@ interface AverageRow {
   min: number;
   max: number;
   count: number;
-  // Grade distribution buckets — each covers a 2-point range [low, low+2)
-  b0: number; // [0,  2)
-  b1: number; // [2,  4)
-  b2: number; // [4,  6)
-  b3: number; // [6,  8)
-  b4: number; // [8,  10)
-  b5: number; // [10, 12)
-  b6: number; // [12, 14)
-  b7: number; // [14, 16)
-  b8: number; // [16, 18)
-  b9: number; // [18, 20]
+  // Grade distribution buckets — each covers a 1-point range [low, low+1)
+  b0: number;  // [0,  1)
+  b1: number;  // [1,  2)
+  b2: number;  // [2,  3)
+  b3: number;  // [3,  4)
+  b4: number;  // [4,  5)
+  b5: number;  // [5,  6)
+  b6: number;  // [6,  7)
+  b7: number;  // [7,  8)
+  b8: number;  // [8,  9)
+  b9: number;  // [9,  10)
+  b10: number; // [10, 11)
+  b11: number; // [11, 12)
+  b12: number; // [12, 13)
+  b13: number; // [13, 14)
+  b14: number; // [14, 15)
+  b15: number; // [15, 16)
+  b16: number; // [16, 17)
+  b17: number; // [17, 18)
+  b18: number; // [18, 19)
+  b19: number; // [19, 20]
 }
 
 // ── Helpers ────────────────────────────────────────────────────────────────
@@ -46,7 +56,7 @@ interface AverageRow {
 const CORS_HEADERS = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
-  "Access-Control-Allow-Headers": "Content-Type, X-App-Version",
+  "Access-Control-Allow-Headers": "Content-Type, X-App-Version, X-App-Secret",
 };
 
 function json(data: unknown, status = 200): Response {
@@ -148,8 +158,8 @@ function validateSubmitBody(body: unknown): body is SubmitBody {
 
 async function handleSubmit(request: Request, env: Env): Promise<Response> {
   const secret = request.headers.get("X-App-Secret");
-  if (secret !== env.APP_SECRET) {
-    return error("Unauthorized", 401);
+  if (!secret || secret !== env.APP_SECRET) {
+    return error("Unauthorized: APP_SECRET mismatch or missing header", 401);
   }
 
   let body: unknown;
@@ -161,7 +171,7 @@ async function handleSubmit(request: Request, env: Env): Promise<Response> {
 
   if (!validateSubmitBody(body)) {
     return error(
-      "Invalid payload. Expected: { department, semester, subjects: [{ue, name, grade}] }",
+      "Invalid payload format or missing required fields in subjects array",
     );
   }
 
@@ -181,52 +191,55 @@ async function handleSubmit(request: Request, env: Env): Promise<Response> {
     body.semester,
   );
   if (limited) {
-    // Return 200 silently — no need to tell the client it was rate-limited
-    return json({ ok: true });
+    return json({ ok: true, status: "rate_limited" });
   }
   const academicYear = getCurrentAcademicYear();
 
-  // Upsert: if the same student (user_hash) submits the same subject again,
-  // update their grade rather than inserting a duplicate row.
-  // Rows without a user_hash (old app versions) always insert to preserve
-  // backwards compatibility; those rely solely on IP rate-limiting for dedup.
-  const stmt = userHash
-    ? env.DB.prepare(
-        `INSERT INTO submissions (user_hash, academic_year, department, semester, ue_name, subject_name, grade)
-         VALUES (?, ?, ?, ?, ?, ?, ?)
-         ON CONFLICT (user_hash, academic_year, department, semester, ue_name, subject_name)
-         WHERE user_hash != ''
-         DO UPDATE SET grade = excluded.grade, submitted_at = datetime('now')`,
-      )
-    : env.DB.prepare(
-        `INSERT INTO submissions (user_hash, academic_year, department, semester, ue_name, subject_name, grade)
-         VALUES ('', ?, ?, ?, ?, ?, ?)`,
-      );
-
-  const inserts = body.subjects.map((s) =>
-    userHash
-      ? stmt.bind(
-          userHash,
-          academicYear,
-          body.department.trim(),
-          body.semester,
-          s.ue.trim(),
-          s.name.trim(),
-          Math.round(s.grade * 100) / 100,
+  try {
+    // Upsert: if the same student (user_hash) submits the same subject again,
+    // update their grade rather than inserting a duplicate row.
+    // Rows without a user_hash (old app versions) always insert to preserve
+    // backwards compatibility; those rely solely on IP rate-limiting for dedup.
+    const stmt = userHash
+      ? env.DB.prepare(
+          `INSERT INTO submissions (user_hash, academic_year, department, semester, ue_name, subject_name, grade)
+           VALUES (?, ?, ?, ?, ?, ?, ?)
+           ON CONFLICT (user_hash, academic_year, department, semester, ue_name, subject_name)
+           WHERE user_hash != ''
+           DO UPDATE SET grade = excluded.grade, submitted_at = datetime('now')`,
         )
-      : stmt.bind(
-          academicYear,
-          body.department.trim(),
-          body.semester,
-          s.ue.trim(),
-          s.name.trim(),
-          Math.round(s.grade * 100) / 100,
-        ),
-  );
+      : env.DB.prepare(
+          `INSERT INTO submissions (user_hash, academic_year, department, semester, ue_name, subject_name, grade)
+           VALUES ('', ?, ?, ?, ?, ?, ?)`,
+        );
 
-  await env.DB.batch(inserts);
+    const inserts = body.subjects.map((s) =>
+      userHash
+        ? stmt.bind(
+            userHash,
+            academicYear,
+            body.department.trim(),
+            body.semester,
+            s.ue.trim(),
+            s.name.trim(),
+            Math.round(s.grade * 100) / 100,
+          )
+        : stmt.bind(
+            academicYear,
+            body.department.trim(),
+            body.semester,
+            s.ue.trim(),
+            s.name.trim(),
+            Math.round(s.grade * 100) / 100,
+          ),
+    );
 
-  return json({ ok: true });
+    await env.DB.batch(inserts);
+  } catch (e: any) {
+    return error(`Database error: ${e.message}`, 500);
+  }
+
+  return json({ ok: true, status: "submitted" });
 }
 
 async function handleAverages(
@@ -256,16 +269,26 @@ async function handleAverages(
        ROUND(MIN(grade), 2) AS min,
        ROUND(MAX(grade), 2) AS max,
        COUNT(*)             AS count,
-       COUNT(CASE WHEN grade >= 0  AND grade <  2  THEN 1 END) AS b0,
-       COUNT(CASE WHEN grade >= 2  AND grade <  4  THEN 1 END) AS b1,
-       COUNT(CASE WHEN grade >= 4  AND grade <  6  THEN 1 END) AS b2,
-       COUNT(CASE WHEN grade >= 6  AND grade <  8  THEN 1 END) AS b3,
-       COUNT(CASE WHEN grade >= 8  AND grade <  10 THEN 1 END) AS b4,
-       COUNT(CASE WHEN grade >= 10 AND grade <  12 THEN 1 END) AS b5,
-       COUNT(CASE WHEN grade >= 12 AND grade <  14 THEN 1 END) AS b6,
-       COUNT(CASE WHEN grade >= 14 AND grade <  16 THEN 1 END) AS b7,
-       COUNT(CASE WHEN grade >= 16 AND grade <  18 THEN 1 END) AS b8,
-       COUNT(CASE WHEN grade >= 18 AND grade <= 20 THEN 1 END) AS b9
+       COUNT(CASE WHEN grade >= 0  AND grade <  1  THEN 1 END) AS b0,
+       COUNT(CASE WHEN grade >= 1  AND grade <  2  THEN 1 END) AS b1,
+       COUNT(CASE WHEN grade >= 2  AND grade <  3  THEN 1 END) AS b2,
+       COUNT(CASE WHEN grade >= 3  AND grade <  4  THEN 1 END) AS b3,
+       COUNT(CASE WHEN grade >= 4  AND grade <  5  THEN 1 END) AS b4,
+       COUNT(CASE WHEN grade >= 5  AND grade <  6  THEN 1 END) AS b5,
+       COUNT(CASE WHEN grade >= 6  AND grade <  7  THEN 1 END) AS b6,
+       COUNT(CASE WHEN grade >= 7  AND grade <  8  THEN 1 END) AS b7,
+       COUNT(CASE WHEN grade >= 8  AND grade <  9  THEN 1 END) AS b8,
+       COUNT(CASE WHEN grade >= 9  AND grade <  10 THEN 1 END) AS b9,
+       COUNT(CASE WHEN grade >= 10 AND grade <  11 THEN 1 END) AS b10,
+       COUNT(CASE WHEN grade >= 11 AND grade <  12 THEN 1 END) AS b11,
+       COUNT(CASE WHEN grade >= 12 AND grade <  13 THEN 1 END) AS b12,
+       COUNT(CASE WHEN grade >= 13 AND grade <  14 THEN 1 END) AS b13,
+       COUNT(CASE WHEN grade >= 14 AND grade <  15 THEN 1 END) AS b14,
+       COUNT(CASE WHEN grade >= 15 AND grade <  16 THEN 1 END) AS b15,
+       COUNT(CASE WHEN grade >= 16 AND grade <  17 THEN 1 END) AS b16,
+       COUNT(CASE WHEN grade >= 17 AND grade <  18 THEN 1 END) AS b17,
+       COUNT(CASE WHEN grade >= 18 AND grade <  19 THEN 1 END) AS b18,
+       COUNT(CASE WHEN grade >= 19 AND grade <= 20 THEN 1 END) AS b19
      FROM submissions
      WHERE department  = ?
        AND semester    = ?

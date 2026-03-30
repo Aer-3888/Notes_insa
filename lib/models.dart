@@ -146,7 +146,7 @@ class SubjectAverage {
   final double min;
   final double max;
   final int count;
-  final List<int> buckets; // length 10, index i = bucket [i*2, i*2+2)
+  final List<int> buckets; // length 20, index i = bucket [i, i+1)
 
   SubjectAverage({
     required this.ueName,
@@ -166,7 +166,7 @@ class SubjectAverage {
     for (int i = 0; i < buckets.length; i++) {
       cumulative += buckets[i];
       if (cumulative >= half) {
-        return i * 2.0 + 1.0;
+        return i + 0.5;
       }
     }
     return avg; // fallback
@@ -179,7 +179,7 @@ class SubjectAverage {
     min: (json['min'] as num).toDouble(),
     max: (json['max'] as num).toDouble(),
     count: json['count'] as int,
-    buckets: List.generate(10, (i) => (json['b$i'] as num? ?? 0).toInt()),
+    buckets: List.generate(20, (i) => (json['b$i'] as num? ?? 0).toInt()),
   );
 }
 

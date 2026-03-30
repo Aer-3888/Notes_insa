@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:convert';
+import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 import '../constants.dart';
 import '../models.dart';
@@ -14,18 +15,49 @@ class AveragesService {
       gradesJson,
     );
 
-    if (department.isEmpty || department == 'Etudiant') return;
-    if (availableSems.isEmpty) return;
+    if (kDebugMode) {
+      debugPrint(
+        '[AveragesService] Starting submission for department: "$department"',
+      );
+      debugPrint('[AveragesService] Available semesters: $availableSems');
+    }
+
+    if (department.isEmpty || department == 'Etudiant') {
+      if (kDebugMode)
+        debugPrint(
+          '[AveragesService] Aborting: department is empty or default "Etudiant"',
+        );
+      return;
+    }
+    if (availableSems.isEmpty) {
+      if (kDebugMode)
+        debugPrint('[AveragesService] Aborting: no semesters found in JSON');
+      return;
+    }
 
     final credentials = await AuthService().getCredentials();
-    if (credentials == null) return;
+    if (credentials == null) {
+      if (kDebugMode)
+        debugPrint('[AveragesService] Aborting: no credentials found');
+      return;
+    }
     final username = credentials[kStorageUser];
-    if (username == null || username.isEmpty) return;
+    if (username == null || username.isEmpty) {
+      if (kDebugMode)
+        debugPrint('[AveragesService] Aborting: username is empty');
+      return;
+    }
 
     final List<Future<void>> futures = [];
     for (final sem in availableSems) {
       final units = JsonCurriculumParser.parseSemester(gradesJson, sem);
-      if (units.isEmpty) continue;
+      if (units.isEmpty) {
+        if (kDebugMode)
+          debugPrint(
+            '[AveragesService] Skipping semester $sem: no units parsed',
+          );
+        continue;
+      }
       futures.add(
         submitGrades(
           department: department,
@@ -35,7 +67,15 @@ class AveragesService {
         ),
       );
     }
+
+    if (futures.isEmpty) {
+      if (kDebugMode)
+        debugPrint('[AveragesService] No valid semesters with data to submit');
+      return;
+    }
+
     await Future.wait(futures);
+    if (kDebugMode) debugPrint('[AveragesService] All submissions completed');
   }
 
   /// Submit grades for one semester anonymously. Throws on failure.
@@ -52,7 +92,13 @@ class AveragesService {
             {'ue': unit.name, 'name': sub.name, 'grade': sub.average!},
     ];
 
-    if (subjects.isEmpty) return;
+    if (subjects.isEmpty) {
+      if (kDebugMode)
+        debugPrint(
+          '[AveragesService] Semester $semester: no subjects with averages to submit',
+        );
+      return;
+    }
 
     final body = jsonEncode({
       'department': department,
@@ -60,6 +106,12 @@ class AveragesService {
       'subjects': subjects,
       'username': username,
     });
+
+    if (kDebugMode) {
+      debugPrint(
+        '[AveragesService] Submitting $semester (subjects: ${subjects.length}) to $kWorkerBaseUrl',
+      );
+    }
 
     final response = await http
         .post(
@@ -73,9 +125,20 @@ class AveragesService {
         .timeout(const Duration(seconds: 10));
 
     if (response.statusCode != 200) {
+      if (kDebugMode) {
+        debugPrint(
+          '[AveragesService] Failed with status ${response.statusCode}',
+        );
+        debugPrint('[AveragesService] Response: ${response.body}');
+      }
       throw Exception(
         'Server returned ${response.statusCode}: ${response.body}',
       );
+    } else {
+      final data = jsonDecode(response.body);
+      final status = data['status'] ?? 'unknown';
+      if (kDebugMode)
+        debugPrint('[AveragesService] Semester $semester response: $status');
     }
   }
 
