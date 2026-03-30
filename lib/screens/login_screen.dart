@@ -83,6 +83,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
         _passController.text,
         token: _scannedToken!,
       );
+      TextInput.finishAutofillContext();
 
       if (mounted) {
         final needsConsent = !ref.read(settingsProvider).sharingConsentAsked;
@@ -324,39 +325,47 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                       ),
                     ),
                     const SizedBox(height: 10),
-                    TextField(
-                      controller: _userController,
-                      onChanged: (_) => setState(() {}),
-                      decoration: const InputDecoration(
-                        labelText: "Nom d'utilisateur",
-                        border: OutlineInputBorder(),
-                        prefixIcon: Icon(Icons.person_outline),
-                      ),
-                    ),
-                    const SizedBox(height: 16),
-                    TextField(
-                      controller: _passController,
-                      onChanged: (_) => setState(() {}),
-                      obscureText: _obscurePassword,
-                      decoration: InputDecoration(
-                        labelText: "Mot de passe",
-                        border: const OutlineInputBorder(),
-                        prefixIcon: const Icon(Icons.lock_outline),
-                        suffixIcon: IconButton(
-                          icon: Icon(
-                            _obscurePassword
-                                ? Icons.visibility
-                                : Icons.visibility_off,
+                    AutofillGroup(
+                      child: Column(
+                        children: [
+                          TextField(
+                            controller: _userController,
+                            onChanged: (_) => setState(() {}),
+                            autofillHints: const [AutofillHints.username],
+                            decoration: const InputDecoration(
+                              labelText: "Nom d'utilisateur",
+                              border: OutlineInputBorder(),
+                              prefixIcon: Icon(Icons.person_outline),
+                            ),
                           ),
-                          onPressed: () {
-                            setState(() {
-                              _obscurePassword = !_obscurePassword;
-                            });
-                          },
-                          tooltip: _obscurePassword
-                              ? 'Afficher le mot de passe'
-                              : 'Masquer le mot de passe',
-                        ),
+                          const SizedBox(height: 16),
+                          TextField(
+                            controller: _passController,
+                            onChanged: (_) => setState(() {}),
+                            obscureText: _obscurePassword,
+                            autofillHints: const [AutofillHints.password],
+                            decoration: InputDecoration(
+                              labelText: "Mot de passe",
+                              border: const OutlineInputBorder(),
+                              prefixIcon: const Icon(Icons.lock_outline),
+                              suffixIcon: IconButton(
+                                icon: Icon(
+                                  _obscurePassword
+                                      ? Icons.visibility
+                                      : Icons.visibility_off,
+                                ),
+                                onPressed: () {
+                                  setState(() {
+                                    _obscurePassword = !_obscurePassword;
+                                  });
+                                },
+                                tooltip: _obscurePassword
+                                    ? 'Afficher le mot de passe'
+                                    : 'Masquer le mot de passe',
+                              ),
+                            ),
+                          ),
+                        ],
                       ),
                     ),
 
