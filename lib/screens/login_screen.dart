@@ -4,7 +4,9 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../app_colors.dart';
 import '../services/auth_service.dart';
+import '../constants.dart';
 import '../providers/grades_provider.dart';
+import '../providers/settings_provider.dart';
 import 'scan_screen.dart';
 import 'dashboard_screen.dart';
 
@@ -36,11 +38,9 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
   // Auto-fill username from stored credentials if available
   Future<void> _autoFillUsername() async {
     final credentials = await _authService.getCredentials();
-    if (credentials != null &&
-        credentials[AuthService.kUser] != null &&
-        mounted) {
+    if (credentials != null && credentials[kStorageUser] != null && mounted) {
       setState(() {
-        _userController.text = credentials[AuthService.kUser]!;
+        _userController.text = credentials[kStorageUser]!;
       });
     }
   }
@@ -85,9 +85,12 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
       );
 
       if (mounted) {
+        final needsConsent = !ref.read(settingsProvider).sharingConsentAsked;
         // Go to Dashboard only on successful fetch
         Navigator.of(context).pushAndRemoveUntil(
-          MaterialPageRoute(builder: (_) => const DashboardScreen()),
+          MaterialPageRoute(
+            builder: (_) => DashboardScreen(showConsentOnMount: needsConsent),
+          ),
           (_) => false,
         );
       }

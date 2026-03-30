@@ -8,22 +8,31 @@ class SettingsState {
   final int fetchInterval;
   final bool fetchEnabled;
   final bool isLoading;
+  final bool sharingConsent;
+  final bool sharingConsentAsked;
 
   const SettingsState({
     this.fetchInterval = 15,
     this.fetchEnabled = true,
-    this.isLoading = false,
+    this.isLoading = true, // true until _loadSettings() completes
+    this.sharingConsent =
+        false, // safe default — overwritten by persisted value
+    this.sharingConsentAsked = false,
   });
 
   SettingsState copyWith({
     int? fetchInterval,
     bool? fetchEnabled,
     bool? isLoading,
+    bool? sharingConsent,
+    bool? sharingConsentAsked,
   }) {
     return SettingsState(
       fetchInterval: fetchInterval ?? this.fetchInterval,
       fetchEnabled: fetchEnabled ?? this.fetchEnabled,
       isLoading: isLoading ?? this.isLoading,
+      sharingConsent: sharingConsent ?? this.sharingConsent,
+      sharingConsentAsked: sharingConsentAsked ?? this.sharingConsentAsked,
     );
   }
 }
@@ -32,6 +41,8 @@ class SettingsState {
 class SettingsNotifier extends StateNotifier<SettingsState> {
   static const String _fetchIntervalKey = 'background_fetch_interval';
   static const String _fetchEnabledKey = 'background_fetch_enabled';
+  static const String _sharingConsentKey = 'sharing_consent';
+  static const String _consentAskedKey = 'sharing_consent_asked';
 
   SettingsNotifier() : super(const SettingsState()) {
     _loadSettings();
@@ -43,11 +54,15 @@ class SettingsNotifier extends StateNotifier<SettingsState> {
       final prefs = await SharedPreferences.getInstance();
       final savedInterval = prefs.getInt(_fetchIntervalKey);
       final savedEnabled = prefs.getBool(_fetchEnabledKey) ?? true;
+      final sharingConsent = prefs.getBool(_sharingConsentKey) ?? true;
+      final consentAsked = prefs.getBool(_consentAskedKey) ?? false;
 
       final interval = (savedInterval ?? 15).clamp(15, 60);
       state = state.copyWith(
         fetchInterval: interval,
         fetchEnabled: savedEnabled,
+        sharingConsent: sharingConsent,
+        sharingConsentAsked: consentAsked,
         isLoading: false,
       );
     } catch (e) {
@@ -80,6 +95,33 @@ class SettingsNotifier extends StateNotifier<SettingsState> {
       }
       // Restore previous value — background task was not reconfigured
       state = state.copyWith(fetchInterval: previous);
+    }
+  }
+
+  /// Enable or disable anonymous grade sharing.
+  Future<void> setSharingConsent(bool value) async {
+    state = state.copyWith(sharingConsent: value);
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setBool(_sharingConsentKey, value);
+    } catch (e) {
+      if (kDebugMode) {
+        debugPrint('[SettingsProvider] Failed to save sharingConsent: $e');
+      }
+    }
+  }
+
+  /// Mark that the consent dialog has been shown — called exactly once
+  /// from the consent dialog, never from the settings screen.
+  Future<void> markConsentAsked() async {
+    state = state.copyWith(sharingConsentAsked: true);
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setBool(_consentAskedKey, true);
+    } catch (e) {
+      if (kDebugMode) {
+        debugPrint('[SettingsProvider] Failed to save consentAsked: $e');
+      }
     }
   }
 

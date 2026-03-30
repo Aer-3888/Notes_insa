@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter/foundation.dart';
 import '../services/grades_service.dart';
 import '../services/auth_service.dart';
+import '../constants.dart';
 
 /// Grades state that holds the raw JSON data from the API.
 class GradesState {
@@ -115,9 +116,9 @@ class GradesNotifier extends StateNotifier<GradesState> {
     }
 
     await fetchGrades(
-      credentials[AuthService.kUser]!,
-      credentials[AuthService.kPass]!,
-      credentials[AuthService.kToken]!,
+      credentials[kStorageUser]!,
+      credentials[kStoragePass]!,
+      credentials[kStorageToken]!,
     );
   }
 
