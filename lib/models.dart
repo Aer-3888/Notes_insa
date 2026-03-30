@@ -139,6 +139,50 @@ String titleCase(String input) {
       .join(' ');
 }
 
+class SubjectAverage {
+  final String ueName;
+  final String subjectName;
+  final double avg;
+  final double min;
+  final double max;
+  final int count;
+  final List<int> buckets; // length 10, index i = bucket [i*2, i*2+2)
+
+  SubjectAverage({
+    required this.ueName,
+    required this.subjectName,
+    required this.avg,
+    required this.min,
+    required this.max,
+    required this.count,
+    required this.buckets,
+  });
+
+  /// Approximate median: midpoint of the bucket where cumulative count
+  /// first reaches or exceeds count / 2.
+  double get median {
+    final half = count / 2;
+    int cumulative = 0;
+    for (int i = 0; i < buckets.length; i++) {
+      cumulative += buckets[i];
+      if (cumulative >= half) {
+        return i * 2.0 + 1.0;
+      }
+    }
+    return avg; // fallback
+  }
+
+  factory SubjectAverage.fromJson(Map<String, dynamic> json) => SubjectAverage(
+    ueName: json['ue_name'] as String,
+    subjectName: json['subject_name'] as String,
+    avg: (json['avg'] as num).toDouble(),
+    min: (json['min'] as num).toDouble(),
+    max: (json['max'] as num).toDouble(),
+    count: json['count'] as int,
+    buckets: List.generate(10, (i) => (json['b$i'] as num? ?? 0).toInt()),
+  );
+}
+
 class GradeInstance {
   final String label;
   final double value;
@@ -222,26 +266,41 @@ class Profile {
 class JsonGradeParser {
   static Map<String, String> flattenGrades(Map<String, dynamic> json) {
     final Map<String, String> result = {};
+    final List<dynamic> stack = [json];
 
-    void traverse(dynamic node) {
-      if (node is Map<String, dynamic>) {
-        if (node['name'] != null && node['score'] != null) {
-          result[node['name'] as String] = node['score'] as String;
+    while (stack.isNotEmpty) {
+      final current = stack.removeLast();
+
+      if (current is Map<String, dynamic>) {
+        if (current['name'] != null && current['score'] != null) {
+          result[current['name'] as String] = current['score'] as String;
         }
 
-        if (node['details'] is List) {
-          for (var child in node['details']) {
-            traverse(child);
+        if (current['details'] is List) {
+          final List<dynamic> details = current['details'];
+          // Push in reverse order to maintain original traversal order if needed,
+          // though for a map it doesn't strictly matter.
+          for (var i = details.length - 1; i >= 0; i--) {
+            stack.add(details[i]);
           }
         }
-      } else if (node is List) {
-        for (var item in node) {
-          traverse(item);
+      } else if (current is List) {
+        for (var i = current.length - 1; i >= 0; i--) {
+          stack.add(current[i]);
         }
       }
     }
 
-    traverse(json);
     return result;
+  }
+}
+
+extension StringCleaning on String {
+  /// Aggressively clean a string by replacing all whitespace (including
+  /// non-breaking spaces and hidden characters) with a single space and
+  /// trimming it. This ensures consistent key matching between the
+  /// curriculum parser and backend averages.
+  String cleanName() {
+    return replaceAll(RegExp(r'[\s\u00A0\u200B\u200D\uFEFF]+'), ' ').trim();
   }
 }

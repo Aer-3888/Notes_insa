@@ -44,7 +44,10 @@ class JsonCurriculumParser {
       for (final ueNode in ueList) {
         if (ueNode is! Map<String, dynamic>) continue;
 
-        final String ueName = ueNode['name'] ?? 'Unknown UE';
+        // Clean names to ensure consistent key matching with the backend
+        final String ueName = (ueNode['name'] ?? 'Unknown UE')
+            .toString()
+            .cleanName();
         final List<Subject> subjects = [];
 
         if (ueNode['details'] is List) {
@@ -53,20 +56,14 @@ class JsonCurriculumParser {
           for (final subjectNode in subjectList) {
             if (subjectNode is! Map<String, dynamic>) continue;
 
-            final String subjectName = subjectNode['name'] ?? 'Unknown Subject';
+            final String subjectName =
+                (subjectNode['name'] ?? 'Unknown Subject')
+                    .toString()
+                    .cleanName();
             final double subjectCoeff =
                 double.tryParse(subjectNode['coeff'] as String? ?? '') ?? 1.0;
 
             final List<GradeInstance> grades = [];
-
-            // Aggregate subject score (if present)
-            final String? subjectScore = subjectNode['score'];
-            if (subjectScore != null && !subjectScore.contains('Aucun')) {
-              final double? gradeValue = GradeUtils.parseDouble(subjectScore);
-              if (gradeValue != null) {
-                grades.add(GradeInstance(subjectName, gradeValue));
-              }
-            }
 
             // Detailed grades under the subject
             if (subjectNode['details'] is List) {
@@ -75,7 +72,9 @@ class JsonCurriculumParser {
               for (final gradeNode in gradeList) {
                 if (gradeNode is! Map<String, dynamic>) continue;
 
-                final String gradeName = gradeNode['name'] ?? 'Unknown Grade';
+                final String gradeName = (gradeNode['name'] ?? 'Unknown Grade')
+                    .toString()
+                    .cleanName();
                 final String? gradeScore = gradeNode['score'];
 
                 if (gradeScore != null && !gradeScore.contains('Aucun')) {
@@ -89,6 +88,17 @@ class JsonCurriculumParser {
                       ),
                     );
                   }
+                }
+              }
+            }
+
+            // Fallback: use top-level score only if no detailed grades were found
+            if (grades.isEmpty) {
+              final String? subjectScore = subjectNode['score'];
+              if (subjectScore != null && !subjectScore.contains('Aucun')) {
+                final double? gradeValue = GradeUtils.parseDouble(subjectScore);
+                if (gradeValue != null) {
+                  grades.add(GradeInstance(subjectName, gradeValue));
                 }
               }
             }
@@ -119,7 +129,7 @@ class JsonCurriculumParser {
   static String getDepartmentName(String jsonString) {
     try {
       final Map<String, dynamic> rawData = jsonDecode(jsonString);
-      return rawData['name'] ?? 'Etudiant';
+      return (rawData['name'] ?? 'Etudiant').toString().cleanName();
     } catch (_) {
       return 'Etudiant';
     }
