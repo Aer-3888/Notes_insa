@@ -3,6 +3,7 @@ export interface Env {
   RATE_LIMIT: KVNamespace;
   APP_SECRET: string;
   IP_SALT: string;
+  USER_HASH_SALT: string;
 }
 
 // ── Types ──────────────────────────────────────────────────────────────────
@@ -17,7 +18,7 @@ interface SubmitBody {
   department: string;
   semester: number;
   subjects: SubmitSubject[];
-  user_hash?: string; // optional — absent in old app versions
+  username?: string; // optional — absent in old app versions
 }
 
 interface AverageRow {
@@ -64,6 +65,17 @@ async function hashIp(ip: string, salt: string): Promise<string> {
   const buf = await crypto.subtle.digest(
     "SHA-256",
     new TextEncoder().encode(ip + salt),
+  );
+  return Array.from(new Uint8Array(buf))
+    .map((b) => b.toString(16).padStart(2, "0"))
+    .join("");
+}
+
+/** SHA-256 hash of a username — used to anonymise students server-side. */
+async function hashUsername(username: string, salt: string): Promise<string> {
+  const buf = await crypto.subtle.digest(
+    "SHA-256",
+    new TextEncoder().encode(username + salt),
   );
   return Array.from(new Uint8Array(buf))
     .map((b) => b.toString(16).padStart(2, "0"))
@@ -117,8 +129,8 @@ function validateSubmitBody(body: unknown): body is SubmitBody {
     return false;
   if (!Array.isArray(b.subjects) || b.subjects.length === 0) return false;
   if (b.subjects.length > 60) return false;
-  if (b.user_hash !== undefined && typeof b.user_hash !== "string") return false;
-  if (typeof b.user_hash === "string" && !/^[0-9a-f]{64}$/.test(b.user_hash))
+  if (b.username !== undefined && typeof b.username !== "string") return false;
+  if (typeof b.username === "string" && b.username.trim().length === 0)
     return false;
 
   for (const s of b.subjects) {
@@ -155,9 +167,12 @@ async function handleSubmit(request: Request, env: Env): Promise<Response> {
 
   const ip = request.headers.get("CF-Connecting-IP") ?? "unknown";
   const ipHash = await hashIp(ip, env.IP_SALT);
-  // Prefer user_hash for rate-limiting — stable across reinstalls and IP changes.
-  // Fall back to IP hash for old app versions that don't send a user_hash.
-  const rateLimitId = body.user_hash ?? ipHash;
+  // Compute user hash server-side — salt never leaves Cloudflare.
+  // Fall back to IP hash for old app versions that don't send a username.
+  const userHash = body.username
+    ? await hashUsername(body.username.trim(), env.USER_HASH_SALT)
+    : "";
+  const rateLimitId = userHash || ipHash;
 
   const limited = await isRateLimited(
     env.RATE_LIMIT,
@@ -169,8 +184,6 @@ async function handleSubmit(request: Request, env: Env): Promise<Response> {
     // Return 200 silently — no need to tell the client it was rate-limited
     return json({ ok: true });
   }
-
-  const userHash = body.user_hash ?? "";
   const academicYear = getCurrentAcademicYear();
 
   // Upsert: if the same student (user_hash) submits the same subject again,
