@@ -24,10 +24,11 @@ android {
         versionCode = flutter.versionCode
         versionName = flutter.versionName
 
-        // Only build for arm64-v8a to avoid CMake issues with armeabi-v7a
+        // Support both 64-bit and 32-bit ARM architectures
         ndk {
             abiFilters.clear()
             abiFilters.add("arm64-v8a")
+            abiFilters.add("armeabi-v7a")
         }
     }
 

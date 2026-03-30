@@ -4,6 +4,8 @@ import 'package:permission_handler/permission_handler.dart';
 import '../app_colors.dart';
 import '../components/app_drawer.dart';
 import '../providers/settings_provider.dart';
+import '../providers/grades_provider.dart';
+import '../services/averages_service.dart';
 
 String _intervalLabel(int minutes) =>
     minutes < 60 ? '$minutes min' : '${minutes ~/ 60} h';
@@ -46,19 +48,13 @@ class SettingsScreen extends ConsumerWidget {
             ),
           ),
         ),
-        title: Row(
-          children: [
-            Expanded(
-              child: const Text(
-                'Paramètres',
-                style: TextStyle(
-                  fontSize: 20,
-                  fontWeight: FontWeight.w700,
-                  color: Colors.white,
-                ),
-              ),
-            ),
-          ],
+        title: const Text(
+          'Paramètres',
+          style: TextStyle(
+            fontSize: 20,
+            fontWeight: FontWeight.w700,
+            color: Colors.white,
+          ),
         ),
       ),
       body: settingsState.isLoading
@@ -69,6 +65,174 @@ class SettingsScreen extends ConsumerWidget {
                 // Notification permission card
                 const _NotificationPermissionCard(),
                 const SizedBox(height: 12),
+
+                // Sharing consent card
+                Card(
+                  elevation: 2,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Padding(
+                    padding: const EdgeInsets.all(16.0),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          children: [
+                            const Icon(
+                              Icons.people_outline,
+                              color: AppColors.primary,
+                              size: 26,
+                            ),
+                            const SizedBox(width: 12),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    'Partage anonyme',
+                                    style: TextStyle(
+                                      fontSize: 18,
+                                      fontWeight: FontWeight.bold,
+                                      color: AppColors.textDark,
+                                    ),
+                                  ),
+                                  const SizedBox(height: 4),
+                                  Text(
+                                    'Contribuer aux moyennes de promo',
+                                    style: TextStyle(
+                                      fontSize: 14,
+                                      color: Colors.grey.shade600,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                            Transform.scale(
+                              scale: 0.85,
+                              child: Switch(
+                                value: settingsState.sharingConsent,
+                                onChanged: (value) {
+                                  ref
+                                      .read(settingsProvider.notifier)
+                                      .setSharingConsent(value);
+                                },
+                                activeThumbColor: AppColors.statusPositive,
+                                activeTrackColor: AppColors.statusPositive
+                                    .withValues(alpha: 0.4),
+                              ),
+                            ),
+                          ],
+                        ),
+                        if (!settingsState.sharingConsent) ...[
+                          const SizedBox(height: 8),
+                          Text(
+                            'Vos notes ne sont pas partagées.',
+                            style: TextStyle(
+                              fontSize: 12,
+                              color: Colors.grey.shade500,
+                            ),
+                          ),
+                        ],
+                      ],
+                    ),
+                  ),
+                ),
+
+                // Force send data card
+                if (settingsState.sharingConsent) ...[
+                  const SizedBox(height: 12),
+                  Card(
+                    elevation: 2,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: InkWell(
+                      onTap: () async {
+                        final gradesJson = ref.read(gradesProvider).jsonData;
+                        if (gradesJson == '{}' || gradesJson.isEmpty) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(
+                              content: Text('Aucune donnée à envoyer'),
+                            ),
+                          );
+                          return;
+                        }
+
+                        // Show loading
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(
+                            content: Text('Envoi des données en cours...'),
+                            duration: Duration(seconds: 1),
+                          ),
+                        );
+
+                        try {
+                          await AveragesService.submitAllSemesters(gradesJson);
+
+                          if (context.mounted) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(
+                                content: Text('Données envoyées avec succès'),
+                                backgroundColor: AppColors.statusPositive,
+                              ),
+                            );
+                          }
+                        } catch (e) {
+                          if (context.mounted) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(
+                                content: Text('Erreur : ${e.toString()}'),
+                                backgroundColor: Colors.red.shade700,
+                              ),
+                            );
+                          }
+                        }
+                      },
+                      borderRadius: BorderRadius.circular(12),
+                      child: Padding(
+                        padding: const EdgeInsets.all(16.0),
+                        child: Row(
+                          children: [
+                            const Icon(
+                              Icons.cloud_upload_outlined,
+                              color: AppColors.primary,
+                              size: 26,
+                            ),
+                            const SizedBox(width: 12),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    'Forcer l\'envoi des données',
+                                    style: TextStyle(
+                                      fontSize: 16,
+                                      fontWeight: FontWeight.bold,
+                                      color: AppColors.textDark,
+                                    ),
+                                  ),
+                                  const SizedBox(height: 4),
+                                  const Text(
+                                    'Mettre à jour manuellement vos moyennes',
+                                    style: TextStyle(
+                                      fontSize: 13,
+                                      color: Colors.grey,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                            const Icon(Icons.chevron_right, color: Colors.grey),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+
+                const SizedBox(height: 12),
+
                 // Background fetch card
                 Card(
                   elevation: 2,
