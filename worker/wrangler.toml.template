@@ -11,3 +11,7 @@ database_id = "D1_DATABASE_ID"
 [[kv_namespaces]]
 binding = "RATE_LIMIT"
 id = "KV_NAMESPACE_ID"
+
+[vars]
+# APP_SECRET = "SET_THIS_VIA_DASHBOARD"
+# IP_SALT = "SET_THIS_VIA_DASHBOARD"

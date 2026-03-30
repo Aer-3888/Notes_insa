@@ -1,6 +1,8 @@
 export interface Env {
   DB: D1Database;
   RATE_LIMIT: KVNamespace;
+  APP_SECRET: string;
+  IP_SALT: string;
 }
 
 // ── Types ──────────────────────────────────────────────────────────────────
@@ -15,6 +17,7 @@ interface SubmitBody {
   department: string;
   semester: number;
   subjects: SubmitSubject[];
+  user_hash?: string; // optional — absent in old app versions
 }
 
 interface AverageRow {
@@ -24,6 +27,17 @@ interface AverageRow {
   min: number;
   max: number;
   count: number;
+  // Grade distribution buckets — each covers a 2-point range [low, low+2)
+  b0: number; // [0,  2)
+  b1: number; // [2,  4)
+  b2: number; // [4,  6)
+  b3: number; // [6,  8)
+  b4: number; // [8,  10)
+  b5: number; // [10, 12)
+  b6: number; // [12, 14)
+  b7: number; // [14, 16)
+  b8: number; // [16, 18)
+  b9: number; // [18, 20]
 }
 
 // ── Helpers ────────────────────────────────────────────────────────────────
@@ -46,14 +60,29 @@ function error(message: string, status = 400): Response {
 }
 
 /** SHA-256 hash of a string — used to anonymise IPs for rate-limiting. */
-async function hashIp(ip: string): Promise<string> {
+async function hashIp(ip: string, salt: string): Promise<string> {
   const buf = await crypto.subtle.digest(
     "SHA-256",
-    new TextEncoder().encode(ip + "notes-insa-salt"),
+    new TextEncoder().encode(ip + salt),
   );
   return Array.from(new Uint8Array(buf))
     .map((b) => b.toString(16).padStart(2, "0"))
     .join("");
+}
+
+/**
+ * Returns the current academic year string (e.g., "2025-2026").
+ * The year starts in August (month index 7).
+ */
+function getCurrentAcademicYear(): string {
+  const now = new Date();
+  const year = now.getFullYear();
+  const month = now.getMonth();
+  if (month >= 7) {
+    return `${year}-${year + 1}`;
+  } else {
+    return `${year - 1}-${year}`;
+  }
 }
 
 /** Returns true if the caller is rate-limited (1 submit per dept+semester per IP per 24 h). */
@@ -88,6 +117,9 @@ function validateSubmitBody(body: unknown): body is SubmitBody {
     return false;
   if (!Array.isArray(b.subjects) || b.subjects.length === 0) return false;
   if (b.subjects.length > 60) return false;
+  if (b.user_hash !== undefined && typeof b.user_hash !== "string") return false;
+  if (typeof b.user_hash === "string" && !/^[0-9a-f]{64}$/.test(b.user_hash))
+    return false;
 
   for (const s of b.subjects) {
     if (!s || typeof s !== "object") return false;
@@ -103,6 +135,11 @@ function validateSubmitBody(body: unknown): body is SubmitBody {
 // ── Handlers ───────────────────────────────────────────────────────────────
 
 async function handleSubmit(request: Request, env: Env): Promise<Response> {
+  const secret = request.headers.get("X-App-Secret");
+  if (secret !== env.APP_SECRET) {
+    return error("Unauthorized", 401);
+  }
+
   let body: unknown;
   try {
     body = await request.json();
@@ -117,11 +154,14 @@ async function handleSubmit(request: Request, env: Env): Promise<Response> {
   }
 
   const ip = request.headers.get("CF-Connecting-IP") ?? "unknown";
-  const ipHash = await hashIp(ip);
+  const ipHash = await hashIp(ip, env.IP_SALT);
+  // Prefer user_hash for rate-limiting — stable across reinstalls and IP changes.
+  // Fall back to IP hash for old app versions that don't send a user_hash.
+  const rateLimitId = body.user_hash ?? ipHash;
 
   const limited = await isRateLimited(
     env.RATE_LIMIT,
-    ipHash,
+    rateLimitId,
     body.department.trim(),
     body.semester,
   );
@@ -130,20 +170,45 @@ async function handleSubmit(request: Request, env: Env): Promise<Response> {
     return json({ ok: true });
   }
 
-  // Insert each subject as a separate row
-  const stmt = env.DB.prepare(
-    `INSERT INTO submissions (department, semester, ue_name, subject_name, grade)
-     VALUES (?, ?, ?, ?, ?)`,
-  );
+  const userHash = body.user_hash ?? "";
+  const academicYear = getCurrentAcademicYear();
+
+  // Upsert: if the same student (user_hash) submits the same subject again,
+  // update their grade rather than inserting a duplicate row.
+  // Rows without a user_hash (old app versions) always insert to preserve
+  // backwards compatibility; those rely solely on IP rate-limiting for dedup.
+  const stmt = userHash
+    ? env.DB.prepare(
+        `INSERT INTO submissions (user_hash, academic_year, department, semester, ue_name, subject_name, grade)
+         VALUES (?, ?, ?, ?, ?, ?, ?)
+         ON CONFLICT (user_hash, academic_year, department, semester, ue_name, subject_name)
+         WHERE user_hash != ''
+         DO UPDATE SET grade = excluded.grade, submitted_at = datetime('now')`,
+      )
+    : env.DB.prepare(
+        `INSERT INTO submissions (user_hash, academic_year, department, semester, ue_name, subject_name, grade)
+         VALUES ('', ?, ?, ?, ?, ?, ?)`,
+      );
 
   const inserts = body.subjects.map((s) =>
-    stmt.bind(
-      body.department.trim(),
-      body.semester,
-      s.ue.trim(),
-      s.name.trim(),
-      Math.round(s.grade * 100) / 100, // store with 2 decimal precision
-    ),
+    userHash
+      ? stmt.bind(
+          userHash,
+          academicYear,
+          body.department.trim(),
+          body.semester,
+          s.ue.trim(),
+          s.name.trim(),
+          Math.round(s.grade * 100) / 100,
+        )
+      : stmt.bind(
+          academicYear,
+          body.department.trim(),
+          body.semester,
+          s.ue.trim(),
+          s.name.trim(),
+          Math.round(s.grade * 100) / 100,
+        ),
   );
 
   await env.DB.batch(inserts);
@@ -168,6 +233,8 @@ async function handleAverages(
     return error("Missing or invalid query param: semester (must be 1–12)");
   }
 
+  const academicYear = getCurrentAcademicYear();
+
   const result = await env.DB.prepare(
     `SELECT
        ue_name,
@@ -175,16 +242,25 @@ async function handleAverages(
        ROUND(AVG(grade), 2) AS avg,
        ROUND(MIN(grade), 2) AS min,
        ROUND(MAX(grade), 2) AS max,
-       COUNT(*)             AS count
+       COUNT(*)             AS count,
+       COUNT(CASE WHEN grade >= 0  AND grade <  2  THEN 1 END) AS b0,
+       COUNT(CASE WHEN grade >= 2  AND grade <  4  THEN 1 END) AS b1,
+       COUNT(CASE WHEN grade >= 4  AND grade <  6  THEN 1 END) AS b2,
+       COUNT(CASE WHEN grade >= 6  AND grade <  8  THEN 1 END) AS b3,
+       COUNT(CASE WHEN grade >= 8  AND grade <  10 THEN 1 END) AS b4,
+       COUNT(CASE WHEN grade >= 10 AND grade <  12 THEN 1 END) AS b5,
+       COUNT(CASE WHEN grade >= 12 AND grade <  14 THEN 1 END) AS b6,
+       COUNT(CASE WHEN grade >= 14 AND grade <  16 THEN 1 END) AS b7,
+       COUNT(CASE WHEN grade >= 16 AND grade <  18 THEN 1 END) AS b8,
+       COUNT(CASE WHEN grade >= 18 AND grade <= 20 THEN 1 END) AS b9
      FROM submissions
      WHERE department  = ?
        AND semester    = ?
-       AND submitted_at > datetime('now', '-180 days')
+       AND academic_year = ?
      GROUP BY ue_name, subject_name
-     HAVING COUNT(*) >= 3
      ORDER BY ue_name, subject_name`,
   )
-    .bind(department, semester)
+    .bind(department, semester, academicYear)
     .all<AverageRow>();
 
   return new Response(JSON.stringify(result.results), {
