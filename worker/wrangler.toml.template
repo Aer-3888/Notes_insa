@@ -15,3 +15,8 @@ id = "KV_NAMESPACE_ID"
 [vars]
 # APP_SECRET = "SET_THIS_VIA_DASHBOARD"
 # IP_SALT = "SET_THIS_VIA_DASHBOARD"
+
+# Required secrets — set via: wrangler secret put <NAME>
+# USER_HASH_SALT  — random string used to hash usernames server-side
+# APP_SECRET      — shared with the Flutter app via --dart-define
+# IP_SALT         — random string used to hash IPs for rate limiting
