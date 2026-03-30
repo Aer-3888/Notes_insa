@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import '../app_colors.dart';
 import 'package:flutter/services.dart';
@@ -6,13 +7,17 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../models.dart';
 import '../providers/dashboard_providers.dart';
 import '../providers/grades_provider.dart';
+import '../providers/settings_provider.dart';
+import '../providers/averages_provider.dart';
 import '../components/app_drawer.dart';
 import '../components/dashboard_header.dart';
 import '../components/unit_card_grid.dart';
+import '../services/averages_service.dart';
 import '../services/notification_service.dart';
 
 class DashboardScreen extends ConsumerStatefulWidget {
-  const DashboardScreen({super.key});
+  final bool showConsentOnMount;
+  const DashboardScreen({super.key, this.showConsentOnMount = false});
 
   @override
   ConsumerState<DashboardScreen> createState() => _DashboardScreenState();
@@ -37,6 +42,12 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen>
     });
     // Request notification permission the first time the dashboard is shown
     unawaited(NotificationService.requestPermission());
+
+    if (widget.showConsentOnMount) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        _showConsentDialog();
+      });
+    }
   }
 
   @override
@@ -101,13 +112,63 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen>
     );
   }
 
+  void _showConsentDialog() {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.transparent,
+      isDismissible: false,
+      enableDrag: false,
+      builder: (sheetContext) => _ConsentSheet(
+        onAccept: () {
+          ref.read(settingsProvider.notifier).setSharingConsent(true);
+          ref.read(settingsProvider.notifier).markConsentAsked();
+          Navigator.pop(sheetContext);
+        },
+        onDecline: () {
+          ref.read(settingsProvider.notifier).setSharingConsent(false);
+          ref.read(settingsProvider.notifier).markConsentAsked();
+          Navigator.pop(sheetContext);
+        },
+      ),
+    );
+  }
+
+  // Called after every successful fresh fetch (login + manual refresh).
+  void _trySubmitGrades() {
+    final settings = ref.read(settingsProvider);
+    final gradesJson = ref.read(gradesProvider).jsonData;
+
+    if (settings.isLoading) return;
+    if (!settings.sharingConsent) return;
+
+    unawaited(AveragesService.submitAllSemesters(gradesJson));
+  }
+
   @override
   Widget build(BuildContext context) {
+    ref.listen<GradesState>(gradesProvider, (prev, next) {
+      if (prev?.isLoading == true &&
+          !next.isLoading &&
+          next.hasData &&
+          next.error == null) {
+        _trySubmitGrades();
+      }
+    });
+
     final departmentName = ref.watch(departmentNameProvider);
     final curriculum = ref.watch(curriculumProvider);
     final semesterAverage = ref.watch(semesterAverageProvider);
     final selectedSemester = ref.watch(selectedSemesterProvider);
     final gradesState = ref.watch(gradesProvider);
+
+    // Pre-fetch averages in the background so data is ready when user taps a subject.
+    ref.watch(
+      averagesProvider((
+        department: departmentName,
+        semester: selectedSemester,
+      )),
+    );
+
     final isLoading = gradesState.isLoading;
     final lastUpdated = gradesState.lastUpdated;
     final pillMode = isLoading ? _PillMode.loading : _pillMode;
@@ -256,16 +317,16 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen>
 // Bottom sheet
 // ---------------------------------------------------------------------------
 
-class _UEDetailSheet extends StatefulWidget {
+class _UEDetailSheet extends ConsumerStatefulWidget {
   final TeachingUnit unit;
 
   const _UEDetailSheet({required this.unit});
 
   @override
-  State<_UEDetailSheet> createState() => _UEDetailSheetState();
+  ConsumerState<_UEDetailSheet> createState() => _UEDetailSheetState();
 }
 
-class _UEDetailSheetState extends State<_UEDetailSheet> {
+class _UEDetailSheetState extends ConsumerState<_UEDetailSheet> {
   final _scrolled = ValueNotifier<bool>(false);
 
   @override
@@ -274,9 +335,45 @@ class _UEDetailSheetState extends State<_UEDetailSheet> {
     super.dispose();
   }
 
+  void _showSubjectStats(
+    BuildContext context,
+    Subject subject,
+    SubjectAverage? avg,
+  ) {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.transparent,
+      builder: (_) => _SubjectStatsSheet(subject: subject, avg: avg),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final ueColor = GradeUtils.getColor(widget.unit.average);
+
+    final department = ref.watch(departmentNameProvider);
+    final semester = ref.watch(selectedSemesterProvider);
+    final avgAsync = ref.watch(
+      averagesProvider((department: department, semester: semester)),
+    );
+
+    final Map<String, SubjectAverage> avgMap = avgAsync.maybeWhen(
+      data: (list) => {
+        for (final a in list)
+          '${a.ueName.cleanName()}|${a.subjectName.cleanName()}': a,
+      },
+      orElse: () => {},
+    );
+
+    if (kDebugMode && avgAsync.hasValue) {
+      for (final subject in widget.unit.subjects) {
+        final key =
+            '${widget.unit.name.cleanName()}|${subject.name.cleanName()}';
+        if (!avgMap.containsKey(key)) {
+          debugPrint('[UEDetailSheet] No average data for subject: $key');
+        }
+      }
+    }
 
     return DraggableScrollableSheet(
       initialChildSize: 0.75,
@@ -388,28 +485,86 @@ class _UEDetailSheetState extends State<_UEDetailSheet> {
               ),
               // Subject list
               Expanded(
-                child: widget.unit.subjects.isEmpty
-                    ? Center(
-                        child: Text(
-                          'Aucune matière',
-                          style: TextStyle(color: Colors.grey.shade400),
+                child: Column(
+                  children: [
+                    if (avgAsync.isLoading)
+                      const LinearProgressIndicator(minHeight: 2),
+                    if (avgAsync.hasError)
+                      Container(
+                        width: double.infinity,
+                        padding: const EdgeInsets.symmetric(
+                          vertical: 8,
+                          horizontal: 16,
                         ),
-                      )
-                    : NotificationListener<ScrollNotification>(
-                        onNotification: (n) {
-                          _scrolled.value = n.metrics.pixels > 0;
-                          return false;
-                        },
-                        child: ListView.separated(
-                          controller: scrollController,
-                          padding: const EdgeInsets.fromLTRB(16, 16, 16, 32),
-                          itemCount: widget.unit.subjects.length,
-                          separatorBuilder: (_, _) =>
-                              const SizedBox(height: 12),
-                          itemBuilder: (_, i) =>
-                              _SubjectCard(subject: widget.unit.subjects[i]),
+                        color: Colors.red.shade50,
+                        child: Row(
+                          children: [
+                            Icon(
+                              Icons.error_outline,
+                              size: 16,
+                              color: Colors.red.shade700,
+                            ),
+                            const SizedBox(width: 8),
+                            Expanded(
+                              child: const Text(
+                                'Erreur stats',
+                                style: TextStyle(
+                                  fontSize: 12,
+                                  color: Colors.red,
+                                ),
+                              ),
+                            ),
+                            TextButton(
+                              onPressed: () => ref.invalidate(averagesProvider),
+                              child: const Text('Réessayer'),
+                            ),
+                          ],
                         ),
                       ),
+                    Expanded(
+                      child: widget.unit.subjects.isEmpty
+                          ? Center(
+                              child: Text(
+                                'Aucune matière',
+                                style: TextStyle(color: Colors.grey.shade400),
+                              ),
+                            )
+                          : NotificationListener<ScrollNotification>(
+                              onNotification: (n) {
+                                _scrolled.value = n.metrics.pixels > 0;
+                                return false;
+                              },
+                              child: ListView.separated(
+                                controller: scrollController,
+                                padding: const EdgeInsets.fromLTRB(
+                                  16,
+                                  16,
+                                  16,
+                                  32,
+                                ),
+                                itemCount: widget.unit.subjects.length,
+                                separatorBuilder: (_, _) =>
+                                    const SizedBox(height: 12),
+                                itemBuilder: (_, i) {
+                                  final subject = widget.unit.subjects[i];
+                                  final key =
+                                      '${widget.unit.name.cleanName()}|${subject.name.cleanName()}';
+                                  final avg = avgMap[key];
+                                  return _SubjectCard(
+                                    subject: subject,
+                                    hasData: avg != null,
+                                    onTap: () => _showSubjectStats(
+                                      context,
+                                      subject,
+                                      avg,
+                                    ),
+                                  );
+                                },
+                              ),
+                            ),
+                    ),
+                  ],
+                ),
               ),
             ],
           ),
@@ -425,101 +580,119 @@ class _UEDetailSheetState extends State<_UEDetailSheet> {
 
 class _SubjectCard extends StatelessWidget {
   final Subject subject;
+  final bool hasData;
+  final VoidCallback onTap;
 
-  const _SubjectCard({required this.subject});
+  const _SubjectCard({
+    required this.subject,
+    required this.onTap,
+    this.hasData = false,
+  });
 
   @override
   Widget build(BuildContext context) {
     final subjectColor = GradeUtils.getColor(subject.average);
 
-    return Container(
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.05),
-            blurRadius: 8,
-            offset: const Offset(0, 2),
-          ),
-        ],
-      ),
-      clipBehavior: Clip.hardEdge,
-      child: IntrinsicHeight(
-        child: Row(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            // Left color accent strip
-            Container(width: 4, color: subjectColor),
-            // Card content
-            Expanded(
-              child: Padding(
-                padding: const EdgeInsets.all(14),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    // Subject name + coeff pill
-                    Row(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Expanded(
-                          child: Text(
-                            titleCase(subject.name),
-                            style: const TextStyle(
-                              fontWeight: FontWeight.w600,
-                              fontSize: 15,
-                              height: 1.3,
-                            ),
-                          ),
-                        ),
-                        const SizedBox(width: 8),
-                        _CoeffPill(coeff: subject.coeff),
-                      ],
-                    ),
-                    const SizedBox(height: 10),
-                    // Moyenne — full-width tinted row
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 12,
-                        vertical: 8,
-                      ),
-                      decoration: BoxDecoration(
-                        color: subjectColor.withValues(alpha: 0.08),
-                        borderRadius: BorderRadius.circular(10),
-                      ),
-                      child: Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: [
-                          Text(
-                            'Moyenne',
-                            style: TextStyle(
-                              fontSize: 13,
-                              fontWeight: FontWeight.w500,
-                              color: subjectColor,
-                            ),
-                          ),
-                          Text(
-                            subject.average?.toStringAsFixed(2) ?? '–',
-                            style: TextStyle(
-                              fontSize: 15,
-                              fontWeight: FontWeight.bold,
-                              color: subjectColor,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                    if (subject.grades.isNotEmpty) ...[
-                      const SizedBox(height: 10),
-                      Divider(height: 1, color: Colors.grey.shade100),
-                      const SizedBox(height: 6),
-                      ...subject.grades.map((g) => _GradeRow(grade: g)),
-                    ],
-                  ],
-                ),
-              ),
+    return GestureDetector(
+      onTap: onTap,
+      behavior: HitTestBehavior.opaque,
+      child: Container(
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(16),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withValues(alpha: 0.05),
+              blurRadius: 8,
+              offset: const Offset(0, 2),
             ),
           ],
+        ),
+        clipBehavior: Clip.hardEdge,
+        child: IntrinsicHeight(
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              // Left color accent strip
+              Container(width: 4, color: subjectColor),
+              // Card content
+              Expanded(
+                child: Padding(
+                  padding: const EdgeInsets.all(14),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      // Subject name + coeff pill
+                      Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Expanded(
+                            child: Text(
+                              titleCase(subject.name),
+                              style: const TextStyle(
+                                fontWeight: FontWeight.w600,
+                                fontSize: 15,
+                                height: 1.3,
+                              ),
+                            ),
+                          ),
+                          const SizedBox(width: 4),
+                          Icon(
+                            Icons.bar_chart_outlined,
+                            size: 14,
+                            color: hasData
+                                ? AppColors.textMuted
+                                : Colors.grey.shade300,
+                          ),
+                          const SizedBox(width: 8),
+                          _CoeffPill(coeff: subject.coeff),
+                        ],
+                      ),
+                      const SizedBox(height: 10),
+                      // Moyenne — full-width tinted row
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 12,
+                          vertical: 8,
+                        ),
+                        decoration: BoxDecoration(
+                          color: subjectColor.withValues(alpha: 0.08),
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            Text(
+                              'Moyenne',
+                              style: TextStyle(
+                                fontSize: 13,
+                                fontWeight: FontWeight.w500,
+                                color: subjectColor,
+                              ),
+                            ),
+                            Text(
+                              subject.average?.toStringAsFixed(2) ?? '–',
+                              style: TextStyle(
+                                fontSize: 15,
+                                fontWeight: FontWeight.bold,
+                                color: subjectColor,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      if (subject.grades.isNotEmpty) ...[
+                        const SizedBox(height: 10),
+                        Divider(height: 1, color: Colors.grey.shade100),
+                        const SizedBox(height: 6),
+                        ...subject.grades.map((g) => _GradeRow(grade: g)),
+                      ],
+                    ],
+                  ),
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );
@@ -621,6 +794,420 @@ class _CoeffPill extends StatelessWidget {
           fontWeight: FontWeight.w600,
           color: Colors.grey.shade600,
         ),
+      ),
+    );
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Subject stats bottom sheet
+// ---------------------------------------------------------------------------
+
+class _SubjectStatsSheet extends StatelessWidget {
+  final Subject subject;
+  final SubjectAverage? avg;
+
+  const _SubjectStatsSheet({required this.subject, required this.avg});
+
+  @override
+  Widget build(BuildContext context) {
+    final gradeColor = GradeUtils.getColor(subject.average);
+
+    return Container(
+      decoration: const BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      padding: const EdgeInsets.fromLTRB(16, 12, 16, 32),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          // Drag handle
+          Center(
+            child: Container(
+              width: 36,
+              height: 4,
+              decoration: BoxDecoration(
+                color: Colors.grey.shade300,
+                borderRadius: BorderRadius.circular(2),
+              ),
+            ),
+          ),
+          const SizedBox(height: 20),
+          // Header: subject name + user grade
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      titleCase(subject.name),
+                      style: const TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.bold,
+                        height: 1.2,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    subject.average != null
+                        ? Text(
+                            'Ma note: ${subject.average!.toStringAsFixed(2)}',
+                            style: TextStyle(
+                              fontSize: 14,
+                              color: gradeColor,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          )
+                        : Text(
+                            'Pas encore de note',
+                            style: TextStyle(
+                              fontSize: 14,
+                              color: Colors.grey.shade500,
+                            ),
+                          ),
+                  ],
+                ),
+              ),
+              _CoeffPill(coeff: subject.coeff),
+            ],
+          ),
+          const SizedBox(height: 20),
+          // Histogram or placeholder
+          if (avg == null)
+            Padding(
+              padding: const EdgeInsets.symmetric(vertical: 40),
+              child: Column(
+                children: [
+                  Icon(
+                    Icons.info_outline,
+                    size: 48,
+                    color: Colors.grey.shade300,
+                  ),
+                  const SizedBox(height: 16),
+                  Text(
+                    'Statistiques non disponibles',
+                    style: TextStyle(
+                      color: Colors.grey.shade600,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    'Soyez le premier à partager vos notes !',
+                    style: TextStyle(color: Colors.grey.shade400, fontSize: 12),
+                  ),
+                ],
+              ),
+            )
+          else
+            SizedBox(
+              height: 160,
+              child: _GradeHistogram(
+                buckets: avg!.buckets,
+                myGrade: subject.average,
+              ),
+            ),
+          const SizedBox(height: 20),
+          // Stats row
+          if (avg != null)
+            Row(
+              children: [
+                _StatCell(label: 'Moy', value: avg!.avg.toStringAsFixed(2)),
+                _StatDivider(),
+                _StatCell(
+                  label: 'Médiane',
+                  value: avg!.median.toStringAsFixed(1),
+                ),
+                _StatDivider(),
+                _StatCell(label: 'Min', value: avg!.min.toStringAsFixed(2)),
+                _StatDivider(),
+                _StatCell(label: 'Max', value: avg!.max.toStringAsFixed(2)),
+                _StatDivider(),
+                _StatCell(label: 'Élèves', value: avg!.count.toString()),
+              ],
+            ),
+        ],
+      ),
+    );
+  }
+}
+
+class _StatCell extends StatelessWidget {
+  final String label;
+  final String value;
+
+  const _StatCell({required this.label, required this.value});
+
+  @override
+  Widget build(BuildContext context) {
+    return Expanded(
+      child: Column(
+        children: [
+          Text(
+            value,
+            style: const TextStyle(fontSize: 15, fontWeight: FontWeight.bold),
+          ),
+          const SizedBox(height: 2),
+          Text(
+            label,
+            style: TextStyle(fontSize: 11, color: AppColors.textMuted),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _StatDivider extends StatelessWidget {
+  @override
+  Widget build(BuildContext context) {
+    return Container(width: 1, height: 32, color: Colors.grey.shade200);
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Grade histogram (CustomPainter)
+// ---------------------------------------------------------------------------
+
+class _GradeHistogram extends StatelessWidget {
+  final List<int> buckets;
+  final double? myGrade;
+
+  const _GradeHistogram({required this.buckets, this.myGrade});
+
+  static int? _bucketIndex(double grade) {
+    if (grade < 0 || grade > 20) return null;
+    return (grade / 2).floor().clamp(0, 9);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final myBucket = myGrade != null ? _bucketIndex(myGrade!) : null;
+    final myBucketColor = GradeUtils.getColor(myGrade);
+
+    return CustomPaint(
+      painter: _HistogramPainter(
+        buckets: buckets,
+        myBucket: myBucket,
+        myBucketColor: myBucketColor,
+      ),
+      size: Size.infinite,
+    );
+  }
+}
+
+class _HistogramPainter extends CustomPainter {
+  final List<int> buckets;
+  final int? myBucket;
+  final Color myBucketColor;
+
+  _HistogramPainter({
+    required this.buckets,
+    required this.myBucket,
+    required this.myBucketColor,
+  });
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    const labelHeight = 20.0;
+    const barGap = 4.0;
+
+    final maxCount = buckets.fold<int>(0, (m, b) => b > m ? b : m);
+    if (maxCount == 0) return;
+
+    final n = buckets.length; // 10
+    final barWidth = (size.width - barGap * (n - 1)) / n;
+
+    final barPaint = Paint()..style = PaintingStyle.fill;
+    final labelStyle = TextStyle(fontSize: 11, color: Colors.grey.shade500);
+    final markerPaint = Paint()..style = PaintingStyle.fill;
+
+    for (int i = 0; i < n; i++) {
+      final x = i * (barWidth + barGap);
+      final count = buckets[i];
+
+      // Bar height
+      double barH = count == 0
+          ? 0
+          : (count / maxCount) * (size.height - labelHeight);
+      if (count > 0 && barH < 4) barH = 4;
+
+      final isMyBar = myBucket == i;
+      barPaint.color = isMyBar ? myBucketColor : Colors.grey.shade300;
+
+      if (barH > 0) {
+        final top = size.height - labelHeight - barH;
+        final rect = RRect.fromRectAndCorners(
+          Rect.fromLTWH(x, top, barWidth, barH),
+          topLeft: const Radius.circular(4),
+          topRight: const Radius.circular(4),
+        );
+        canvas.drawRRect(rect, barPaint);
+
+        // Triangle marker above user's bar
+        if (isMyBar) {
+          markerPaint.color = myBucketColor;
+          const markerSize = 6.0;
+          final cx = x + barWidth / 2;
+          final path = Path()
+            ..moveTo(cx - markerSize / 2, top - 6)
+            ..lineTo(cx + markerSize / 2, top - 6)
+            ..lineTo(cx, top - 1)
+            ..close();
+          canvas.drawPath(path, markerPaint);
+        }
+      }
+
+      // X-axis label: 0, 2, 4, ... 18 (left edge of each bucket)
+      final label = (i * 2).toString();
+      final tp = TextPainter(
+        text: TextSpan(text: label, style: labelStyle),
+        textDirection: TextDirection.ltr,
+      )..layout();
+      tp.paint(
+        canvas,
+        Offset(x + barWidth / 2 - tp.width / 2, size.height - labelHeight + 4),
+      );
+    }
+
+    // Extra label "20" at the right end
+    final tp20 = TextPainter(
+      text: TextSpan(text: '20', style: labelStyle),
+      textDirection: TextDirection.ltr,
+    )..layout();
+    tp20.paint(
+      canvas,
+      Offset(size.width - tp20.width, size.height - labelHeight + 4),
+    );
+  }
+
+  @override
+  bool shouldRepaint(_HistogramPainter old) =>
+      old.buckets != buckets ||
+      old.myBucket != myBucket ||
+      old.myBucketColor != myBucketColor;
+}
+
+// ---------------------------------------------------------------------------
+// Consent bottom sheet
+// ---------------------------------------------------------------------------
+
+class _ConsentSheet extends StatelessWidget {
+  final VoidCallback onAccept;
+  final VoidCallback onDecline;
+
+  const _ConsentSheet({required this.onAccept, required this.onDecline});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      decoration: const BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      padding: const EdgeInsets.fromLTRB(24, 12, 24, 32),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          // Drag handle
+          Container(
+            width: 36,
+            height: 4,
+            decoration: BoxDecoration(
+              color: Colors.grey.shade300,
+              borderRadius: BorderRadius.circular(2),
+            ),
+          ),
+          const SizedBox(height: 24),
+          const Icon(Icons.people_outline, size: 40, color: AppColors.primary),
+          const SizedBox(height: 16),
+          const Text(
+            'Contribuer aux moyennes',
+            style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+          ),
+          const SizedBox(height: 12),
+          Text(
+            'Partagez vos notes de façon anonyme pour afficher la moyenne de promo par matière.',
+            textAlign: TextAlign.center,
+            style: TextStyle(fontSize: 14, color: Colors.grey.shade600),
+          ),
+          const SizedBox(height: 16),
+          _BulletPoint('Aucune donnée personnelle identifiable'),
+          _BulletPoint('Calculé à partir des notes partagées'),
+          _BulletPoint('Modifiable à tout moment dans Paramètres'),
+          const SizedBox(height: 28),
+          Row(
+            children: [
+              Expanded(
+                child: OutlinedButton(
+                  onPressed: onDecline,
+                  style: OutlinedButton.styleFrom(
+                    padding: const EdgeInsets.symmetric(vertical: 14),
+                    side: BorderSide(color: Colors.grey.shade400),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                  ),
+                  child: Text(
+                    'Désactiver',
+                    style: TextStyle(color: Colors.grey.shade700),
+                  ),
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: ElevatedButton(
+                  onPressed: onAccept,
+                  style: ElevatedButton.styleFrom(
+                    padding: const EdgeInsets.symmetric(vertical: 14),
+                    backgroundColor: AppColors.primary,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                  ),
+                  child: const Text(
+                    'Participer',
+                    style: TextStyle(color: Colors.white),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _BulletPoint extends StatelessWidget {
+  final String text;
+  const _BulletPoint(this.text);
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 4),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Container(
+            margin: const EdgeInsets.only(top: 6, right: 10),
+            width: 5,
+            height: 5,
+            decoration: const BoxDecoration(
+              color: AppColors.primary,
+              shape: BoxShape.circle,
+            ),
+          ),
+          Expanded(
+            child: Text(
+              text,
+              style: TextStyle(fontSize: 13, color: Colors.grey.shade700),
+            ),
+          ),
+        ],
       ),
     );
   }
