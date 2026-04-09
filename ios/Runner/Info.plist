@@ -62,5 +62,9 @@
 	<!-- Camera permission for QR scanner -->
 	<key>NSCameraUsageDescription</key>
 	<string>This app uses the camera to scan QR codes for authentication.</string>
+
+	<!-- Export compliance: app only uses standard platform encryption (HTTPS, Keychain) -->
+	<key>ITSAppUsesNonExemptEncryption</key>
+	<false/>
 </dict>
 </plist>

@@ -29,7 +29,11 @@ void _logError(String context, dynamic error, [StackTrace? stackTrace]) {
 void callbackDispatcher() {
   Workmanager().executeTask((taskName, inputData) async {
     if (taskName == _taskName) {
-      await performBackgroundFetch();
+      try {
+        await performBackgroundFetch();
+      } catch (_) {
+        return false; // Trigger WorkManager retry with backoff
+      }
     }
     return true;
   });
@@ -222,7 +226,7 @@ Future<void> initBackgroundTasks() async {
       existingWorkPolicy: ExistingPeriodicWorkPolicy.replace,
       constraints: Constraints(
         networkType: NetworkType.connected,
-        requiresBatteryNotLow: false,
+        requiresBatteryNotLow: true,
         requiresCharging: false,
         requiresDeviceIdle: false,
         requiresStorageNotLow: false,

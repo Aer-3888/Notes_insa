@@ -4,10 +4,7 @@ const kWorkerBaseUrl = 'https://notesinsa.theo-phan-quoc-huy.workers.dev';
 
 /// Secret shared with the Cloudflare Worker to authenticate submissions.
 /// Pass this at build time using: --dart-define=APP_SECRET=your_secret_here
-const kAppSecret = String.fromEnvironment(
-  'APP_SECRET',
-  defaultValue: 'development_fallback',
-);
+const kAppSecret = String.fromEnvironment('APP_SECRET');
 
 /// Storage keys for FlutterSecureStorage.
 const kStorageToken = 'api_token';

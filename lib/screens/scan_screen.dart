@@ -59,6 +59,8 @@ class _ScanScreenState extends State<ScanScreen>
   }
 
   String? _extractSecretFromQR(String rawValue) {
+    if (rawValue.length > 10240)
+      return null; // Reject unreasonably large payloads
     try {
       final uri = Uri.parse(rawValue);
 

@@ -8,9 +8,13 @@ import 'providers/settings_provider.dart';
 import 'screens/login_screen.dart';
 import 'screens/dashboard_screen.dart';
 import 'background_tasks.dart';
+import 'constants.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  if (kAppSecret.isEmpty) {
+    throw StateError('APP_SECRET not provided via --dart-define');
+  }
   unawaited(initBackgroundTasks());
   runApp(const ProviderScope(child: MyApp()));
 }

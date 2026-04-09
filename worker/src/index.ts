@@ -53,8 +53,12 @@ interface AverageRow {
 
 // ── Helpers ────────────────────────────────────────────────────────────────
 
+// Restrictive CORS: this API is mobile-only (Flutter app) so browser
+// cross-origin requests should never succeed.  The placeholder origin
+// ensures the header format is preserved for future use while blocking
+// any real browser-based caller.
 const CORS_HEADERS = {
-  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Origin": "https://notesinsa.app",
   "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
   "Access-Control-Allow-Headers": "Content-Type, X-App-Version, X-App-Secret",
 };

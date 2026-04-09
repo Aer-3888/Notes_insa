@@ -1,0 +1,17 @@
+## Flutter wrapper
+-keep class io.flutter.app.** { *; }
+-keep class io.flutter.plugin.** { *; }
+-keep class io.flutter.util.** { *; }
+-keep class io.flutter.view.** { *; }
+-keep class io.flutter.** { *; }
+-keep class io.flutter.plugins.** { *; }
+
+## Keep FlutterSecureStorage
+-keep class com.it_nomads.fluttersecurestorage.** { *; }
+
+## WorkManager (background tasks)
+-keep class androidx.work.** { *; }
+
+## CameraX / ML Kit (mobile_scanner)
+-keep class androidx.camera.** { *; }
+-keep class com.google.mlkit.** { *; }
