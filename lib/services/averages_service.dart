@@ -23,28 +23,32 @@ class AveragesService {
     }
 
     if (department.isEmpty || department == 'Etudiant') {
-      if (kDebugMode)
+      if (kDebugMode) {
         debugPrint(
           '[AveragesService] Aborting: department is empty or default "Etudiant"',
         );
+      }
       return;
     }
     if (availableSems.isEmpty) {
-      if (kDebugMode)
+      if (kDebugMode) {
         debugPrint('[AveragesService] Aborting: no semesters found in JSON');
+      }
       return;
     }
 
     final credentials = await AuthService().getCredentials();
     if (credentials == null) {
-      if (kDebugMode)
+      if (kDebugMode) {
         debugPrint('[AveragesService] Aborting: no credentials found');
+      }
       return;
     }
     final username = credentials[kStorageUser];
     if (username == null || username.isEmpty) {
-      if (kDebugMode)
+      if (kDebugMode) {
         debugPrint('[AveragesService] Aborting: username is empty');
+      }
       return;
     }
 
@@ -52,10 +56,11 @@ class AveragesService {
     for (final sem in availableSems) {
       final units = JsonCurriculumParser.parseSemester(gradesJson, sem);
       if (units.isEmpty) {
-        if (kDebugMode)
+        if (kDebugMode) {
           debugPrint(
             '[AveragesService] Skipping semester $sem: no units parsed',
           );
+        }
         continue;
       }
       futures.add(
@@ -69,8 +74,9 @@ class AveragesService {
     }
 
     if (futures.isEmpty) {
-      if (kDebugMode)
+      if (kDebugMode) {
         debugPrint('[AveragesService] No valid semesters with data to submit');
+      }
       return;
     }
 
@@ -93,10 +99,11 @@ class AveragesService {
     ];
 
     if (subjects.isEmpty) {
-      if (kDebugMode)
+      if (kDebugMode) {
         debugPrint(
           '[AveragesService] Semester $semester: no subjects with averages to submit',
         );
+      }
       return;
     }
 
@@ -137,8 +144,9 @@ class AveragesService {
     } else {
       final data = jsonDecode(response.body);
       final status = data['status'] ?? 'unknown';
-      if (kDebugMode)
+      if (kDebugMode) {
         debugPrint('[AveragesService] Semester $semester response: $status');
+      }
     }
   }
 

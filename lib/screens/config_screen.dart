@@ -30,8 +30,8 @@ class ConfigScreen extends ConsumerWidget {
         ),
     ];
 
-    final crossAxisCount = 2;
-    final childAspectRatio = 4 / 3;
+    const crossAxisCount = 2;
+    const childAspectRatio = 4 / 3;
 
     return Scaffold(
       drawer: const AppDrawer(selected: DrawerItem.config),
@@ -64,11 +64,11 @@ class ConfigScreen extends ConsumerWidget {
         ),
         title: Row(
           children: [
-            Expanded(
+            const Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 mainAxisSize: MainAxisSize.min,
-                children: const [
+                children: [
                   Text(
                     'Profils',
                     style: TextStyle(
@@ -88,10 +88,10 @@ class ConfigScreen extends ConsumerWidget {
             // Small avatar/action on the right
             Container(
               margin: const EdgeInsets.only(left: 8),
-              child: CircleAvatar(
+              child: const CircleAvatar(
                 radius: 18,
                 backgroundColor: Colors.white24,
-                child: const Icon(Icons.person, color: Colors.white, size: 18),
+                child: Icon(Icons.person, color: Colors.white, size: 18),
               ),
             ),
           ],
@@ -100,7 +100,7 @@ class ConfigScreen extends ConsumerWidget {
       body: Padding(
         padding: const EdgeInsets.all(14.0),
         child: GridView.builder(
-          gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+          gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
             crossAxisCount: crossAxisCount,
             childAspectRatio: childAspectRatio,
             crossAxisSpacing: 14,
@@ -164,11 +164,15 @@ class _ProfileCard extends StatelessWidget {
                   const SizedBox(height: 8),
                   Row(
                     children: [
-                      Icon(Icons.layers, size: 16, color: AppColors.textMuted),
+                      const Icon(
+                        Icons.layers,
+                        size: 16,
+                        color: AppColors.textMuted,
+                      ),
                       const SizedBox(width: 6),
                       Text(
                         '${profile.unitCount} UE',
-                        style: TextStyle(
+                        style: const TextStyle(
                           color: AppColors.textMuted,
                           fontWeight: FontWeight.w600,
                         ),

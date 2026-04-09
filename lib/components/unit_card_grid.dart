@@ -34,7 +34,7 @@ class UnitCardGrid extends StatelessWidget {
 
     if (curriculum.isEmpty) {
       return const Center(
-        child: Text("Aucune donnée.", style: TextStyle(color: Colors.grey)),
+        child: Text('Aucune donnée.', style: TextStyle(color: Colors.grey)),
       );
     }
 
@@ -87,7 +87,7 @@ class UnitCardGrid extends StatelessWidget {
                               child: Icon(Icons.school, color: color, size: 20),
                             ),
                             Text(
-                              unit.average?.toStringAsFixed(2) ?? "-",
+                              unit.average?.toStringAsFixed(2) ?? '-',
                               style: TextStyle(
                                 fontSize: 18,
                                 fontWeight: FontWeight.bold,
@@ -112,7 +112,7 @@ class UnitCardGrid extends StatelessWidget {
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             Text(
-                              unit.isValidated ? "Validé" : "En cours",
+                              unit.isValidated ? 'Validé' : 'En cours',
                               style: TextStyle(
                                 fontSize: 12,
                                 color: Colors.grey.shade500,

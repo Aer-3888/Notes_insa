@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:permission_handler/permission_handler.dart';
@@ -89,7 +90,7 @@ class SettingsScreen extends ConsumerWidget {
                               child: Column(
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
-                                  Text(
+                                  const Text(
                                     'Partage anonyme',
                                     style: TextStyle(
                                       fontSize: 18,
@@ -190,16 +191,16 @@ class SettingsScreen extends ConsumerWidget {
                         }
                       },
                       borderRadius: BorderRadius.circular(12),
-                      child: Padding(
-                        padding: const EdgeInsets.all(16.0),
+                      child: const Padding(
+                        padding: EdgeInsets.all(16.0),
                         child: Row(
                           children: [
-                            const Icon(
+                            Icon(
                               Icons.cloud_upload_outlined,
                               color: AppColors.primary,
                               size: 26,
                             ),
-                            const SizedBox(width: 12),
+                            SizedBox(width: 12),
                             Expanded(
                               child: Column(
                                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -212,8 +213,8 @@ class SettingsScreen extends ConsumerWidget {
                                       color: AppColors.textDark,
                                     ),
                                   ),
-                                  const SizedBox(height: 4),
-                                  const Text(
+                                  SizedBox(height: 4),
+                                  Text(
                                     'Mettre à jour manuellement vos moyennes',
                                     style: TextStyle(
                                       fontSize: 13,
@@ -223,7 +224,7 @@ class SettingsScreen extends ConsumerWidget {
                                 ],
                               ),
                             ),
-                            const Icon(Icons.chevron_right, color: Colors.grey),
+                            Icon(Icons.chevron_right, color: Colors.grey),
                           ],
                         ),
                       ),
@@ -250,7 +251,7 @@ class SettingsScreen extends ConsumerWidget {
                               child: Column(
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
-                                  Text(
+                                  const Text(
                                     'Intervalle de mise à jour',
                                     style: TextStyle(
                                       fontSize: 18,
@@ -462,7 +463,7 @@ class _NotificationPermissionCardState
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(
+                  const Text(
                     'Notifications',
                     style: TextStyle(
                       fontSize: 18,
@@ -493,7 +494,7 @@ class _NotificationPermissionCardState
               TextButton(
                 onPressed: () async {
                   await openAppSettings();
-                  _checkPermission();
+                  unawaited(_checkPermission());
                 },
                 child: const Text('Activer'),
               ),

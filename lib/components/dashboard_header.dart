@@ -89,7 +89,7 @@ class DashboardHeader extends StatelessWidget {
                 ),
                 alignment: Alignment.center,
                 child: Text(
-                  average?.toStringAsFixed(2) ?? "-",
+                  average?.toStringAsFixed(2) ?? '-',
                   style: const TextStyle(
                     color: Colors.white,
                     fontSize: 20,

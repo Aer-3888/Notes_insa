@@ -55,8 +55,6 @@ dependencies:
   http: ^1.6.0
   # JSON serialization
   json_annotation: ^4.9.0
-  # Timezone support for notifications
-  timezone: ^0.10.1
   # Deep collection equality
   collection: ^1.18.0
   # State management
@@ -66,8 +64,6 @@ dependencies:
   flutter_staggered_animations: ^1.1.1
   # Shimmer skeleton loading effect
   shimmer: ^3.0.0
-  # SHA-256 hashing for anonymous user identity
-  crypto: ^3.0.0
 
 dev_dependencies:
   flutter_test:

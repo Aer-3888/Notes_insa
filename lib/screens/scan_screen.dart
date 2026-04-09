@@ -59,8 +59,9 @@ class _ScanScreenState extends State<ScanScreen>
   }
 
   String? _extractSecretFromQR(String rawValue) {
-    if (rawValue.length > 10240)
+    if (rawValue.length > 10240) {
       return null; // Reject unreasonably large payloads
+    }
     try {
       final uri = Uri.parse(rawValue);
 
@@ -154,7 +155,11 @@ class _ScanScreenState extends State<ScanScreen>
                     color: AppColors.primary.withValues(alpha: 0.1),
                     borderRadius: BorderRadius.circular(10),
                   ),
-                  child: Icon(Icons.key, color: AppColors.primary, size: 20),
+                  child: const Icon(
+                    Icons.key,
+                    color: AppColors.primary,
+                    size: 20,
+                  ),
                 ),
                 title: Text(
                   account.name,
@@ -408,7 +413,7 @@ class _ScanOverlay extends StatelessWidget {
 
     return CustomPaint(
       painter: _OverlayPainter(cutoutSize: cutoutSize, isScanned: isScanned),
-      child: SizedBox.expand(),
+      child: const SizedBox.expand(),
     );
   }
 }

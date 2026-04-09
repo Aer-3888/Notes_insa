@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter/foundation.dart';
@@ -88,11 +89,13 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
       if (mounted) {
         final needsConsent = !ref.read(settingsProvider).sharingConsentAsked;
         // Go to Dashboard only on successful fetch
-        Navigator.of(context).pushAndRemoveUntil(
-          MaterialPageRoute(
-            builder: (_) => DashboardScreen(showConsentOnMount: needsConsent),
+        unawaited(
+          Navigator.of(context).pushAndRemoveUntil(
+            MaterialPageRoute(
+              builder: (_) => DashboardScreen(showConsentOnMount: needsConsent),
+            ),
+            (_) => false,
           ),
-          (_) => false,
         );
       }
     } on PlatformException catch (e) {
@@ -176,7 +179,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
 
   @override
   Widget build(BuildContext context) {
-    bool isReady =
+    final isReady =
         _scannedToken != null &&
         _userController.text.isNotEmpty &&
         _passController.text.isNotEmpty;
@@ -288,8 +291,8 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                                 Expanded(
                                   child: Text(
                                     _scannedToken != null
-                                        ? "Token Scanné"
-                                        : "Scanner le QR Code",
+                                        ? 'Token Scanné'
+                                        : 'Scanner le QR Code',
                                     style: TextStyle(
                                       color: _scannedToken != null
                                           ? AppColors.statusPositive
@@ -318,7 +321,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
 
                     // Form Section
                     Text(
-                      "Étape 2 : Identifiants ENT",
+                      'Étape 2 : Identifiants ENT',
                       style: TextStyle(
                         color: Colors.grey.shade600,
                         fontWeight: FontWeight.bold,
@@ -345,7 +348,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                             obscureText: _obscurePassword,
                             autofillHints: const [AutofillHints.password],
                             decoration: InputDecoration(
-                              labelText: "Mot de passe",
+                              labelText: 'Mot de passe',
                               border: const OutlineInputBorder(),
                               prefixIcon: const Icon(Icons.lock_outline),
                               suffixIcon: IconButton(
@@ -394,7 +397,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                               ),
                             )
                           : const Text(
-                              "Se connecter",
+                              'Se connecter',
                               style: TextStyle(
                                 color: Colors.white,
                                 fontSize: 16,

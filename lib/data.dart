@@ -16,12 +16,13 @@ class JsonCurriculumParser {
     int semesterNumber,
   ) {
     try {
-      final Map<String, dynamic> rawData = jsonDecode(jsonString);
+      final Map<String, dynamic> rawData =
+          jsonDecode(jsonString) as Map<String, dynamic>;
 
       // Top-level details must be a list
       if (rawData['details'] is! List) return [];
 
-      final List<dynamic> yearDetails = rawData['details'];
+      final List<dynamic> yearDetails = rawData['details'] as List<dynamic>;
 
       final String semesterKey = 'SEMESTRE$semesterNumber';
       Map<String, dynamic>? semesterNode;
@@ -39,7 +40,7 @@ class JsonCurriculumParser {
       if (semesterNode == null || semesterNode['details'] is! List) return [];
 
       final List<TeachingUnit> teachingUnits = [];
-      final List<dynamic> ueList = semesterNode['details'];
+      final List<dynamic> ueList = semesterNode['details'] as List<dynamic>;
 
       for (final ueNode in ueList) {
         if (ueNode is! Map<String, dynamic>) continue;
@@ -51,7 +52,7 @@ class JsonCurriculumParser {
         final List<Subject> subjects = [];
 
         if (ueNode['details'] is List) {
-          final List<dynamic> subjectList = ueNode['details'];
+          final List<dynamic> subjectList = ueNode['details'] as List<dynamic>;
 
           for (final subjectNode in subjectList) {
             if (subjectNode is! Map<String, dynamic>) continue;
@@ -67,7 +68,8 @@ class JsonCurriculumParser {
 
             // Detailed grades under the subject
             if (subjectNode['details'] is List) {
-              final List<dynamic> gradeList = subjectNode['details'];
+              final List<dynamic> gradeList =
+                  subjectNode['details'] as List<dynamic>;
 
               for (final gradeNode in gradeList) {
                 if (gradeNode is! Map<String, dynamic>) continue;
@@ -75,7 +77,7 @@ class JsonCurriculumParser {
                 final String gradeName = (gradeNode['name'] ?? 'Unknown Grade')
                     .toString()
                     .cleanName();
-                final String? gradeScore = gradeNode['score'];
+                final String? gradeScore = gradeNode['score'] as String?;
 
                 if (gradeScore != null && !gradeScore.contains('Aucun')) {
                   final double? gradeValue = GradeUtils.parseDouble(gradeScore);
@@ -94,7 +96,7 @@ class JsonCurriculumParser {
 
             // Fallback: use top-level score only if no detailed grades were found
             if (grades.isEmpty) {
-              final String? subjectScore = subjectNode['score'];
+              final String? subjectScore = subjectNode['score'] as String?;
               if (subjectScore != null && !subjectScore.contains('Aucun')) {
                 final double? gradeValue = GradeUtils.parseDouble(subjectScore);
                 if (gradeValue != null) {
@@ -128,7 +130,8 @@ class JsonCurriculumParser {
   /// Read the department/title field from the JSON payload.
   static String getDepartmentName(String jsonString) {
     try {
-      final Map<String, dynamic> rawData = jsonDecode(jsonString);
+      final Map<String, dynamic> rawData =
+          jsonDecode(jsonString) as Map<String, dynamic>;
       return (rawData['name'] ?? 'Etudiant').toString().cleanName();
     } catch (_) {
       return 'Etudiant';
@@ -138,12 +141,13 @@ class JsonCurriculumParser {
   /// Return available semester numbers found in the JSON payload.
   static List<int> getAvailableSemesters(String jsonString) {
     try {
-      final Map<String, dynamic> rawData = jsonDecode(jsonString);
+      final Map<String, dynamic> rawData =
+          jsonDecode(jsonString) as Map<String, dynamic>;
 
       if (rawData['details'] is! List) return [];
 
       final List<int> semesters = [];
-      final List<dynamic> yearDetails = rawData['details'];
+      final List<dynamic> yearDetails = rawData['details'] as List<dynamic>;
 
       for (final item in yearDetails) {
         if (item is Map<String, dynamic> && item['name'] != null) {

@@ -173,7 +173,7 @@ class _BiometricScreenState extends ConsumerState<_BiometricScreen>
         _failed = true;
         _authenticating = false;
       });
-      _shakeController.forward(from: 0.0);
+      unawaited(_shakeController.forward(from: 0.0));
     }
   }
 

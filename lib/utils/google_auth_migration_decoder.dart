@@ -16,12 +16,12 @@ class GoogleAuthMigrationDecoder {
     final parsedUri = Uri.parse(uri);
 
     if (parsedUri.scheme != 'otpauth-migration') {
-      throw FormatException('Not a valid otpauth-migration URI');
+      throw const FormatException('Not a valid otpauth-migration URI');
     }
 
     final dataParam = parsedUri.queryParameters['data'];
     if (dataParam == null) {
-      throw FormatException('Missing data parameter in migration URI');
+      throw const FormatException('Missing data parameter in migration URI');
     }
 
     final decodedBytes = base64.decode(Uri.decodeComponent(dataParam));
@@ -47,7 +47,7 @@ class GoogleAuthMigrationDecoder {
 
         // Guard against malformed payloads where the length would overrun
         if (offset + length > data.length) {
-          throw FormatException(
+          throw const FormatException(
             'Invalid length for OtpParameters in migration payload',
           );
         }
@@ -86,7 +86,9 @@ class GoogleAuthMigrationDecoder {
 
         // Protect against invalid lengths
         if (offset + length > data.length) {
-          throw FormatException('Invalid length for field in OtpParameters');
+          throw const FormatException(
+            'Invalid length for field in OtpParameters',
+          );
         }
 
         final value = data.sublist(offset, offset + length);
@@ -141,7 +143,7 @@ class GoogleAuthMigrationDecoder {
     int shift = 0;
 
     while (offset < data.length) {
-      if (shift >= 63) throw FormatException('Varint too large');
+      if (shift >= 63) throw const FormatException('Varint too large');
       final byte = data[offset];
       value |= (byte & 0x7F) << shift;
       offset++;
@@ -166,7 +168,7 @@ class GoogleAuthMigrationDecoder {
         final length = lengthResult['value'] as int;
         // Guard against invalid lengths when skipping
         if ((lengthResult['offset'] as int) + length > data.length) {
-          throw FormatException('Invalid length while skipping field');
+          throw const FormatException('Invalid length while skipping field');
         }
         return (lengthResult['offset'] as int) + length;
       case 5: // 32-bit

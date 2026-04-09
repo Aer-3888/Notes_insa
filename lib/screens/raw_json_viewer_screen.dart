@@ -210,11 +210,14 @@ class RawJsonViewerScreen extends ConsumerWidget {
                       padding: const EdgeInsets.all(12),
                       child: Row(
                         children: [
-                          Icon(Icons.info_outline, color: AppColors.primary),
+                          const Icon(
+                            Icons.info_outline,
+                            color: AppColors.primary,
+                          ),
                           const SizedBox(width: 12),
                           Text(
                             'JSON des notes — ${(jsonString.length / 1024).toStringAsFixed(1)} KB',
-                            style: TextStyle(
+                            style: const TextStyle(
                               fontSize: 13,
                               color: AppColors.textDark,
                               fontWeight: FontWeight.w500,

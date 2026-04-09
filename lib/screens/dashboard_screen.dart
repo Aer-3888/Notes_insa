@@ -505,8 +505,8 @@ class _UEDetailSheetState extends ConsumerState<_UEDetailSheet> {
                               color: Colors.red.shade700,
                             ),
                             const SizedBox(width: 8),
-                            Expanded(
-                              child: const Text(
+                            const Expanded(
+                              child: Text(
                                 'Erreur stats',
                                 style: TextStyle(
                                   fontSize: 12,
@@ -952,7 +952,7 @@ class _StatCell extends StatelessWidget {
           const SizedBox(height: 2),
           Text(
             label,
-            style: TextStyle(fontSize: 11, color: AppColors.textMuted),
+            style: const TextStyle(fontSize: 11, color: AppColors.textMuted),
           ),
         ],
       ),
@@ -1139,9 +1139,9 @@ class _ConsentSheet extends StatelessWidget {
             style: TextStyle(fontSize: 14, color: Colors.grey.shade600),
           ),
           const SizedBox(height: 16),
-          _BulletPoint('Aucune donnée personnelle identifiable'),
-          _BulletPoint('Calculé à partir des notes partagées'),
-          _BulletPoint('Modifiable à tout moment dans Paramètres'),
+          const _BulletPoint('Aucune donnée personnelle identifiable'),
+          const _BulletPoint('Calculé à partir des notes partagées'),
+          const _BulletPoint('Modifiable à tout moment dans Paramètres'),
           const SizedBox(height: 28),
           Row(
             children: [

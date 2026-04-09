@@ -127,7 +127,7 @@ String titleCase(String input) {
     return titleSegment(word, isFirstWord);
   }
 
-  final parts = input.trim().split(RegExp(r"\s+"));
+  final parts = input.trim().split(RegExp(r'\s+'));
   return parts
       .asMap()
       .entries
@@ -277,7 +277,7 @@ class JsonGradeParser {
         }
 
         if (current['details'] is List) {
-          final List<dynamic> details = current['details'];
+          final List<dynamic> details = current['details'] as List<dynamic>;
           // Push in reverse order to maintain original traversal order if needed,
           // though for a map it doesn't strictly matter.
           for (var i = details.length - 1; i >= 0; i--) {
