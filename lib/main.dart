@@ -293,7 +293,7 @@ class _PinScreenState extends ConsumerState<_PinScreen> {
             .fetchGradesWithStoredCredentials()
             .catchError((_) {}),
       );
-      Navigator.of(context).pushAndRemoveUntil(
+      await Navigator.of(context).pushAndRemoveUntil(
         MaterialPageRoute(
           builder: (ctx) => DashboardScreen(
             onReauthRequired: () => Navigator.of(

@@ -175,10 +175,11 @@ class JsonCurriculumParser {
       final Map<String, dynamic> rawData = decoded as Map<String, dynamic>;
 
       if (rawData['details'] is! List) {
-        if (kDebugMode)
+        if (kDebugMode) {
           debugPrint(
             '[Parser] getAvailableSemesters: "details" not found or not a List',
           );
+        }
         return [];
       }
 
@@ -192,8 +193,9 @@ class JsonCurriculumParser {
         if (item is Map<String, dynamic> && item['name'] != null) {
           final String name = item['name'].toString();
           final match = regex.firstMatch(name);
-          if (kDebugMode)
+          if (kDebugMode) {
             debugPrint('[Parser] Semester candidate: "$name" → match: $match');
+          }
           if (match != null) {
             final int? semNum = int.tryParse(match.group(1) ?? '');
             if (semNum != null) semesters.add(semNum);

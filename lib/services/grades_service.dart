@@ -113,8 +113,9 @@ class GradesService {
       final stored = await _storage.read(key: _gradesKey);
       if (stored != null && stored.isNotEmpty) return stored;
     } catch (e) {
-      if (kDebugMode)
+      if (kDebugMode) {
         debugPrint('[GradesService] getLastSavedGrades failed: $e');
+      }
     }
     return null;
   }

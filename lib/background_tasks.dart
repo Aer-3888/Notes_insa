@@ -25,8 +25,9 @@ Future<void> initBackgroundTasks() async {
       );
     }
   } catch (e) {
-    if (kDebugMode)
+    if (kDebugMode) {
       debugPrint('[BackgroundTask] Failed to schedule native worker');
+    }
   }
 }
 
