@@ -137,6 +137,16 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen>
     if (!started && context.mounted) {
       final remaining = ref.read(gradesProvider).manualRefreshCooldown;
       _showCooldownPill(remaining?.inSeconds ?? 0);
+    } else if (started) {
+      // Also refresh class averages if the grade fetch successfully started.
+      final department = ref.read(departmentNameProvider);
+      final semester = ref.read(effectiveSemesterProvider);
+
+      if (department.isNotEmpty && semester != null) {
+        ref.invalidate(
+          averagesProvider((department: department, semester: semester)),
+        );
+      }
     }
   }
 
