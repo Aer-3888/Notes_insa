@@ -71,8 +71,12 @@ flutter {
 }
 
 dependencies {
-    implementation(files("lib/inscore.aar"))
+    implementation(files("lib/mobinsapi.aar"))
     coreLibraryDesugaring("com.android.tools:desugar_jdk_libs:2.1.4")
+    // Native WorkManager — replaces the Flutter workmanager plugin
+    implementation("androidx.work:work-runtime-ktx:2.9.0")
+    // EncryptedSharedPreferences — same version as flutter_secure_storage uses
+    implementation("androidx.security:security-crypto:1.1.0-alpha06")
 }
 
 tasks.withType(KotlinJvmCompile::class.java).configureEach {

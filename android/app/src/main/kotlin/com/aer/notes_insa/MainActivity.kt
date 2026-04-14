@@ -1,4 +1,4 @@
-﻿package com.aer.notes_insa
+package com.aer.notes_insa
 
 import io.flutter.embedding.android.FlutterFragmentActivity
 import io.flutter.embedding.engine.FlutterEngine
@@ -6,67 +6,158 @@ import io.flutter.plugin.common.MethodChannel
 import android.os.Handler
 import android.os.Looper
 import android.util.Log
+import mobinsapi.Mobinsapi
 
-private const val CHANNEL = "com.aer.notes_insa/fetch_grades"
+private const val CHANNEL = "com.aer.notes_insa/grades"
+private const val TAG = "MainActivity"
 
-class MainActivity: FlutterFragmentActivity() {
+class MainActivity : FlutterFragmentActivity() {
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
         super.configureFlutterEngine(flutterEngine)
-        MethodChannel(flutterEngine.dartExecutor.binaryMessenger, CHANNEL).setMethodCallHandler { call, result ->
-            val methodName = when (call.method) {
-                "FetchGrades" -> "fetchGrades"
-                "FetchGradesWithCoeffs" -> "fetchGradesWithCoeffs"
-                else -> null
-            }
 
-            if (methodName != null) {
-                val username = (call.arguments as? Map<*, *>)?.get("username") as? String ?: ""
-                val password = (call.arguments as? Map<*, *>)?.get("password") as? String ?: ""
-                val secret = (call.arguments as? Map<*, *>)?.get("secret") as? String ?: ""
+        MethodChannel(
+            flutterEngine.dartExecutor.binaryMessenger,
+            CHANNEL,
+        ).setMethodCallHandler { call, result ->
+            when (call.method) {
 
-                if (username.isBlank() || password.isBlank()) {
-                    result.error("ERR_INVALID_ARGS", "username or password missing", null)
-                    return@setMethodCallHandler
-                }
-                if (secret == "STUB") {
-                    result.success("{\"name\":\"Etudiant\",\"details\":[{\"name\":\"SEMESTRE1\",\"details\":[{\"name\":\"UE Test\",\"details\":[{\"name\":\"Réseaux\",\"score\":\"16/20\",\"coeff\":\"2\",\"details\":[]},{\"name\":\"Langage C\",\"score\":\"17/20\",\"coeff\":\"\",\"details\":[]}]}]}]}")
-                    return@setMethodCallHandler
-                }
-
-                Thread {
-                    try {
-                        val mobileClass = Class.forName("minscore.Minscore")
-                        val method = mobileClass.getMethod(methodName, String::class.java, String::class.java, String::class.java)
-                        val jsonResult = method.invoke(null, username, password, secret) as String
-                        Handler(Looper.getMainLooper()).post {
-                            result.success(jsonResult)
-                        }
-                    } catch (e: ClassNotFoundException) {
-                        Log.e("MainActivity", "minscore.Minscore class not found", e)
-                        Handler(Looper.getMainLooper()).post {
-                            result.error("ERR_AAR_NOT_FOUND", "minscore.Minscore class not found. Ensure inscore.aar is included.", e.stackTraceToString())
-                        }
-                    } catch (e: NoSuchMethodException) {
-                        Log.e("MainActivity", "$methodName method not found", e)
-                        Handler(Looper.getMainLooper()).post {
-                            result.error("ERR_METHOD_NOT_FOUND", "$methodName method not found in minscore.Minscore", e.stackTraceToString())
-                        }
-                    } catch (e: java.lang.reflect.InvocationTargetException) {
-                        val cause = e.cause ?: e
-                        Log.e("MainActivity", "$methodName threw exception: " + (cause.message ?: ""), cause)
-                        Handler(Looper.getMainLooper()).post {
-                            result.error("ERR_FETCH_FAILED", "Failed to fetch grades: " + (cause.message ?: ""), cause.stackTraceToString())
-                        }
-                    } catch (e: Exception) {
-                        Log.e("MainActivity", "Unexpected error", e)
-                        Handler(Looper.getMainLooper()).post {
-                            result.error("ERR_UNKNOWN", "Unexpected error: " + (e.message ?: ""), e.stackTraceToString())
-                        }
+                "Auth" -> {
+                    val username = call.argument<String>("username") ?: ""
+                    val password = call.argument<String>("password") ?: ""
+                    if (username.isBlank() || password.isBlank()) {
+                        result.error("ERR_INVALID_ARGS", "username or password missing", null)
+                        return@setMethodCallHandler
                     }
-                }.start()
-            } else {
-                result.notImplemented()
+                    runInBackground("Auth", result) {
+                        Mobinsapi.auth(username, password)
+                        null
+                    }
+                }
+
+                "IsTokenNeeded" -> {
+                    runInBackground("IsTokenNeeded", result) {
+                        Mobinsapi.isTokenNeeded()
+                    }
+                }
+
+                "TriggerEmail" -> {
+                    runInBackground("TriggerEmail", result) {
+                        Mobinsapi.triggerEmail()
+                        null
+                    }
+                }
+
+                "Validate" -> {
+                    val code = call.argument<String>("code") ?: ""
+                    if (code.isBlank()) {
+                        result.error("ERR_INVALID_ARGS", "code missing", null)
+                        return@setMethodCallHandler
+                    }
+                    runInBackground("Validate", result) {
+                        Mobinsapi.validate(code)
+                        null
+                    }
+                }
+
+                "AutoValidate" -> {
+                    val secret = call.argument<String>("secret") ?: ""
+                    if (secret.isBlank()) {
+                        result.error("ERR_INVALID_ARGS", "secret missing", null)
+                        return@setMethodCallHandler
+                    }
+                    runInBackground("AutoValidate", result) {
+                        Mobinsapi.autoValidate(secret)
+                        null
+                    }
+                }
+
+                "IsAuthenticated" -> {
+                    runInBackground("IsAuthenticated", result) {
+                        Mobinsapi.isAuthenticated()
+                    }
+                }
+
+                "LoadGroups" -> {
+                    runInBackground("LoadGroups", result) {
+                        Mobinsapi.loadGroups().toInt()
+                    }
+                }
+
+                "Grades" -> {
+                    val id = call.argument<Int>("id") ?: 0
+                    runInBackground("Grades", result) {
+                        Mobinsapi.grades(id.toLong())
+                    }
+                }
+
+                "NewCAS" -> {
+                    runInBackground("NewCAS", result) {
+                        Mobinsapi.newCAS()
+                        null
+                    }
+                }
+
+                "ExportCAS" -> {
+                    runInBackground("ExportCAS", result) {
+                        Mobinsapi.exportCAS()
+                    }
+                }
+
+                "ImportCAS" -> {
+                    val token = call.argument<String>("token") ?: ""
+                    if (token.isBlank()) {
+                        result.error("ERR_INVALID_ARGS", "token missing", null)
+                        return@setMethodCallHandler
+                    }
+                    runInBackground("ImportCAS", result) {
+                        Mobinsapi.importCAS(token)
+                        null
+                    }
+                }
+
+                "InitBackgroundTask" -> {
+                    val intervalMinutes = (call.argument<Int>("intervalMinutes") ?: 15).toLong()
+                    GradesBackgroundWorker.schedule(applicationContext, intervalMinutes)
+                    result.success(null)
+                }
+
+                "StopBackgroundTask" -> {
+                    GradesBackgroundWorker.cancel(applicationContext)
+                    result.success(null)
+                }
+
+                else -> result.notImplemented()
             }
         }
+    }
+
+    /**
+     * Runs [block] on a background thread and posts the result (or error) back
+     * on the main looper. [block] returns the value to pass to result.success(),
+     * or throws an Exception which is forwarded as result.error().
+     */
+    private fun runInBackground(
+        methodName: String,
+        result: MethodChannel.Result,
+        block: () -> Any?,
+    ) {
+        val mainHandler = Handler(Looper.getMainLooper())
+        Thread {
+            try {
+                val value = block()
+                mainHandler.post { result.success(value) }
+            } catch (e: Exception) {
+                if (BuildConfig.DEBUG) {
+                    Log.e(TAG, "$methodName failed: ${e.message}", e)
+                }
+                mainHandler.post {
+                    result.error(
+                        "ERR_${methodName.uppercase()}",
+                        "An error occurred during $methodName execution",
+                        null,
+                    )
+                }
+            }
+        }.start()
     }
 }

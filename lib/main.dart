@@ -4,7 +4,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'app_colors.dart';
 import 'services/auth_service.dart';
 import 'providers/grades_provider.dart';
-import 'providers/settings_provider.dart';
 import 'screens/login_screen.dart';
 import 'screens/dashboard_screen.dart';
 import 'background_tasks.dart';
@@ -155,19 +154,15 @@ class _BiometricScreenState extends ConsumerState<_BiometricScreen>
       _authenticating = true;
     });
 
-    final success = await AuthService().authenticate();
+    final result = await AuthService().authenticate();
     if (!mounted) return;
 
-    if (success) {
+    if (result == AuthResult.success) {
       setState(() => _authenticating = false);
-      unawaited(
-        ref
-            .read(gradesProvider.notifier)
-            .fetchGradesWithStoredCredentials()
-            .catchError((_) {}),
-      );
-      final needsConsent = !ref.read(settingsProvider).sharingConsentAsked;
-      _replaceWith(DashboardScreen(showConsentOnMount: needsConsent));
+      _onSuccess();
+    } else if (result == AuthResult.pinRequired) {
+      setState(() => _authenticating = false);
+      _replaceWith(const _PinScreen());
     } else {
       setState(() {
         _failed = true;
@@ -175,6 +170,22 @@ class _BiometricScreenState extends ConsumerState<_BiometricScreen>
       });
       unawaited(_shakeController.forward(from: 0.0));
     }
+  }
+
+  void _onSuccess() {
+    unawaited(
+      ref
+          .read(gradesProvider.notifier)
+          .fetchGradesWithStoredCredentials()
+          .catchError((_) {}),
+    );
+    _replaceWith(
+      DashboardScreen(
+        onReauthRequired: () => Navigator.of(
+          context,
+        ).push(MaterialPageRoute(builder: (_) => const LoginScreen())),
+      ),
+    );
   }
 
   void _replaceWith(Widget screen) {
@@ -257,5 +268,130 @@ class _BiometricScreenState extends ConsumerState<_BiometricScreen>
         ),
       ),
     );
+  }
+}
+
+class _PinScreen extends ConsumerStatefulWidget {
+  const _PinScreen();
+
+  @override
+  ConsumerState<_PinScreen> createState() => _PinScreenState();
+}
+
+class _PinScreenState extends ConsumerState<_PinScreen> {
+  final _pinController = TextEditingController();
+  final _authService = AuthService();
+  bool _error = false;
+
+  Future<void> _verify() async {
+    final success = await _authService.verifyPin(_pinController.text);
+    if (success) {
+      if (!mounted) return;
+      unawaited(
+        ref
+            .read(gradesProvider.notifier)
+            .fetchGradesWithStoredCredentials()
+            .catchError((_) {}),
+      );
+      Navigator.of(context).pushAndRemoveUntil(
+        MaterialPageRoute(
+          builder: (ctx) => DashboardScreen(
+            onReauthRequired: () => Navigator.of(
+              ctx,
+            ).push(MaterialPageRoute(builder: (_) => const LoginScreen())),
+          ),
+        ),
+        (_) => false,
+      );
+    } else {
+      setState(() {
+        _error = true;
+        _pinController.clear();
+      });
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: AppColors.scaffoldBg,
+      body: Center(
+        child: Padding(
+          padding: const EdgeInsets.all(40),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Icon(
+                Icons.pin_outlined,
+                size: 72,
+                color: AppColors.primary,
+              ),
+              const SizedBox(height: 16),
+              const Text(
+                'Code PIN requis',
+                style: TextStyle(
+                  fontSize: 24,
+                  fontWeight: FontWeight.bold,
+                  color: AppColors.primary,
+                ),
+              ),
+              const SizedBox(height: 8),
+              Text(
+                'Entrez votre code PIN pour accéder à vos notes',
+                textAlign: TextAlign.center,
+                style: TextStyle(color: Colors.grey.shade600),
+              ),
+              const SizedBox(height: 32),
+              TextField(
+                controller: _pinController,
+                obscureText: true,
+                keyboardType: TextInputType.number,
+                maxLength: 8,
+                textAlign: TextAlign.center,
+                style: const TextStyle(fontSize: 24, letterSpacing: 8),
+                onChanged: (_) {
+                  if (_error) setState(() => _error = false);
+                },
+                onSubmitted: (_) => _verify(),
+                decoration: InputDecoration(
+                  border: const OutlineInputBorder(),
+                  counterText: '',
+                  errorText: _error ? 'Code PIN incorrect' : null,
+                ),
+              ),
+              const SizedBox(height: 24),
+              SizedBox(
+                width: double.infinity,
+                child: ElevatedButton(
+                  onPressed: _verify,
+                  style: ElevatedButton.styleFrom(
+                    padding: const EdgeInsets.symmetric(vertical: 16),
+                    backgroundColor: AppColors.primary,
+                    foregroundColor: Colors.white,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                  ),
+                  child: const Text('Valider', style: TextStyle(fontSize: 16)),
+                ),
+              ),
+              const SizedBox(height: 12),
+              TextButton(
+                onPressed: () => Navigator.of(
+                  context,
+                ).push(MaterialPageRoute(builder: (_) => const LoginScreen())),
+                child: const Text('Se connecter autrement'),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  @override
+  void dispose() {
+    _pinController.dispose();
+    super.dispose();
   }
 }

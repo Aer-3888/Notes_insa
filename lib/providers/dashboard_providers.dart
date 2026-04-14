@@ -3,8 +3,20 @@ import '../models.dart';
 import '../data.dart';
 import 'grades_provider.dart';
 
-/// Provider for selected semester (reactive state)
-final selectedSemesterProvider = StateProvider<int>((ref) => 5);
+/// Raw semester selection — -1 is the sentinel for "not explicitly chosen".
+final selectedSemesterProvider = StateProvider<int>((ref) => -1);
+
+/// Effective semester: resolves the raw selection against what is actually
+/// available in the current grades payload. Falls back to the last (most
+/// recent) semester when the raw selection is unset or no longer present.
+/// Returns null when no grades have been loaded yet.
+final effectiveSemesterProvider = Provider<int?>((ref) {
+  final raw = ref.watch(selectedSemesterProvider);
+  final available = ref.watch(availableSemestersProvider);
+  if (available.isEmpty) return null;
+  if (raw != -1 && available.contains(raw)) return raw;
+  return available.last;
+});
 
 /// Computed provider for department name from grades data
 /// Caches result and only recomputes when jsonData changes
@@ -24,10 +36,11 @@ final departmentNameProvider = Provider<String>((ref) {
 final curriculumProvider = Provider<List<TeachingUnit>>((ref) {
   final gradesState = ref.watch(gradesProvider);
   final jsonString = gradesState.jsonData;
-  final selectedSemester = ref.watch(selectedSemesterProvider);
+  final semester = ref.watch(effectiveSemesterProvider);
+  if (semester == null) return [];
 
   try {
-    return JsonCurriculumParser.parseSemester(jsonString, selectedSemester);
+    return JsonCurriculumParser.parseSemester(jsonString, semester);
   } catch (_) {
     return [];
   }

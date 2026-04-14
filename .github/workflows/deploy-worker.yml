@@ -56,14 +56,6 @@ jobs:
             echo "No wrangler.toml.template found; expecting worker/wrangler.toml to exist already."
           fi
 
-      - name: Show wrangler.toml (masked)
-        if: always()
-        working-directory: worker
-        run: |
-          echo "--- wrangler.toml (showing non-secret lines) ---"
-          # Hide lines that likely contain secrets (very basic heuristic)
-          grep -E -v "(account_id|api_token|kv_namespace_id|d1_database_id)" wrangler.toml || true
-
       - name: Verify Wrangler & Token
         working-directory: worker
         env:

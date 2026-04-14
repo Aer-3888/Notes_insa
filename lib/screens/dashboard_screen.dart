@@ -16,8 +16,11 @@ import '../services/averages_service.dart';
 import '../services/notification_service.dart';
 
 class DashboardScreen extends ConsumerStatefulWidget {
-  final bool showConsentOnMount;
-  const DashboardScreen({super.key, this.showConsentOnMount = false});
+  /// Called when 2FA is required and no OTP secret is stored.
+  /// The caller should navigate to the login screen.
+  final VoidCallback? onReauthRequired;
+
+  const DashboardScreen({super.key, this.onReauthRequired});
 
   @override
   ConsumerState<DashboardScreen> createState() => _DashboardScreenState();
@@ -31,6 +34,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen>
   int _cooldownSecs = 0;
   Timer? _cooldownTimer;
   Timer? _clockTimer;
+  bool _consentDialogShown = false;
 
   @override
   void initState() {
@@ -43,11 +47,10 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen>
     // Request notification permission the first time the dashboard is shown
     unawaited(NotificationService.requestPermission());
 
-    if (widget.showConsentOnMount) {
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        _showConsentDialog();
-      });
-    }
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      // If 2FA was already required before the dashboard was built, show the banner now.
+      if (ref.read(gradesProvider).needsReauth) _showReauthBanner();
+    });
   }
 
   @override
@@ -63,6 +66,38 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen>
     if (state == AppLifecycleState.resumed) {
       ref.read(gradesProvider.notifier).loadStoredGrades();
     }
+  }
+
+  void _showReauthBanner() {
+    if (!mounted) return;
+    final messenger = ScaffoldMessenger.of(context);
+    messenger.clearMaterialBanners();
+    messenger.showMaterialBanner(
+      MaterialBanner(
+        padding: const EdgeInsets.fromLTRB(16, 12, 8, 12),
+        leading: const Icon(Icons.lock_outline, color: Colors.white),
+        backgroundColor: Colors.orange.shade700,
+        content: const Text(
+          'Une double authentification est requise.',
+          style: TextStyle(color: Colors.white),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () {
+              messenger.clearMaterialBanners();
+              widget.onReauthRequired?.call();
+            },
+            child: const Text(
+              'Se reconnecter',
+              style: TextStyle(
+                color: Colors.white,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
   }
 
   void _showCooldownPill(int secs) {
@@ -81,10 +116,12 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen>
     if (available.length <= 1) return;
     final velocity = details.primaryVelocity ?? 0;
     if (velocity.abs() < 300) return;
-    final current = ref.read(selectedSemesterProvider);
+    final current = ref.read(effectiveSemesterProvider);
+    if (current == null) return;
     final idx = available.indexOf(current);
     if (idx == -1) return;
-    final newIdx = velocity < 0
+    // Display is highest semester on left, so swipe right → higher semester.
+    final newIdx = velocity > 0
         ? (idx + 1).clamp(0, available.length - 1)
         : (idx - 1).clamp(0, available.length - 1);
     if (newIdx != idx) {
@@ -146,6 +183,19 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen>
 
   @override
   Widget build(BuildContext context) {
+    // Show consent dialog exactly once — when settings finishes loading for
+    // the first time and the user has never been asked. Reading at construction
+    // time is unreliable because _loadSettings() is async.
+    ref.listen<SettingsState>(settingsProvider, (prev, next) {
+      if (prev?.isLoading == true &&
+          !next.isLoading &&
+          !next.sharingConsentAsked &&
+          !_consentDialogShown) {
+        _consentDialogShown = true;
+        _showConsentDialog();
+      }
+    });
+
     ref.listen<GradesState>(gradesProvider, (prev, next) {
       if (prev?.isLoading == true &&
           !next.isLoading &&
@@ -153,21 +203,28 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen>
           next.error == null) {
         _trySubmitGrades();
       }
+
+      // Show a persistent banner when 2FA is needed and no secret is stored.
+      if (next.needsReauth && !(prev?.needsReauth ?? false)) {
+        _showReauthBanner();
+      }
     });
 
     final departmentName = ref.watch(departmentNameProvider);
     final curriculum = ref.watch(curriculumProvider);
     final semesterAverage = ref.watch(semesterAverageProvider);
-    final selectedSemester = ref.watch(selectedSemesterProvider);
+    final effectiveSemester = ref.watch(effectiveSemesterProvider);
     final gradesState = ref.watch(gradesProvider);
 
     // Pre-fetch averages in the background so data is ready when user taps a subject.
-    ref.watch(
-      averagesProvider((
-        department: departmentName,
-        semester: selectedSemester,
-      )),
-    );
+    if (effectiveSemester != null) {
+      ref.watch(
+        averagesProvider((
+          department: departmentName,
+          semester: effectiveSemester,
+        )),
+      );
+    }
 
     final isLoading = gradesState.isLoading;
     final lastUpdated = gradesState.lastUpdated;
@@ -189,7 +246,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen>
                       average: semesterAverage,
                       onMenuPressed: () => Scaffold.of(context).openDrawer(),
                       lastUpdated: lastUpdated,
-                      selectedSemester: selectedSemester,
+                      selectedSemester: effectiveSemester ?? 0,
                       availableSemesters: ref.watch(availableSemestersProvider),
                       onSemesterChanged: (newSem) {
                         ref.read(selectedSemesterProvider.notifier).state =
@@ -352,9 +409,9 @@ class _UEDetailSheetState extends ConsumerState<_UEDetailSheet> {
     final ueColor = GradeUtils.getColor(widget.unit.average);
 
     final department = ref.watch(departmentNameProvider);
-    final semester = ref.watch(selectedSemesterProvider);
+    final semester = ref.watch(effectiveSemesterProvider);
     final avgAsync = ref.watch(
-      averagesProvider((department: department, semester: semester)),
+      averagesProvider((department: department, semester: semester ?? 0)),
     );
 
     final Map<String, SubjectAverage> avgMap = avgAsync.maybeWhen(

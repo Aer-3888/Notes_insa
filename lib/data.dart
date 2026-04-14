@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'package:flutter/foundation.dart';
 import 'models.dart';
 
 /// JSON curriculum parser.
@@ -61,8 +62,9 @@ class JsonCurriculumParser {
                 (subjectNode['name'] ?? 'Unknown Subject')
                     .toString()
                     .cleanName();
-            final double subjectCoeff =
-                double.tryParse(subjectNode['coeff'] as String? ?? '') ?? 1.0;
+            // TODO: replace with a dedicated coefficients API call once
+            // mobinsapi exposes it — hardcoded to 1.0 in the meantime.
+            const double subjectCoeff = 1.0;
 
             final List<GradeInstance> grades = [];
 
@@ -77,18 +79,13 @@ class JsonCurriculumParser {
                 final String gradeName = (gradeNode['name'] ?? 'Unknown Grade')
                     .toString()
                     .cleanName();
-                final String? gradeScore = gradeNode['score'] as String?;
+                final String? gradeScore = _extractScore(gradeNode['score']);
 
                 if (gradeScore != null && !gradeScore.contains('Aucun')) {
                   final double? gradeValue = GradeUtils.parseDouble(gradeScore);
                   if (gradeValue != null) {
-                    grades.add(
-                      GradeInstance(
-                        gradeName,
-                        gradeValue,
-                        coeff: gradeNode['coeff'] as String? ?? '',
-                      ),
-                    );
+                    // coeff omitted — coefficients API not yet available.
+                    grades.add(GradeInstance(gradeName, gradeValue));
                   }
                 }
               }
@@ -96,7 +93,7 @@ class JsonCurriculumParser {
 
             // Fallback: use top-level score only if no detailed grades were found
             if (grades.isEmpty) {
-              final String? subjectScore = subjectNode['score'] as String?;
+              final String? subjectScore = _extractScore(subjectNode['score']);
               if (subjectScore != null && !subjectScore.contains('Aucun')) {
                 final double? gradeValue = GradeUtils.parseDouble(subjectScore);
                 if (gradeValue != null) {
@@ -121,8 +118,11 @@ class JsonCurriculumParser {
       }
 
       return teachingUnits;
-    } catch (_) {
-      // Return empty on any parsing error
+    } catch (e, st) {
+      if (kDebugMode) {
+        debugPrint('[Parser] parseSemester($semesterNumber) failed');
+        debugPrint('[Parser] Stack: $st');
+      }
       return [];
     }
   }
@@ -133,7 +133,8 @@ class JsonCurriculumParser {
       final Map<String, dynamic> rawData =
           jsonDecode(jsonString) as Map<String, dynamic>;
       return (rawData['name'] ?? 'Etudiant').toString().cleanName();
-    } catch (_) {
+    } catch (e) {
+      if (kDebugMode) debugPrint('[Parser] getDepartmentName failed: $e');
       return 'Etudiant';
     }
   }
@@ -141,19 +142,58 @@ class JsonCurriculumParser {
   /// Return available semester numbers found in the JSON payload.
   static List<int> getAvailableSemesters(String jsonString) {
     try {
-      final Map<String, dynamic> rawData =
-          jsonDecode(jsonString) as Map<String, dynamic>;
+      final dynamic decoded = jsonDecode(jsonString);
 
-      if (rawData['details'] is! List) return [];
+      if (kDebugMode) {
+        debugPrint('[Parser] JSON top-level type: ${decoded.runtimeType}');
+        if (decoded is Map) {
+          debugPrint('[Parser] Top-level keys: ${decoded.keys.toList()}');
+          if (decoded['details'] != null) {
+            debugPrint(
+              '[Parser] details type: ${decoded['details'].runtimeType}',
+            );
+            if (decoded['details'] is List &&
+                (decoded['details'] as List).isNotEmpty) {
+              final first = (decoded['details'] as List).first;
+              debugPrint(
+                '[Parser] First details item keys: ${first is Map ? first.keys.toList() : first.runtimeType}',
+              );
+              if (first is Map && first['name'] != null) {
+                debugPrint(
+                  '[Parser] First details item name: "${first['name']}"',
+                );
+              }
+            }
+          }
+        } else if (decoded is List && decoded.isNotEmpty) {
+          debugPrint(
+            '[Parser] Top-level is List, first item keys: ${decoded.first is Map ? (decoded.first as Map).keys.toList() : decoded.first.runtimeType}',
+          );
+        }
+      }
+
+      final Map<String, dynamic> rawData = decoded as Map<String, dynamic>;
+
+      if (rawData['details'] is! List) {
+        if (kDebugMode)
+          debugPrint(
+            '[Parser] getAvailableSemesters: "details" not found or not a List',
+          );
+        return [];
+      }
 
       final List<int> semesters = [];
       final List<dynamic> yearDetails = rawData['details'] as List<dynamic>;
 
+      // Match "SEMESTRE3", "Semestre 3", "S3", "semestre_3", etc.
+      final RegExp regex = RegExp(r'[Ss][Ee][Mm].*?(\d+)');
+
       for (final item in yearDetails) {
         if (item is Map<String, dynamic> && item['name'] != null) {
           final String name = item['name'].toString();
-          final RegExp regex = RegExp(r'SEMESTRE(\d+)', caseSensitive: false);
           final match = regex.firstMatch(name);
+          if (kDebugMode)
+            debugPrint('[Parser] Semester candidate: "$name" → match: $match');
           if (match != null) {
             final int? semNum = int.tryParse(match.group(1) ?? '');
             if (semNum != null) semesters.add(semNum);
@@ -162,9 +202,25 @@ class JsonCurriculumParser {
       }
 
       semesters.sort();
+      if (kDebugMode) debugPrint('[Parser] Found semesters: $semesters');
       return semesters;
-    } catch (_) {
+    } catch (e, st) {
+      if (kDebugMode) {
+        debugPrint('[Parser] getAvailableSemesters failed: $e');
+        debugPrint('[Parser] Stack: $st');
+      }
       return [];
     }
+  }
+
+  /// Extracts a score string from a field that may be either a bare String
+  /// (old inscore format) or a List (new mobinsapi format: ["16/20", "VAL"]).
+  /// Returns null if the field is absent or not a recognised type.
+  static String? _extractScore(dynamic field) {
+    if (field is String) return field;
+    if (field is List && field.isNotEmpty && field.first is String) {
+      return field.first as String;
+    }
+    return null;
   }
 }

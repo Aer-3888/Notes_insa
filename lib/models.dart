@@ -263,38 +263,6 @@ class Profile {
   int get unitCount => units.length;
 }
 
-class JsonGradeParser {
-  static Map<String, String> flattenGrades(Map<String, dynamic> json) {
-    final Map<String, String> result = {};
-    final List<dynamic> stack = [json];
-
-    while (stack.isNotEmpty) {
-      final current = stack.removeLast();
-
-      if (current is Map<String, dynamic>) {
-        if (current['name'] != null && current['score'] != null) {
-          result[current['name'] as String] = current['score'] as String;
-        }
-
-        if (current['details'] is List) {
-          final List<dynamic> details = current['details'] as List<dynamic>;
-          // Push in reverse order to maintain original traversal order if needed,
-          // though for a map it doesn't strictly matter.
-          for (var i = details.length - 1; i >= 0; i--) {
-            stack.add(details[i]);
-          }
-        }
-      } else if (current is List) {
-        for (var i = current.length - 1; i >= 0; i--) {
-          stack.add(current[i]);
-        }
-      }
-    }
-
-    return result;
-  }
-}
-
 extension StringCleaning on String {
   /// Aggressively clean a string by replacing all whitespace (including
   /// non-breaking spaces and hidden characters) with a single space and

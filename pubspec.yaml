@@ -45,8 +45,6 @@ dependencies:
   permission_handler: ^12.0.1
   # For decoding Google Authenticator migration QR codes
   protobuf: ^6.0.0
-  # Background task scheduling (Android)
-  workmanager: ^0.9.0+3
   # Local notifications
   flutter_local_notifications: ^20.1.0
   # Persistence for snapshots
@@ -55,8 +53,6 @@ dependencies:
   http: ^1.6.0
   # JSON serialization
   json_annotation: ^4.9.0
-  # Deep collection equality
-  collection: ^1.18.0
   # State management
   flutter_riverpod: ^2.6.1
   riverpod_annotation: ^2.6.1

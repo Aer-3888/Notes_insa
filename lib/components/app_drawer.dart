@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../app_colors.dart';
 import '../services/auth_service.dart';
+import '../services/grades_service.dart';
 import '../providers/grades_provider.dart';
 import '../screens/login_screen.dart';
 import '../screens/raw_json_viewer_screen.dart';
@@ -165,6 +166,8 @@ class AppDrawer extends ConsumerWidget {
                   onTap: () async {
                     ref.read(gradesProvider.notifier).clearGrades();
                     await AuthService().clear();
+                    // Reset native CAS session so no in-memory state leaks to the next user.
+                    await GradesService.newCAS();
                     if (context.mounted) {
                       Navigator.pop(context);
                       unawaited(

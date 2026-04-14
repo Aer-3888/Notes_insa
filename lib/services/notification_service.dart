@@ -169,6 +169,39 @@ class NotificationService {
     }
   }
 
+  // Show notification asking the user to re-authenticate (2FA required).
+  static Future<void> showReauthRequiredNotification() async {
+    if (!_isInitialized) await initialize();
+
+    const androidDetails = AndroidNotificationDetails(
+      'grades_updates',
+      'Grades Updates',
+      channelDescription: 'Notifications for new grade updates',
+      importance: Importance.high,
+      priority: Priority.high,
+      playSound: true,
+      enableVibration: true,
+    );
+
+    const details = NotificationDetails(
+      android: androidDetails,
+      iOS: DarwinNotificationDetails(),
+    );
+
+    try {
+      await _notifications.show(
+        id: 3,
+        title: 'Reconnexion requise',
+        body:
+            'Une double authentification est nécessaire. Ouvrez l\'application pour vous reconnecter.',
+        notificationDetails: details,
+        payload: 'reauth_required',
+      );
+    } catch (_) {
+      // Fail silently
+    }
+  }
+
   // Cancel all delivered notifications.
   static Future<void> cancelAllNotifications() async {
     try {

@@ -11,6 +11,8 @@
 
 ## WorkManager (background tasks)
 -keep class androidx.work.** { *; }
+## Native grades background worker — WorkManager instantiates it by class name
+-keep class com.aer.notes_insa.GradesBackgroundWorker { *; }
 
 ## CameraX / ML Kit (mobile_scanner)
 -keep class androidx.camera.** { *; }

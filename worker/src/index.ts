@@ -240,7 +240,8 @@ async function handleSubmit(request: Request, env: Env): Promise<Response> {
 
     await env.DB.batch(inserts);
   } catch (e: any) {
-    return error(`Database error: ${e.message}`, 500);
+    console.error(e);
+    return error("Internal Server Error", 500);
   }
 
   return json({ ok: true, status: "submitted" });
@@ -298,6 +299,7 @@ async function handleAverages(
        AND semester    = ?
        AND academic_year = ?
      GROUP BY ue_name, subject_name
+     HAVING COUNT(*) >= 5
      ORDER BY ue_name, subject_name`,
   )
     .bind(department, semester, academicYear)
