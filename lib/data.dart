@@ -128,11 +128,27 @@ class JsonCurriculumParser {
   }
 
   /// Read the department/title field from the JSON payload.
+  /// Tries to extract the department code if it's in parentheses (e.g. "DOE John (INFO)").
   static String getDepartmentName(String jsonString) {
     try {
       final Map<String, dynamic> rawData =
           jsonDecode(jsonString) as Map<String, dynamic>;
-      return (rawData['name'] ?? 'Etudiant').toString().cleanName();
+      final String rawName = (rawData['name'] ?? 'Etudiant').toString();
+
+      // Try to find content inside parentheses, usually the department code
+      final bracketMatch = RegExp(r'\((.*?)\)').firstMatch(rawName);
+      if (bracketMatch != null && bracketMatch.group(1) != null) {
+        final dept = bracketMatch.group(1)!.trim();
+        if (dept.isNotEmpty) return dept.cleanName();
+      }
+
+      // Fallback: if there's a dash, take the last part
+      if (rawName.contains('-')) {
+        final parts = rawName.split('-');
+        return parts.last.trim().cleanName();
+      }
+
+      return rawName.cleanName();
     } catch (e) {
       if (kDebugMode) debugPrint('[Parser] getDepartmentName failed: $e');
       return 'Etudiant';

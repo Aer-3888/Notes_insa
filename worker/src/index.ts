@@ -299,7 +299,6 @@ async function handleAverages(
        AND semester    = ?
        AND academic_year = ?
      GROUP BY ue_name, subject_name
-     HAVING COUNT(*) >= 5
      ORDER BY ue_name, subject_name`,
   )
     .bind(department, semester, academicYear)
