@@ -109,8 +109,39 @@ class GradesBackgroundWorker(
 
             // Read the previous snapshot before overwriting it
             val previousJson = securePrefs.getString(KEY_GRADES_JSON, null)
-            val groupId = Mobinsapi.loadGroups().toInt()
-            val newJson = Mobinsapi.grades(groupId.toLong())
+            val groupCount = Mobinsapi.loadGroups().toInt()
+            if (groupCount <= 0) {
+                Log.w(TAG, "No groups available, skipping")
+                return@withContext Result.success()
+            }
+
+            val newJson = if (groupCount == 1) {
+                Mobinsapi.grades(0)
+            } else {
+                val first = JSONObject(Mobinsapi.grades(0))
+                val seenNames = mutableSetOf<String>()
+                val mergedDetails = JSONArray()
+
+                fun addDetails(items: JSONArray?) {
+                    if (items == null) return
+                    for (j in 0 until items.length()) {
+                        val item = items.optJSONObject(j)
+                        if (item != null) {
+                            val name = item.optString("name", "")
+                            if (name.isNotEmpty() && !seenNames.add(name)) continue
+                        }
+                        mergedDetails.put(items.get(j))
+                    }
+                }
+
+                addDetails(first.optJSONArray("details"))
+                for (i in 1 until groupCount) {
+                    val extra = JSONObject(Mobinsapi.grades(i.toLong()))
+                    addDetails(extra.optJSONArray("details"))
+                }
+                first.put("details", mergedDetails)
+                first.toString()
+            }
             securePrefs.edit().putString(KEY_GRADES_JSON, newJson).apply()
 
             prefs.edit().putString(PREF_LAST_FETCH_TIME, java.time.Instant.now().toString()).apply()

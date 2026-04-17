@@ -79,19 +79,12 @@ class MainActivity : FlutterFragmentActivity() {
 
                 "LoadGroups" -> {
                     runInBackground("LoadGroups", result) {
-                        val groupId = Mobinsapi.loadGroups()
-                        if (BuildConfig.DEBUG) {
-                            Log.d(TAG, "LoadGroups returned: $groupId")
-                        }
-                        groupId.toInt()
+                        Mobinsapi.loadGroups().toInt()
                     }
                 }
 
                 "Grades" -> {
                     val id = call.argument<Int>("id") ?: 0
-                    if (BuildConfig.DEBUG) {
-                        Log.d(TAG, "Grades called with id: $id (as long: ${id.toLong()})")
-                    }
                     runInBackground("Grades", result) {
                         Mobinsapi.grades(id.toLong())
                     }

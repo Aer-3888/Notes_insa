@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'package:flutter/services.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:flutter/foundation.dart';
@@ -88,8 +89,13 @@ class GradesService {
   // High-level helper — call only after auth + 2FA are complete
   // ---------------------------------------------------------------------------
 
-  /// Fetches grades for the user's primary group, saves to secure storage, and returns the JSON.
-  /// loadGroups() returns the number of available groups; grades() takes a 0-based index.
+  /// Fetches grades for all groups, merges their details into a single JSON
+  /// payload, saves to secure storage, and returns the merged JSON string.
+  ///
+  /// loadGroups() returns the number of available groups (cards);
+  /// grades() takes a 0-based index. When there are multiple groups we
+  /// merge all `details` arrays under the first group's top-level object
+  /// so the parser sees every semester regardless of which card it belongs to.
   static Future<String> fetchAndSaveGrades() async {
     final groupCount = await loadGroups();
     if (groupCount <= 0) {
@@ -98,9 +104,44 @@ class GradesService {
         message: 'No groups available',
       );
     }
-    final json = await grades(0);
-    await saveGrades(json);
-    return json;
+
+    if (groupCount == 1) {
+      final json = await grades(0);
+      await saveGrades(json);
+      return json;
+    }
+
+    final firstJson = await grades(0);
+    final merged = jsonDecode(firstJson) as Map<String, dynamic>;
+    final seenNames = <String>{};
+    final mergedDetails = <dynamic>[];
+
+    void addDetails(List<dynamic> items) {
+      for (final item in items) {
+        if (item is Map<String, dynamic>) {
+          final name = item['name'] as String?;
+          if (name != null && !seenNames.add(name)) continue;
+        }
+        mergedDetails.add(item);
+      }
+    }
+
+    if (merged['details'] is List) {
+      addDetails(merged['details'] as List<dynamic>);
+    }
+
+    for (int i = 1; i < groupCount; i++) {
+      final extraJson = await grades(i);
+      final extra = jsonDecode(extraJson) as Map<String, dynamic>;
+      if (extra['details'] is List) {
+        addDetails(extra['details'] as List<dynamic>);
+      }
+    }
+
+    merged['details'] = mergedDetails;
+    final result = jsonEncode(merged);
+    await saveGrades(result);
+    return result;
   }
 
   // ---------------------------------------------------------------------------

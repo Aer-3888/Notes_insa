@@ -23,20 +23,10 @@ class JsonCurriculumParser {
       // Top-level details must be a list
       if (rawData['details'] is! List) return [];
 
-      final List<dynamic> yearDetails = rawData['details'] as List<dynamic>;
-
-      final String semesterKey = 'SEMESTRE$semesterNumber';
-      Map<String, dynamic>? semesterNode;
-
-      // Find the matching semester node
-      for (final yearItem in yearDetails) {
-        if (yearItem is Map<String, dynamic> &&
-            yearItem['name'] != null &&
-            yearItem['name'].toString().toUpperCase().contains(semesterKey)) {
-          semesterNode = yearItem;
-          break;
-        }
-      }
+      final semesterNode = _findSemesterNode(
+        rawData['details'] as List<dynamic>,
+        semesterNumber,
+      );
 
       if (semesterNode == null || semesterNode['details'] is! List) return [];
 
@@ -127,25 +117,31 @@ class JsonCurriculumParser {
     }
   }
 
-  /// Read the department/title field from the JSON payload.
-  /// Tries to extract the department code if it's in parentheses (e.g. "DOE John (INFO)").
+  /// Extracts a short department code from the JSON payload.
+  ///
+  /// Tries several strategies in order:
+  /// 1. Parentheses in top-level name: "DOE John (INFO)" → "INFO"
+  /// 2. Semester name prefix: "3INFO-SEMESTRE5" → "INFO", "1STPI-SEMESTRE1" → "STPI"
+  /// 3. Top-level name as-is
   static String getDepartmentName(String jsonString) {
     try {
       final Map<String, dynamic> rawData =
           jsonDecode(jsonString) as Map<String, dynamic>;
       final String rawName = (rawData['name'] ?? 'Etudiant').toString();
 
-      // Try to find content inside parentheses, usually the department code
+      // 1. Content inside parentheses
       final bracketMatch = RegExp(r'\((.*?)\)').firstMatch(rawName);
       if (bracketMatch != null && bracketMatch.group(1) != null) {
         final dept = bracketMatch.group(1)!.trim();
         if (dept.isNotEmpty) return dept.cleanName();
       }
 
-      // Fallback: if there's a dash, take the last part
-      if (rawName.contains('-')) {
-        final parts = rawName.split('-');
-        return parts.last.trim().cleanName();
+      // 2. Extract from semester names: "3INFO-SEMESTRE5" → "INFO"
+      if (rawData['details'] is List) {
+        final dept = _extractDeptFromSemesters(
+          rawData['details'] as List<dynamic>,
+        );
+        if (dept != null) return dept;
       }
 
       return rawName.cleanName();
@@ -155,73 +151,46 @@ class JsonCurriculumParser {
     }
   }
 
+  // Pattern: {digit(s)}{DEPT}-SEM... e.g. "3INFO-SEMESTRE5", "1STPI-SEMESTRE1"
+  static final RegExp _deptFromSemRegex = RegExp(
+    r'^\d+([A-Za-z]+)\s*-\s*sem',
+    caseSensitive: false,
+  );
+
+  /// Recursively searches for the first semester node and extracts the
+  /// department code from its name prefix.
+  static String? _extractDeptFromSemesters(List<dynamic> items) {
+    for (final item in items) {
+      if (item is! Map<String, dynamic> || item['name'] == null) continue;
+      final name = item['name'].toString();
+      if (_isSemesterName(name)) {
+        final match = _deptFromSemRegex.firstMatch(name);
+        if (match != null) return match.group(1)!.toUpperCase();
+      } else if (item['details'] is List) {
+        final found = _extractDeptFromSemesters(
+          item['details'] as List<dynamic>,
+        );
+        if (found != null) return found;
+      }
+    }
+    return null;
+  }
+
   /// Return available semester numbers found in the JSON payload.
+  /// Handles both flat (semesters at top) and nested (year → semesters) structures.
   static List<int> getAvailableSemesters(String jsonString) {
     try {
-      final dynamic decoded = jsonDecode(jsonString);
+      final Map<String, dynamic> rawData =
+          jsonDecode(jsonString) as Map<String, dynamic>;
 
-      if (kDebugMode) {
-        debugPrint('[Parser] JSON top-level type: ${decoded.runtimeType}');
-        if (decoded is Map) {
-          debugPrint('[Parser] Top-level keys: ${decoded.keys.toList()}');
-          if (decoded['details'] != null) {
-            debugPrint(
-              '[Parser] details type: ${decoded['details'].runtimeType}',
-            );
-            if (decoded['details'] is List &&
-                (decoded['details'] as List).isNotEmpty) {
-              final first = (decoded['details'] as List).first;
-              debugPrint(
-                '[Parser] First details item keys: ${first is Map ? first.keys.toList() : first.runtimeType}',
-              );
-              if (first is Map && first['name'] != null) {
-                debugPrint(
-                  '[Parser] First details item name: "${first['name']}"',
-                );
-              }
-            }
-          }
-        } else if (decoded is List && decoded.isNotEmpty) {
-          debugPrint(
-            '[Parser] Top-level is List, first item keys: ${decoded.first is Map ? (decoded.first as Map).keys.toList() : decoded.first.runtimeType}',
-          );
-        }
-      }
+      if (rawData['details'] is! List) return [];
 
-      final Map<String, dynamic> rawData = decoded as Map<String, dynamic>;
+      final semesters = <int>{};
+      _collectSemesters(rawData['details'] as List<dynamic>, semesters);
 
-      if (rawData['details'] is! List) {
-        if (kDebugMode) {
-          debugPrint(
-            '[Parser] getAvailableSemesters: "details" not found or not a List',
-          );
-        }
-        return [];
-      }
-
-      final List<int> semesters = [];
-      final List<dynamic> yearDetails = rawData['details'] as List<dynamic>;
-
-      // Match "SEMESTRE3", "Semestre 3", "S3", "semestre_3", etc.
-      final RegExp regex = RegExp(r'[Ss][Ee][Mm].*?(\d+)');
-
-      for (final item in yearDetails) {
-        if (item is Map<String, dynamic> && item['name'] != null) {
-          final String name = item['name'].toString();
-          final match = regex.firstMatch(name);
-          if (kDebugMode) {
-            debugPrint('[Parser] Semester candidate: "$name" → match: $match');
-          }
-          if (match != null) {
-            final int? semNum = int.tryParse(match.group(1) ?? '');
-            if (semNum != null) semesters.add(semNum);
-          }
-        }
-      }
-
-      semesters.sort();
-      if (kDebugMode) debugPrint('[Parser] Found semesters: $semesters');
-      return semesters;
+      final sorted = semesters.toList()..sort();
+      if (kDebugMode) debugPrint('[Parser] Found semesters: $sorted');
+      return sorted;
     } catch (e, st) {
       if (kDebugMode) {
         debugPrint('[Parser] getAvailableSemesters failed: $e');
@@ -229,6 +198,54 @@ class JsonCurriculumParser {
       }
       return [];
     }
+  }
+
+  static final RegExp _semesterRegex = RegExp(
+    r'sem(?:estre)?[^a-zA-Z]*(\d+)',
+    caseSensitive: false,
+  );
+
+  static bool _isSemesterName(String name) => _semesterRegex.hasMatch(name);
+
+  /// Recursively walks the tree collecting semester numbers.
+  /// Stops recursing into a branch once a semester is found (semesters
+  /// don't nest inside other semesters).
+  static void _collectSemesters(List<dynamic> items, Set<int> out) {
+    for (final item in items) {
+      if (item is! Map<String, dynamic> || item['name'] == null) continue;
+      final match = _semesterRegex.firstMatch(item['name'].toString());
+      if (match != null) {
+        final n = int.tryParse(match.group(1) ?? '');
+        if (n != null) out.add(n);
+      } else if (item['details'] is List) {
+        _collectSemesters(item['details'] as List<dynamic>, out);
+      }
+    }
+  }
+
+  /// Recursively finds the node whose name matches the given semester number.
+  static Map<String, dynamic>? _findSemesterNode(
+    List<dynamic> items,
+    int semesterNumber,
+  ) {
+    for (final item in items) {
+      if (item is! Map<String, dynamic> || item['name'] == null) continue;
+      final name = item['name'].toString();
+      if (_isSemesterName(name)) {
+        final match = _semesterRegex.firstMatch(name);
+        if (match != null &&
+            int.tryParse(match.group(1) ?? '') == semesterNumber) {
+          return item;
+        }
+      } else if (item['details'] is List) {
+        final found = _findSemesterNode(
+          item['details'] as List<dynamic>,
+          semesterNumber,
+        );
+        if (found != null) return found;
+      }
+    }
+    return null;
   }
 
   /// Extracts a score string from a field that may be either a bare String
