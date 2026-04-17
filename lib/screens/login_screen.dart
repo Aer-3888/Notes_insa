@@ -158,7 +158,9 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
   // -------------------------------------------------------------------------
 
   Future<void> _checkPinAndComplete() async {
-    if (await _authService.hasPin()) {
+    final hasPinSet = await _authService.hasPin();
+    final hasBiometrics = await _authService.hasBiometrics();
+    if (hasPinSet || hasBiometrics) {
       await _completeLogin();
     } else {
       if (mounted) setState(() => _step = _Step.setPin);
@@ -198,8 +200,14 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
       _passController.text,
     );
 
-    // Fetch grades — updates provider state
-    await ref.read(gradesProvider.notifier).fetchGradesAfterAuth();
+    // Fetch grades — updates provider state; non-blocking so login completes
+    // even when the grades endpoint fails (can be retried from dashboard).
+    unawaited(
+      ref
+          .read(gradesProvider.notifier)
+          .fetchGradesAfterAuth()
+          .catchError((_) {}),
+    );
 
     // Signal success to the autofill manager only after everything succeeded,
     // so the password manager doesn't offer to save credentials from a failed session.

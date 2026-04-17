@@ -89,9 +89,16 @@ class GradesService {
   // ---------------------------------------------------------------------------
 
   /// Fetches grades for the user's primary group, saves to secure storage, and returns the JSON.
+  /// loadGroups() returns the number of available groups; grades() takes a 0-based index.
   static Future<String> fetchAndSaveGrades() async {
-    final groupId = await loadGroups();
-    final json = await grades(groupId);
+    final groupCount = await loadGroups();
+    if (groupCount <= 0) {
+      throw PlatformException(
+        code: 'ERR_NO_GROUPS',
+        message: 'No groups available',
+      );
+    }
+    final json = await grades(0);
     await saveGrades(json);
     return json;
   }

@@ -118,6 +118,7 @@ class _BiometricScreenState extends ConsumerState<_BiometricScreen>
     with TickerProviderStateMixin {
   bool _failed = false;
   bool _authenticating = false;
+  bool _hasPin = false;
 
   late final AnimationController _shakeController;
   late final Animation<double> _shakeAnimation;
@@ -138,13 +139,20 @@ class _BiometricScreenState extends ConsumerState<_BiometricScreen>
         ]).animate(
           CurvedAnimation(parent: _shakeController, curve: Curves.easeInOut),
         );
-    WidgetsBinding.instance.addPostFrameCallback((_) => _authenticate());
+    WidgetsBinding.instance.addPostFrameCallback((_) => _init());
   }
 
   @override
   void dispose() {
     _shakeController.dispose();
     super.dispose();
+  }
+
+  Future<void> _init() async {
+    final authService = AuthService();
+    final hasPin = await authService.hasPin();
+    if (mounted) setState(() => _hasPin = hasPin);
+    await _authenticate();
   }
 
   Future<void> _authenticate() async {
@@ -252,6 +260,23 @@ class _BiometricScreenState extends ConsumerState<_BiometricScreen>
                     onPressed: _authenticate,
                   ),
                 ),
+                if (_hasPin) ...[
+                  const SizedBox(height: 12),
+                  SizedBox(
+                    width: double.infinity,
+                    child: OutlinedButton.icon(
+                      icon: const Icon(Icons.pin_outlined),
+                      label: const Text('Utiliser le code PIN'),
+                      style: OutlinedButton.styleFrom(
+                        padding: const EdgeInsets.symmetric(vertical: 14),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                      ),
+                      onPressed: () => _replaceWith(const _PinScreen()),
+                    ),
+                  ),
+                ],
                 const SizedBox(height: 12),
                 SizedBox(
                   width: double.infinity,

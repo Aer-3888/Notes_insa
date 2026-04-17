@@ -71,26 +71,28 @@ class AuthService {
     await _storage.deleteAll();
   }
 
-  // Returns success if biometrics pass, pinRequired if a fallback is needed, or failure if unauthorized.
+  Future<bool> hasBiometrics() async {
+    final biometrics = await _auth.getAvailableBiometrics();
+    return biometrics.isNotEmpty;
+  }
+
+  // Returns success if biometrics pass, pinRequired when no biometrics are
+  // enrolled (skip straight to PIN), or failure so the UI can offer retry.
   Future<AuthResult> authenticate() async {
     try {
-      final bool isDeviceSupported = await _auth.isDeviceSupported();
-      if (!isDeviceSupported) {
+      final biometrics = await _auth.getAvailableBiometrics();
+      if (biometrics.isEmpty) {
         return await hasPin() ? AuthResult.pinRequired : AuthResult.failure;
       }
 
       final success = await _auth.authenticate(
         localizedReason: 'Veuillez vous authentifier pour accéder à vos notes',
+        biometricOnly: true,
       );
 
       if (success) return AuthResult.success;
-
-      // If biometric failed (e.g. user canceled), check if we can fall back to PIN
-      if (await hasPin()) return AuthResult.pinRequired;
-
       return AuthResult.failure;
     } catch (e) {
-      if (await hasPin()) return AuthResult.pinRequired;
       return AuthResult.failure;
     }
   }
