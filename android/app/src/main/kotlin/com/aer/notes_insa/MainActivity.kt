@@ -90,6 +90,13 @@ class MainActivity : FlutterFragmentActivity() {
                     }
                 }
 
+                "Coefficients" -> {
+                    val id = call.argument<Int>("id") ?: 0
+                    runInBackground("Coefficients", result) {
+                        Mobinsapi.coefficients(id.toLong())
+                    }
+                }
+
                 "NewCAS" -> {
                     runInBackground("NewCAS", result) {
                         Mobinsapi.newCAS()

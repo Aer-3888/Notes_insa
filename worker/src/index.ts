@@ -22,6 +22,25 @@ interface SubmitBody {
   academic_year?: string; // optional — absent in old app versions
 }
 
+interface CoeffSubmitEntry {
+  ue: string;
+  name: string;
+  coefficient: number;
+}
+
+interface CoeffSubmitBody {
+  department: string;
+  semester: number;
+  academic_year: string;
+  coefficients: CoeffSubmitEntry[];
+}
+
+interface CoeffRow {
+  ue_name: string;
+  subject_name: string;
+  coefficient: number;
+}
+
 interface AverageRow {
   ue_name: string;
   subject_name: string;
@@ -150,12 +169,8 @@ function validateSubmitBody(body: unknown): body is SubmitBody {
     return false;
   if (b.academic_year !== undefined && typeof b.academic_year !== "string")
     return false;
-  if (typeof b.academic_year === "string") {
-    const yearStr = b.academic_year.trim();
-    if (!/^\d{4}-\d{4}$/.test(yearStr)) return false;
-    const [startYear, endYear] = yearStr.split("-").map(Number);
-    if (endYear !== startYear + 1) return false;
-  }
+  if (typeof b.academic_year === "string" && !isValidAcademicYear(b.academic_year.trim()))
+    return false;
 
   for (const s of b.subjects) {
     if (!s || typeof s !== "object") return false;
@@ -163,6 +178,41 @@ function validateSubmitBody(body: unknown): body is SubmitBody {
     if (typeof s.name !== "string" || s.name.trim().length === 0) return false;
     if (typeof s.grade !== "number" || s.grade < 0 || s.grade > 20)
       return false;
+  }
+
+  return true;
+}
+
+function isValidAcademicYear(s: string): boolean {
+  if (!/^\d{4}-\d{4}$/.test(s)) return false;
+  const [start, end] = s.split("-").map(Number);
+  return end === start + 1;
+}
+
+function validateCoeffBody(body: unknown): body is CoeffSubmitBody {
+  if (!body || typeof body !== "object") return false;
+  const b = body as Record<string, unknown>;
+
+  if (typeof b.department !== "string" || b.department.trim().length === 0)
+    return false;
+  if (
+    typeof b.semester !== "number" ||
+    !Number.isInteger(b.semester) ||
+    b.semester < 1 ||
+    b.semester > 12
+  )
+    return false;
+  if (typeof b.academic_year !== "string" || !isValidAcademicYear(b.academic_year.trim()))
+    return false;
+  if (!Array.isArray(b.coefficients) || b.coefficients.length === 0)
+    return false;
+  if (b.coefficients.length > 60) return false;
+
+  for (const c of b.coefficients) {
+    if (!c || typeof c !== "object") return false;
+    if (typeof c.ue !== "string" || c.ue.trim().length === 0) return false;
+    if (typeof c.name !== "string" || c.name.trim().length === 0) return false;
+    if (typeof c.coefficient !== "number" || c.coefficient <= 0) return false;
   }
 
   return true;
@@ -276,11 +326,10 @@ async function handleAverages(
   }
 
   const academicYearParam = url.searchParams.get("academic_year")?.trim();
-  let academicYear = getCurrentAcademicYear();
-  if (academicYearParam && /^\d{4}-\d{4}$/.test(academicYearParam)) {
-    const [s, e] = academicYearParam.split("-").map(Number);
-    if (e === s + 1) academicYear = academicYearParam;
-  }
+  const academicYear =
+    academicYearParam && isValidAcademicYear(academicYearParam)
+      ? academicYearParam
+      : getCurrentAcademicYear();
 
   const result = await env.DB.prepare(
     `SELECT
@@ -329,6 +378,100 @@ async function handleAverages(
   });
 }
 
+async function handleGetCoefficients(
+  request: Request,
+  env: Env,
+): Promise<Response> {
+  const url = new URL(request.url);
+  const department = url.searchParams.get("department")?.trim();
+  const semesterRaw = url.searchParams.get("semester");
+
+  if (!department || department.length === 0) {
+    return error("Missing required query param: department");
+  }
+
+  const semester = parseInt(semesterRaw ?? "", 10);
+  if (isNaN(semester) || semester < 1 || semester > 12) {
+    return error("Missing or invalid query param: semester (must be 1–12)");
+  }
+
+  const academicYearParam = url.searchParams.get("academic_year")?.trim();
+  const academicYear =
+    academicYearParam && isValidAcademicYear(academicYearParam)
+      ? academicYearParam
+      : getCurrentAcademicYear();
+
+  const result = await env.DB.prepare(
+    `SELECT ue_name, subject_name, coefficient
+     FROM coefficients
+     WHERE department    = ?
+       AND semester      = ?
+       AND academic_year = ?
+     ORDER BY ue_name, subject_name`,
+  )
+    .bind(department, semester, academicYear)
+    .all<CoeffRow>();
+
+  return new Response(JSON.stringify(result.results), {
+    headers: {
+      ...CORS_HEADERS,
+      "Content-Type": "application/json",
+      "Cache-Control": "public, max-age=86400",
+    },
+  });
+}
+
+async function handlePostCoefficients(
+  request: Request,
+  env: Env,
+): Promise<Response> {
+  const secret = request.headers.get("X-App-Secret");
+  if (!secret || secret !== env.APP_SECRET) {
+    return error("Unauthorized", 401);
+  }
+
+  let body: unknown;
+  try {
+    body = await request.json();
+  } catch {
+    return error("Invalid JSON body");
+  }
+
+  if (!validateCoeffBody(body)) {
+    return error("Invalid payload format");
+  }
+
+  const department = body.department.trim();
+  const academicYear = body.academic_year.trim();
+
+  try {
+    const stmt = env.DB.prepare(
+      `INSERT INTO coefficients (department, semester, academic_year, ue_name, subject_name, coefficient)
+       VALUES (?, ?, ?, ?, ?, ?)
+       ON CONFLICT (department, semester, academic_year, ue_name, subject_name)
+       DO UPDATE SET coefficient = excluded.coefficient, submitted_at = datetime('now')`,
+    );
+
+    const inserts = body.coefficients.map((c) =>
+      stmt.bind(
+        department,
+        body.semester,
+        academicYear,
+        c.ue.trim(),
+        c.name.trim(),
+        Math.round(c.coefficient * 100) / 100,
+      ),
+    );
+
+    await env.DB.batch(inserts);
+  } catch (e: any) {
+    console.error(e);
+    return error("Internal Server Error", 500);
+  }
+
+  return json({ ok: true, status: "stored" });
+}
+
 // ── Router ─────────────────────────────────────────────────────────────────
 
 export default {
@@ -345,6 +488,14 @@ export default {
 
     if (url.pathname === "/averages" && request.method === "GET") {
       return handleAverages(request, env);
+    }
+
+    if (url.pathname === "/coefficients" && request.method === "GET") {
+      return handleGetCoefficients(request, env);
+    }
+
+    if (url.pathname === "/coefficients" && request.method === "POST") {
+      return handlePostCoefficients(request, env);
     }
 
     return error("Not found", 404);

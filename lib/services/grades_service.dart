@@ -66,6 +66,19 @@ class GradesService {
     return result;
   }
 
+  static Future<String> coefficients(int id) async {
+    final result = await _channel.invokeMethod<String>('Coefficients', {
+      'id': id,
+    });
+    if (result == null) {
+      throw PlatformException(
+        code: 'ERR_COEFFICIENTS',
+        message: 'Null response from Coefficients',
+      );
+    }
+    return result;
+  }
+
   static Future<void> newCAS() async {
     await _channel.invokeMethod<void>('NewCAS');
   }

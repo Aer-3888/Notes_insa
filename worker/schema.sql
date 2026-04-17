@@ -24,5 +24,26 @@ CREATE INDEX IF NOT EXISTS idx_dept_sem_year
 CREATE INDEX IF NOT EXISTS idx_submitted_at
   ON submissions(submitted_at);
 
+-- ── Coefficients ──────────────────────────────────────────────────────────
+-- Community-shared subject coefficients, keyed per dept+semester+year.
+-- Populated from Mobinsapi.Coefficients() and reused by all users.
+
+CREATE TABLE IF NOT EXISTS coefficients (
+  id            INTEGER PRIMARY KEY AUTOINCREMENT,
+  department    TEXT    NOT NULL,
+  semester      INTEGER NOT NULL CHECK(semester BETWEEN 1 AND 12),
+  academic_year TEXT    NOT NULL,
+  ue_name       TEXT    NOT NULL,
+  subject_name  TEXT    NOT NULL,
+  coefficient   REAL    NOT NULL CHECK(coefficient > 0),
+  submitted_at  TEXT    NOT NULL DEFAULT (datetime('now'))
+);
+
+CREATE UNIQUE INDEX IF NOT EXISTS idx_coeff_subject
+  ON coefficients(department, semester, academic_year, ue_name, subject_name);
+
+CREATE INDEX IF NOT EXISTS idx_coeff_lookup
+  ON coefficients(department, semester, academic_year);
+
 -- Migration for existing deployments (safe to run multiple times):
 -- ALTER TABLE submissions ADD COLUMN user_hash TEXT NOT NULL DEFAULT '';

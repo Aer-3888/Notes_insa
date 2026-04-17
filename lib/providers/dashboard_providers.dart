@@ -1,7 +1,9 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../models.dart';
 import '../data.dart';
 import '../services/averages_service.dart';
+import 'coefficients_provider.dart';
 import 'grades_provider.dart';
 
 /// Raw semester selection — -1 is the sentinel for "not explicitly chosen".
@@ -32,16 +34,41 @@ final departmentNameProvider = Provider<String>((ref) {
   }
 });
 
-/// Computed provider for curriculum based on selected semester
-/// Caches parsed curriculum and only recomputes when grades or semester changes
+/// Computed provider for curriculum based on selected semester.
+/// Watches coefficients and re-parses when they arrive. While coefficients
+/// are loading, parses with defaults (1.0) so the UI is never blocked.
 final curriculumProvider = Provider<List<TeachingUnit>>((ref) {
   final gradesState = ref.watch(gradesProvider);
   final jsonString = gradesState.jsonData;
   final semester = ref.watch(effectiveSemesterProvider);
   if (semester == null) return [];
 
+  final department = ref.watch(departmentNameProvider);
+  final academicYear = ref.watch(academicYearProvider);
+
+  final coeffsAsync = ref.watch(
+    coefficientsProvider((
+      department: department,
+      semester: semester,
+      academicYear: academicYear,
+    )),
+  );
+
+  final coefficients = coeffsAsync.when(
+    data: (data) => data,
+    loading: () => <String, double>{},
+    error: (e, _) {
+      if (kDebugMode) debugPrint('[Dashboard] Coefficients failed: $e');
+      return <String, double>{};
+    },
+  );
+
   try {
-    return JsonCurriculumParser.parseSemester(jsonString, semester);
+    return JsonCurriculumParser.parseSemester(
+      jsonString,
+      semester,
+      coefficients: coefficients.isEmpty ? null : coefficients,
+    );
   } catch (_) {
     return [];
   }

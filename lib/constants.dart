@@ -17,3 +17,5 @@ const kStorageCasSession = 'cas_session';
 const kStorageGradesJson = 'stored_grades_json';
 // User PIN for secondary authentication (fallback for biometrics).
 const kStoragePin = 'user_pin';
+// Cached coefficients JSON — keyed per dept_semester_year.
+const kStorageCoefficientsPrefix = 'coefficients_';

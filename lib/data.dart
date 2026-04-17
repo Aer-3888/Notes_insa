@@ -14,8 +14,9 @@ class JsonCurriculumParser {
   /// are missing.
   static List<TeachingUnit> parseSemester(
     String jsonString,
-    int semesterNumber,
-  ) {
+    int semesterNumber, {
+    Map<String, double>? coefficients,
+  }) {
     try {
       final Map<String, dynamic> rawData =
           jsonDecode(jsonString) as Map<String, dynamic>;
@@ -52,9 +53,8 @@ class JsonCurriculumParser {
                 (subjectNode['name'] ?? 'Unknown Subject')
                     .toString()
                     .cleanName();
-            // TODO: replace with a dedicated coefficients API call once
-            // mobinsapi exposes it — hardcoded to 1.0 in the meantime.
-            const double subjectCoeff = 1.0;
+            final double subjectCoeff =
+                coefficients?['$ueName|$subjectName'] ?? 1.0;
 
             final List<GradeInstance> grades = [];
 
