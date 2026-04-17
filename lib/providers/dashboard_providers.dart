@@ -1,6 +1,7 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../models.dart';
 import '../data.dart';
+import '../services/averages_service.dart';
 import 'grades_provider.dart';
 
 /// Raw semester selection — -1 is the sentinel for "not explicitly chosen".
@@ -77,4 +78,14 @@ final availableSemestersProvider = Provider<List<int>>((ref) {
   } catch (_) {
     return [];
   }
+});
+
+/// Academic year for the currently selected semester.
+final academicYearProvider = Provider<String>((ref) {
+  final semester = ref.watch(effectiveSemesterProvider);
+  final available = ref.watch(availableSemestersProvider);
+  if (semester == null || available.isEmpty) {
+    return AveragesService.currentAcademicYear();
+  }
+  return AveragesService.academicYearForSemester(semester, available.last);
 });

@@ -141,10 +141,15 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen>
       // Also refresh class averages if the grade fetch successfully started.
       final department = ref.read(departmentNameProvider);
       final semester = ref.read(effectiveSemesterProvider);
+      final academicYear = ref.read(academicYearProvider);
 
       if (department.isNotEmpty && semester != null) {
         ref.invalidate(
-          averagesProvider((department: department, semester: semester)),
+          averagesProvider((
+            department: department,
+            semester: semester,
+            academicYear: academicYear,
+          )),
         );
       }
     }
@@ -226,12 +231,15 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen>
     final effectiveSemester = ref.watch(effectiveSemesterProvider);
     final gradesState = ref.watch(gradesProvider);
 
+    final academicYear = ref.watch(academicYearProvider);
+
     // Pre-fetch averages in the background so data is ready when user taps a subject.
     if (effectiveSemester != null) {
       ref.watch(
         averagesProvider((
           department: departmentName,
           semester: effectiveSemester,
+          academicYear: academicYear,
         )),
       );
     }
@@ -420,8 +428,13 @@ class _UEDetailSheetState extends ConsumerState<_UEDetailSheet> {
 
     final department = ref.watch(departmentNameProvider);
     final semester = ref.watch(effectiveSemesterProvider);
+    final academicYear = ref.watch(academicYearProvider);
     final avgAsync = ref.watch(
-      averagesProvider((department: department, semester: semester ?? 0)),
+      averagesProvider((
+        department: department,
+        semester: semester ?? 0,
+        academicYear: academicYear,
+      )),
     );
 
     final Map<String, SubjectAverage> avgMap = avgAsync.maybeWhen(

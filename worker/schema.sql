@@ -18,8 +18,8 @@ CREATE UNIQUE INDEX IF NOT EXISTS idx_user_subject
   ON submissions(user_hash, academic_year, department, semester, ue_name, subject_name)
   WHERE user_hash != '';
 
-CREATE INDEX IF NOT EXISTS idx_dept_sem
-  ON submissions(department, semester);
+CREATE INDEX IF NOT EXISTS idx_dept_sem_year
+  ON submissions(department, semester, academic_year);
 
 CREATE INDEX IF NOT EXISTS idx_submitted_at
   ON submissions(submitted_at);

@@ -19,6 +19,7 @@ interface SubmitBody {
   semester: number;
   subjects: SubmitSubject[];
   username?: string; // optional — absent in old app versions
+  academic_year?: string; // optional — absent in old app versions
 }
 
 interface AverageRow {
@@ -111,14 +112,15 @@ function getCurrentAcademicYear(): string {
   }
 }
 
-/** Returns true if the caller is rate-limited (1 submit per dept+semester per IP per 24 h). */
+/** Returns true if the caller is rate-limited (1 submit per dept+semester+year per IP per 24 h). */
 async function isRateLimited(
   kv: KVNamespace,
   ipHash: string,
   department: string,
   semester: number,
+  academicYear: string,
 ): Promise<boolean> {
-  const key = `rl:${ipHash}:${department}:${semester}`;
+  const key = `rl:${ipHash}:${department}:${semester}:${academicYear}`;
   const existing = await kv.get(key);
   if (existing !== null) return true;
   // Store with 24-hour TTL (86400 seconds)
@@ -146,6 +148,14 @@ function validateSubmitBody(body: unknown): body is SubmitBody {
   if (b.username !== undefined && typeof b.username !== "string") return false;
   if (typeof b.username === "string" && b.username.trim().length === 0)
     return false;
+  if (b.academic_year !== undefined && typeof b.academic_year !== "string")
+    return false;
+  if (typeof b.academic_year === "string") {
+    const yearStr = b.academic_year.trim();
+    if (!/^\d{4}-\d{4}$/.test(yearStr)) return false;
+    const [startYear, endYear] = yearStr.split("-").map(Number);
+    if (endYear !== startYear + 1) return false;
+  }
 
   for (const s of b.subjects) {
     if (!s || typeof s !== "object") return false;
@@ -187,17 +197,18 @@ async function handleSubmit(request: Request, env: Env): Promise<Response> {
     ? await hashUsername(body.username.trim(), env.USER_HASH_SALT)
     : "";
   const rateLimitId = userHash || ipHash;
+  const academicYear = body.academic_year?.trim() || getCurrentAcademicYear();
 
   const limited = await isRateLimited(
     env.RATE_LIMIT,
     rateLimitId,
     body.department.trim(),
     body.semester,
+    academicYear,
   );
   if (limited) {
     return json({ ok: true, status: "rate_limited" });
   }
-  const academicYear = getCurrentAcademicYear();
 
   try {
     // Upsert: if the same student (user_hash) submits the same subject again,
@@ -264,7 +275,12 @@ async function handleAverages(
     return error("Missing or invalid query param: semester (must be 1–12)");
   }
 
-  const academicYear = getCurrentAcademicYear();
+  const academicYearParam = url.searchParams.get("academic_year")?.trim();
+  let academicYear = getCurrentAcademicYear();
+  if (academicYearParam && /^\d{4}-\d{4}$/.test(academicYearParam)) {
+    const [s, e] = academicYearParam.split("-").map(Number);
+    if (e === s + 1) academicYear = academicYearParam;
+  }
 
   const result = await env.DB.prepare(
     `SELECT

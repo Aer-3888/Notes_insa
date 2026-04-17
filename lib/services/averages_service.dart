@@ -8,6 +8,23 @@ import '../data.dart';
 import 'auth_service.dart';
 
 class AveragesService {
+  static String currentAcademicYear() {
+    final now = DateTime.now();
+    final year = now.year;
+    return now.month >= 8 ? '$year-${year + 1}' : '${year - 1}-$year';
+  }
+
+  static String academicYearForSemester(int semester, int maxSemester) {
+    final currentYear = currentAcademicYear();
+    final maxPair = (maxSemester - 1) ~/ 2;
+    final thisPair = (semester - 1) ~/ 2;
+    final offset = maxPair - thisPair;
+    if (offset <= 0) return currentYear;
+    final parts = currentYear.split('-');
+    final startYear = int.parse(parts[0]) - offset;
+    return '$startYear-${startYear + 1}';
+  }
+
   /// Submit grades for all available semesters.
   static Future<void> submitAllSemesters(String gradesJson) async {
     final department = JsonCurriculumParser.getDepartmentName(gradesJson);
@@ -52,6 +69,8 @@ class AveragesService {
       return;
     }
 
+    final maxSemester = availableSems.last;
+
     final List<Future<void>> futures = [];
     for (final sem in availableSems) {
       final units = JsonCurriculumParser.parseSemester(gradesJson, sem);
@@ -63,12 +82,19 @@ class AveragesService {
         }
         continue;
       }
+      final academicYear = academicYearForSemester(sem, maxSemester);
+      if (kDebugMode) {
+        debugPrint(
+          '[AveragesService] Semester $sem → academic year $academicYear',
+        );
+      }
       futures.add(
         submitGrades(
           department: department,
           semester: sem,
           units: units,
           username: username,
+          academicYear: academicYear,
         ),
       );
     }
@@ -90,6 +116,7 @@ class AveragesService {
     required int semester,
     required List<TeachingUnit> units,
     required String username,
+    required String academicYear,
   }) async {
     final subjects = [
       for (final unit in units)
@@ -112,6 +139,7 @@ class AveragesService {
       'semester': semester,
       'subjects': subjects,
       'username': username,
+      'academic_year': academicYear,
     });
 
     if (kDebugMode) {
@@ -157,11 +185,13 @@ class AveragesService {
   static Future<List<SubjectAverage>> fetchAverages({
     required String department,
     required int semester,
+    required String academicYear,
   }) async {
     final uri = Uri.parse('$kWorkerBaseUrl/averages').replace(
       queryParameters: {
         'department': department,
         'semester': semester.toString(),
+        'academic_year': academicYear,
       },
     );
 

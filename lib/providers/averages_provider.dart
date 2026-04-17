@@ -2,9 +2,13 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../models.dart';
 import '../services/averages_service.dart';
 
-typedef AveragesParams = ({String department, int semester});
+typedef AveragesParams = ({
+  String department,
+  int semester,
+  String academicYear,
+});
 
-/// Fetches class averages for a given department + semester.
+/// Fetches class averages for a given department + semester + academic year.
 /// Returns [] immediately when department is not yet known.
 /// Throws on network/server errors so the UI can show a retry state.
 final averagesProvider =
@@ -18,5 +22,6 @@ final averagesProvider =
       return AveragesService.fetchAverages(
         department: params.department,
         semester: params.semester,
+        academicYear: params.academicYear,
       );
     });
