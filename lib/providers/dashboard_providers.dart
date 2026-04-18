@@ -21,14 +21,17 @@ final effectiveSemesterProvider = Provider<int?>((ref) {
   return available.last;
 });
 
-/// Computed provider for department name from grades data
-/// Caches result and only recomputes when jsonData changes
+/// Department name for the currently selected semester (e.g. "3INFO", "1STPI").
+/// Per-semester because a student may belong to different departments across years.
 final departmentNameProvider = Provider<String>((ref) {
   final gradesState = ref.watch(gradesProvider);
   final jsonString = gradesState.jsonData;
+  final semester = ref.watch(effectiveSemesterProvider);
 
   try {
-    return JsonCurriculumParser.getDepartmentName(jsonString);
+    if (semester == null)
+      return JsonCurriculumParser.getDepartmentName(jsonString);
+    return JsonCurriculumParser.getDepartmentForSemester(jsonString, semester);
   } catch (_) {
     return 'Etudiant';
   }

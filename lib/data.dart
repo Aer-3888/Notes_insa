@@ -152,13 +152,15 @@ class JsonCurriculumParser {
   }
 
   // Pattern: {digit(s)}{DEPT}-SEM... e.g. "3INFO-SEMESTRE5", "1STPI-SEMESTRE1"
+  // Group 1 = full prefix with year ("3INFO", "1STPI")
+  // Group 2 = letters only ("INFO", "STPI")
   static final RegExp _deptFromSemRegex = RegExp(
-    r'^\d+([A-Za-z]+)\s*-\s*sem',
+    r'^(\d+([A-Za-z]+))\s*-\s*sem',
     caseSensitive: false,
   );
 
   /// Recursively searches for the first semester node and extracts the
-  /// department code from its name prefix.
+  /// year+department prefix from its name (e.g. "3INFO", "1STPI").
   static String? _extractDeptFromSemesters(List<dynamic> items) {
     for (final item in items) {
       if (item is! Map<String, dynamic> || item['name'] == null) continue;
@@ -169,6 +171,48 @@ class JsonCurriculumParser {
       } else if (item['details'] is List) {
         final found = _extractDeptFromSemesters(
           item['details'] as List<dynamic>,
+        );
+        if (found != null) return found;
+      }
+    }
+    return null;
+  }
+
+  /// Returns the year+department prefix for a specific semester number.
+  /// e.g. semester 5 in "3INFO-SEMESTRE5" → "3INFO".
+  /// Falls back to the global getDepartmentName if the semester isn't found.
+  static String getDepartmentForSemester(String jsonString, int semester) {
+    try {
+      final Map<String, dynamic> rawData =
+          jsonDecode(jsonString) as Map<String, dynamic>;
+      if (rawData['details'] is! List) return getDepartmentName(jsonString);
+      final dept = _findDeptForSemester(
+        rawData['details'] as List<dynamic>,
+        semester,
+      );
+      return dept ?? getDepartmentName(jsonString);
+    } catch (_) {
+      return getDepartmentName(jsonString);
+    }
+  }
+
+  /// Recursively finds the semester node matching [semesterNumber] and
+  /// extracts the year+department prefix from its name.
+  static String? _findDeptForSemester(List<dynamic> items, int semesterNumber) {
+    for (final item in items) {
+      if (item is! Map<String, dynamic> || item['name'] == null) continue;
+      final name = item['name'].toString();
+      if (_isSemesterName(name)) {
+        final semMatch = _semesterRegex.firstMatch(name);
+        if (semMatch != null &&
+            int.tryParse(semMatch.group(1) ?? '') == semesterNumber) {
+          final deptMatch = _deptFromSemRegex.firstMatch(name);
+          if (deptMatch != null) return deptMatch.group(1)!.toUpperCase();
+        }
+      } else if (item['details'] is List) {
+        final found = _findDeptForSemester(
+          item['details'] as List<dynamic>,
+          semesterNumber,
         );
         if (found != null) return found;
       }

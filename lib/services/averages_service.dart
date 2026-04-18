@@ -27,26 +27,14 @@ class AveragesService {
 
   /// Submit grades for all available semesters.
   static Future<void> submitAllSemesters(String gradesJson) async {
-    final department = JsonCurriculumParser.getDepartmentName(gradesJson);
     final availableSems = JsonCurriculumParser.getAvailableSemesters(
       gradesJson,
     );
 
     if (kDebugMode) {
-      debugPrint(
-        '[AveragesService] Starting submission for department: "$department"',
-      );
       debugPrint('[AveragesService] Available semesters: $availableSems');
     }
 
-    if (department.isEmpty || department == 'Etudiant') {
-      if (kDebugMode) {
-        debugPrint(
-          '[AveragesService] Aborting: department is empty or default "Etudiant"',
-        );
-      }
-      return;
-    }
     if (availableSems.isEmpty) {
       if (kDebugMode) {
         debugPrint('[AveragesService] Aborting: no semesters found in JSON');
@@ -73,6 +61,18 @@ class AveragesService {
 
     final List<Future<void>> futures = [];
     for (final sem in availableSems) {
+      final department = JsonCurriculumParser.getDepartmentForSemester(
+        gradesJson,
+        sem,
+      );
+      if (department.isEmpty || department == 'Etudiant') {
+        if (kDebugMode) {
+          debugPrint(
+            '[AveragesService] Skipping semester $sem: department is "$department"',
+          );
+        }
+        continue;
+      }
       final units = JsonCurriculumParser.parseSemester(gradesJson, sem);
       if (units.isEmpty) {
         if (kDebugMode) {
@@ -85,7 +85,7 @@ class AveragesService {
       final academicYear = academicYearForSemester(sem, maxSemester);
       if (kDebugMode) {
         debugPrint(
-          '[AveragesService] Semester $sem → academic year $academicYear',
+          '[AveragesService] Semester $sem → $department / $academicYear',
         );
       }
       futures.add(
