@@ -4,7 +4,9 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:http/http.dart' as http;
 import '../constants.dart';
+import '../data.dart';
 import '../models.dart';
+import 'averages_service.dart';
 import 'grades_service.dart';
 
 /// Coefficient for a single subject, keyed by UE + subject name.
@@ -31,7 +33,8 @@ class CoefficientsService {
 
   /// Fetch coefficients for a department+semester+academicYear.
   /// Returns a map of cleaned "ue|subject" → coefficient value.
-  /// Returns an empty map if all tiers fail (caller falls back to 1.0).
+  /// Only checks local cache and Cloudflare — the API tier is called
+  /// separately via [fetchAndCacheFromApi] right after grades are fetched.
   static Future<Map<String, double>> fetch({
     required String department,
     required int semester,
@@ -64,33 +67,53 @@ class CoefficientsService {
       return remote;
     }
 
-    // Tier 3: Mobinsapi API (last resort)
-    final api = await _fetchFromApi();
-    if (api != null && api.isNotEmpty) {
-      final filtered = _filterForSemester(
-        api,
-        department,
-        semester,
-        academicYear,
-      );
-      if (filtered.isNotEmpty) {
+    if (kDebugMode) debugPrint('[Coefficients] Tiers 1-2 missed');
+    return {};
+  }
+
+  /// Call right after fetchAndSaveGrades() while the Vaadin session is alive.
+  /// Fetches coefficients from the Mobinsapi API, caches all semesters
+  /// locally, and pushes to Cloudflare.
+  static Future<void> fetchAndCacheFromApi(String gradesJson) async {
+    try {
+      final api = await _fetchFromApi();
+      if (api == null || api.isEmpty) return;
+
+      final availableSems =
+          api.keys.map((k) => int.tryParse(k)).whereType<int>().toList()
+            ..sort();
+      if (availableSems.isEmpty) return;
+      final maxSem = availableSems.last;
+
+      for (final entry in api.entries) {
+        final semNum = int.tryParse(entry.key);
+        if (semNum == null || entry.value.isEmpty) continue;
+
+        final department = JsonCurriculumParser.getDepartmentForSemester(
+          gradesJson,
+          semNum,
+        );
+        final academicYear = AveragesService.academicYearForSemester(
+          semNum,
+          maxSem,
+        );
+
         if (kDebugMode) {
           debugPrint(
-            '[Coefficients] Tier 3 hit (API): ${filtered.length} entries',
+            '[Coefficients] Caching semester $semNum ($department / $academicYear): '
+            '${entry.value.length} subjects',
           );
         }
-        unawaited(
-          _writeLocalCache(department, semester, academicYear, filtered),
-        );
-        unawaited(
-          _pushToCloudflare(department, semester, academicYear, filtered),
-        );
-        return filtered;
-      }
-    }
 
-    if (kDebugMode) debugPrint('[Coefficients] All tiers missed');
-    return {};
+        await _writeLocalCache(department, semNum, academicYear, entry.value);
+        unawaited(
+          _pushToCloudflare(department, semNum, academicYear, entry.value),
+        );
+      }
+    } catch (e) {
+      if (kDebugMode)
+        debugPrint('[Coefficients] fetchAndCacheFromApi failed: $e');
+    }
   }
 
   // ── Tier 1: Local cache ──────────────────────────────────────────────────
@@ -215,23 +238,30 @@ class CoefficientsService {
   static Future<Map<String, Map<String, double>>?> _fetchFromApi() async {
     try {
       final groupCount = await GradesService.loadGroups();
+      if (kDebugMode) {
+        debugPrint('[Coefficients] loadGroups returned: $groupCount');
+      }
       if (groupCount <= 0) return null;
 
       final allCoeffs = <String, Map<String, double>>{};
 
       for (int i = 0; i < groupCount; i++) {
-        final raw = await GradesService.coefficients(i);
-        if (kDebugMode) {
-          debugPrint(
-            '[Coefficients] API raw response (group $i): '
-            '${raw.substring(0, raw.length.clamp(0, 500))}',
-          );
-        }
-        final parsed = _parseApiResponse(raw);
-        if (parsed != null) {
-          for (final entry in parsed.entries) {
-            allCoeffs.putIfAbsent(entry.key, () => entry.value);
+        try {
+          final raw = await GradesService.coefficients(i);
+          if (kDebugMode) {
+            debugPrint(
+              '[Coefficients] id=$i SUCCESS: '
+              '${raw.substring(0, raw.length.clamp(0, 500))}',
+            );
           }
+          final parsed = _parseApiResponse(raw);
+          if (parsed != null) {
+            for (final entry in parsed.entries) {
+              allCoeffs.putIfAbsent(entry.key, () => entry.value);
+            }
+          }
+        } catch (e) {
+          if (kDebugMode) debugPrint('[Coefficients] id=$i FAILED: $e');
         }
       }
 
@@ -242,20 +272,55 @@ class CoefficientsService {
     }
   }
 
-  /// Parse the raw Coefficients() API response.
-  /// Returns a nested map: "semesterKey" → { "ue|subject" → coefficient }.
-  /// The format is unknown, so we try multiple strategies.
+  static final RegExp _semesterRegex = RegExp(
+    r'sem(?:estre)?[^a-zA-Z]*(\d+)',
+    caseSensitive: false,
+  );
+
+  /// Parse the Coefficients() API response.
+  /// Same structure as grades: Root → Semester → UE → Subject (→ Grade details).
+  /// Every level has a "coeff" string field. We extract subject-level coefficients.
+  /// Returns: semesterNumber → { "ue|subject" → coefficient }.
   static Map<String, Map<String, double>>? _parseApiResponse(String raw) {
     try {
-      final dynamic decoded = jsonDecode(raw);
+      final decoded = jsonDecode(raw);
+      if (decoded is! Map<String, dynamic>) return null;
+
+      final topDetails = decoded['details'];
+      if (topDetails is! List) return null;
+
       final results = <String, Map<String, double>>{};
 
-      if (decoded is Map<String, dynamic>) {
-        _walkTree(decoded, results, '', '');
-      } else if (decoded is List<dynamic>) {
-        for (final item in decoded) {
-          if (item is Map<String, dynamic>) {
-            _walkTree(item, results, '', '');
+      for (final semNode in topDetails) {
+        if (semNode is! Map<String, dynamic>) continue;
+        final semName = (semNode['name'] ?? '').toString();
+        final semMatch = _semesterRegex.firstMatch(semName);
+        if (semMatch == null) {
+          // Might be a year wrapper — recurse one level
+          if (semNode['details'] is List) {
+            for (final inner in semNode['details'] as List) {
+              if (inner is! Map<String, dynamic>) continue;
+              final innerName = (inner['name'] ?? '').toString();
+              final innerMatch = _semesterRegex.firstMatch(innerName);
+              if (innerMatch != null) {
+                final semKey = innerMatch.group(1)!;
+                _extractUeCoeffs(inner, semKey, results);
+              }
+            }
+          }
+          continue;
+        }
+        final semKey = semMatch.group(1)!;
+        _extractUeCoeffs(semNode, semKey, results);
+      }
+
+      if (kDebugMode) {
+        for (final entry in results.entries) {
+          debugPrint(
+            '[Coefficients] Semester ${entry.key}: ${entry.value.length} subjects',
+          );
+          for (final sub in entry.value.entries) {
+            debugPrint('[Coefficients]   ${sub.key} = ${sub.value}');
           }
         }
       }
@@ -267,101 +332,42 @@ class CoefficientsService {
     }
   }
 
-  static final RegExp _semesterRegex = RegExp(
-    r'sem(?:estre)?[^a-zA-Z]*(\d+)',
-    caseSensitive: false,
-  );
-
-  /// Recursively walk a tree that mirrors the grades JSON structure,
-  /// extracting coefficient values from nodes.
-  static void _walkTree(
-    Map<String, dynamic> node,
+  /// Extract subject coefficients from a semester node.
+  /// Structure: semesterNode → UE nodes → Subject nodes (with "coeff").
+  static void _extractUeCoeffs(
+    Map<String, dynamic> semNode,
+    String semKey,
     Map<String, Map<String, double>> results,
-    String currentSemester,
-    String currentUe,
   ) {
-    final name = (node['name'] ?? '').toString().cleanName();
-    final details = node['details'];
+    final ueList = semNode['details'];
+    if (ueList is! List) return;
 
-    // Detect semester level
-    var semKey = currentSemester;
-    final semMatch = _semesterRegex.firstMatch(name);
-    if (semMatch != null) {
-      semKey = semMatch.group(1) ?? currentSemester;
-    }
+    results.putIfAbsent(semKey, () => {});
 
-    // Detect UE level (has details children that are subjects)
-    var ueKey = currentUe;
+    for (final ueNode in ueList) {
+      if (ueNode is! Map<String, dynamic>) continue;
+      final ueName = (ueNode['name'] ?? '').toString().cleanName();
+      final subjectList = ueNode['details'];
+      if (subjectList is! List) continue;
 
-    if (details is List && details.isNotEmpty) {
-      // Check if children look like subjects (have a coefficient/coeff field)
-      final firstChild = details.firstWhere(
-        (d) => d is Map<String, dynamic>,
-        orElse: () => null,
-      );
-      final childHasCoeff =
-          firstChild is Map<String, dynamic> &&
-          (firstChild.containsKey('coefficient') ||
-              firstChild.containsKey('coeff') ||
-              firstChild.containsKey('coef'));
-
-      if (childHasCoeff && semKey.isNotEmpty) {
-        // This node is a UE — its children are subjects with coefficients
-        ueKey = name;
-        results.putIfAbsent(semKey, () => {});
-        for (final child in details) {
-          if (child is! Map<String, dynamic>) continue;
-          final subName = (child['name'] ?? '').toString().cleanName();
-          final coeff = _extractCoeff(child);
-          if (subName.isNotEmpty && coeff != null && coeff > 0) {
-            results[semKey]!['$ueKey|$subName'] = coeff;
-          }
+      for (final subNode in subjectList) {
+        if (subNode is! Map<String, dynamic>) continue;
+        final subName = (subNode['name'] ?? '').toString().cleanName();
+        final coeff = _parseCoeffString(subNode['coeff']);
+        if (subName.isNotEmpty && coeff != null && coeff > 0) {
+          results[semKey]!['$ueName|$subName'] = coeff;
         }
-      } else {
-        // Intermediate node — recurse
-        if (name.isNotEmpty &&
-            !name.contains(RegExp(r'sem', caseSensitive: false))) {
-          ueKey = name;
-        }
-        for (final child in details) {
-          if (child is Map<String, dynamic>) {
-            _walkTree(child, results, semKey, ueKey);
-          }
-        }
-      }
-    } else if (semKey.isNotEmpty && currentUe.isNotEmpty) {
-      // Leaf node with a coefficient — this is a subject
-      final coeff = _extractCoeff(node);
-      if (name.isNotEmpty && coeff != null && coeff > 0) {
-        results.putIfAbsent(semKey, () => {});
-        results[semKey]!['$currentUe|$name'] = coeff;
       }
     }
   }
 
-  static double? _extractCoeff(Map<String, dynamic> node) {
-    for (final key in ['coefficient', 'coeff', 'coef', 'ects']) {
-      final val = node[key];
-      double? candidate;
-      if (val is num && val > 0) candidate = val.toDouble();
-      if (val is String) {
-        candidate = double.tryParse(val.replaceAll(',', '.'));
-      }
-      if (candidate != null && candidate > 0 && candidate <= 30) {
-        return candidate;
-      }
+  /// Parse a "coeff" field which is a string like "2", "1.5", etc.
+  static double? _parseCoeffString(dynamic val) {
+    if (val is num && val > 0 && val <= 30) return val.toDouble();
+    if (val is String) {
+      final parsed = double.tryParse(val.replaceAll(',', '.'));
+      if (parsed != null && parsed > 0 && parsed <= 30) return parsed;
     }
     return null;
-  }
-
-  /// Filter the full API result to a specific semester.
-  static Map<String, double> _filterForSemester(
-    Map<String, Map<String, double>> allSemesters,
-    String department,
-    int semester,
-    String academicYear,
-  ) {
-    final semKey = semester.toString();
-    return allSemesters[semKey] ?? {};
   }
 }

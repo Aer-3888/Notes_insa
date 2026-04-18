@@ -2,6 +2,7 @@ import 'dart:async';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter/foundation.dart';
 import '../services/grades_service.dart';
+import '../services/coefficients_service.dart';
 import '../services/auth_service.dart';
 import '../constants.dart';
 
@@ -95,6 +96,7 @@ class GradesNotifier extends StateNotifier<GradesState> {
       }
 
       final result = await GradesService.fetchAndSaveGrades();
+      await CoefficientsService.fetchAndCacheFromApi(result);
       state = state.copyWith(
         jsonData: result,
         lastUpdated: DateTime.now(),
@@ -170,6 +172,7 @@ class GradesNotifier extends StateNotifier<GradesState> {
       }
 
       final result = await GradesService.fetchAndSaveGrades();
+      await CoefficientsService.fetchAndCacheFromApi(result);
       state = state.copyWith(
         jsonData: result,
         lastUpdated: DateTime.now(),

@@ -9,6 +9,7 @@ import '../providers/dashboard_providers.dart';
 import '../providers/grades_provider.dart';
 import '../providers/settings_provider.dart';
 import '../providers/averages_provider.dart';
+import '../providers/coefficients_provider.dart';
 import '../components/app_drawer.dart';
 import '../components/dashboard_header.dart';
 import '../components/unit_card_grid.dart';
@@ -217,6 +218,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen>
           next.hasData &&
           next.error == null) {
         _trySubmitGrades();
+        ref.invalidate(coefficientsProvider);
       }
 
       // Show a persistent banner when 2FA is needed and no secret is stored.
