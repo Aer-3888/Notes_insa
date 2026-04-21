@@ -37,9 +37,20 @@ class _TwoFactorScreenState extends ConsumerState<TwoFactorScreen> {
     final secret = await Navigator.of(context).push<String>(
       MaterialPageRoute(builder: (_) => const ScanScreen()),
     );
-    if (secret != null) {
-      await AuthService().storeOtpSecret(secret);
-      await _validate();
+    if (secret != null && mounted) {
+      setState(() {
+        _isLoading = true;
+        _errorText = null;
+      });
+      try {
+        await AuthService().storeOtpSecret(secret);
+        await GradesService.autoValidate(secret);
+        await ref.read(gradesProvider.notifier).fetchGradesAfterAuth();
+      } catch (e) {
+        setState(() => _errorText = 'Secret OTP invalide');
+      } finally {
+        if (mounted) setState(() => _isLoading = false);
+      }
     }
   }
 

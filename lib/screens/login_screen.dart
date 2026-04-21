@@ -431,7 +431,7 @@ class _SetPinForm extends StatelessWidget {
             Container(
               padding: const EdgeInsets.all(8),
               decoration: BoxDecoration(
-                color: AppColors.primary.withValues(alpha: .1),
+                color: AppColors.primary.withOpacity(.1),
                 borderRadius: BorderRadius.circular(8),
               ),
               child: const Icon(Icons.pin_outlined, color: AppColors.primary),
@@ -592,7 +592,7 @@ class _CredentialsForm extends StatelessWidget {
           style: ElevatedButton.styleFrom(
             padding: const EdgeInsets.all(16),
             backgroundColor: AppColors.primary,
-            disabledBackgroundColor: AppColors.primary.withValues(alpha: .3),
+            disabledBackgroundColor: AppColors.primary.withOpacity(.3),
             shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(12),
             ),
@@ -662,7 +662,7 @@ class _TwoFactorForm extends StatelessWidget {
             Container(
               padding: const EdgeInsets.all(8),
               decoration: BoxDecoration(
-                color: AppColors.primary.withValues(alpha: .1),
+                color: AppColors.primary.withOpacity(.1),
                 borderRadius: BorderRadius.circular(8),
               ),
               child: const Icon(Icons.security, color: AppColors.primary),
@@ -730,7 +730,7 @@ class _TwoFactorForm extends StatelessWidget {
           style: ElevatedButton.styleFrom(
             padding: const EdgeInsets.all(16),
             backgroundColor: AppColors.primary,
-            disabledBackgroundColor: AppColors.primary.withValues(alpha: .3),
+            disabledBackgroundColor: AppColors.primary.withOpacity(.3),
             shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(12),
             ),
@@ -785,7 +785,7 @@ class _TwoFactorForm extends StatelessWidget {
             padding: const EdgeInsets.all(16),
             decoration: BoxDecoration(
               color: scannedSecret != null
-                  ? AppColors.statusPositive.withValues(alpha: .1)
+                  ? AppColors.statusPositive.withOpacity(.1)
                   : Colors.grey.shade100,
               border: Border.all(
                 color: scannedSecret != null
@@ -855,8 +855,7 @@ class _TwoFactorForm extends StatelessWidget {
             style: ElevatedButton.styleFrom(
               padding: const EdgeInsets.all(16),
               backgroundColor: AppColors.statusPositive,
-              disabledBackgroundColor: AppColors.statusPositive.withValues(
-                alpha: .3,
+              disabledBackgroundColor: AppColors.statusPositive.withOpacity(.3,
               ),
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(12),

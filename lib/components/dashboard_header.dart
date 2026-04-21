@@ -81,7 +81,7 @@ class DashboardHeader extends StatelessWidget {
                   color: GradeUtils.getColor(average),
                   boxShadow: [
                     BoxShadow(
-                      color: GradeUtils.getColor(average).withValues(alpha: .4),
+                      color: GradeUtils.getColor(average).withOpacity(.4),
                       blurRadius: 15,
                       offset: const Offset(0, 5),
                     ),

@@ -212,7 +212,7 @@ class _ProfileCard extends StatelessWidget {
                     shape: BoxShape.circle,
                     boxShadow: [
                       BoxShadow(
-                        color: AppColors.statusPositive.withValues(alpha: .4),
+                        color: AppColors.statusPositive.withOpacity(.4),
                         blurRadius: 6,
                         spreadRadius: 1,
                       ),
@@ -236,7 +236,7 @@ class _AddProfileCard extends StatelessWidget {
       elevation: 0,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
       clipBehavior: Clip.antiAlias,
-      color: Colors.white.withValues(alpha: .95),
+      color: Colors.white.withOpacity(.95),
       child: LayoutBuilder(
         builder: (context, constraints) {
           // scale add-card content to available height

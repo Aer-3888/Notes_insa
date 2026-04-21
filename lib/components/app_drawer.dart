@@ -44,7 +44,7 @@ class AppDrawer extends ConsumerWidget {
                   width: 48,
                   height: 48,
                   decoration: BoxDecoration(
-                    color: Colors.white.withValues(alpha: 0.2),
+                    color: Colors.white.withOpacity(0.2),
                     shape: BoxShape.circle,
                   ),
                   child: const Icon(
@@ -225,7 +225,7 @@ class _NavTile extends StatelessWidget {
         ),
       ),
       selected: isSelected,
-      selectedTileColor: AppColors.primary.withValues(alpha: 0.08),
+      selectedTileColor: AppColors.primary.withOpacity(0.08),
       onTap: onTap,
     );
   }

@@ -316,7 +316,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen>
                           borderRadius: BorderRadius.circular(20),
                           boxShadow: [
                             BoxShadow(
-                              color: Colors.black.withValues(alpha: 0.15),
+                              color: Colors.black.withOpacity(0.15),
                               blurRadius: 8,
                               offset: const Offset(0, 2),
                             ),
@@ -332,16 +332,14 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen>
                                     Icon(
                                       Icons.timer_outlined,
                                       size: 12,
-                                      color: Colors.white.withValues(
-                                        alpha: 0.9,
+                                      color: Colors.white.withOpacity(0.9,
                                       ),
                                     ),
                                     const SizedBox(width: 6),
                                     Text(
                                       'Actualisable dans $_cooldownSecs s',
                                       style: TextStyle(
-                                        color: Colors.white.withValues(
-                                          alpha: 0.9,
+                                        color: Colors.white.withOpacity(0.9,
                                         ),
                                         fontSize: 12,
                                         fontWeight: FontWeight.w500,
@@ -359,7 +357,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen>
                                       child: CircularProgressIndicator(
                                         strokeWidth: 1.5,
                                         valueColor: AlwaysStoppedAnimation(
-                                          Colors.white.withValues(alpha: 0.9),
+                                          Colors.white.withOpacity(0.9),
                                         ),
                                       ),
                                     ),
@@ -367,8 +365,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen>
                                     Text(
                                       'Mise à jour...',
                                       style: TextStyle(
-                                        color: Colors.white.withValues(
-                                          alpha: 0.9,
+                                        color: Colors.white.withOpacity(0.9,
                                         ),
                                         fontSize: 12,
                                         fontWeight: FontWeight.w500,
@@ -524,7 +521,7 @@ class _UEDetailSheetState extends ConsumerState<_UEDetailSheet> {
                         color: ueColor,
                         boxShadow: [
                           BoxShadow(
-                            color: ueColor.withValues(alpha: 0.35),
+                            color: ueColor.withOpacity(0.35),
                             blurRadius: 12,
                             offset: const Offset(0, 4),
                           ),
@@ -556,7 +553,7 @@ class _UEDetailSheetState extends ConsumerState<_UEDetailSheet> {
                     boxShadow: isScrolled
                         ? [
                             BoxShadow(
-                              color: Colors.black.withValues(alpha: 0.06),
+                              color: Colors.black.withOpacity(0.06),
                               blurRadius: 4,
                               offset: const Offset(0, 2),
                             ),
@@ -684,7 +681,7 @@ class _SubjectCard extends StatelessWidget {
           borderRadius: BorderRadius.circular(16),
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withValues(alpha: 0.05),
+              color: Colors.black.withOpacity(0.05),
               blurRadius: 8,
               offset: const Offset(0, 2),
             ),
@@ -738,7 +735,7 @@ class _SubjectCard extends StatelessWidget {
                           vertical: 8,
                         ),
                         decoration: BoxDecoration(
-                          color: subjectColor.withValues(alpha: 0.08),
+                          color: subjectColor.withOpacity(0.08),
                           borderRadius: BorderRadius.circular(10),
                         ),
                         child: Row(
