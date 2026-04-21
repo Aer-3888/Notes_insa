@@ -8,8 +8,9 @@ import '../services/auth_service.dart';
 import '../services/grades_service.dart';
 import '../constants.dart';
 import '../providers/grades_provider.dart';
+import '../providers/auth_providers.dart';
+import '../components/two_factor_form.dart';
 import 'scan_screen.dart';
-import 'dashboard_screen.dart';
 
 enum _Step { credentials, twoFactor, setPin }
 
@@ -200,8 +201,10 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
       _passController.text,
     );
 
-    // Fetch grades — updates provider state; non-blocking so login completes
-    // even when the grades endpoint fails (can be retried from dashboard).
+    // Invalidate the provider so AuthGate re-runs its logic
+    ref.invalidate(hasCredentialsProvider);
+
+    // Fetch grades — updates provider state
     unawaited(
       ref
           .read(gradesProvider.notifier)
@@ -209,23 +212,12 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
           .catchError((_) {}),
     );
 
-    // Signal success to the autofill manager only after everything succeeded,
-    // so the password manager doesn't offer to save credentials from a failed session.
+    // Signal success to the autofill manager
     TextInput.finishAutofillContext();
 
-    if (mounted) {
-      unawaited(
-        Navigator.of(context).pushAndRemoveUntil(
-          MaterialPageRoute(
-            builder: (ctx) => DashboardScreen(
-              onReauthRequired: () => Navigator.of(
-                ctx,
-              ).push(MaterialPageRoute(builder: (_) => const LoginScreen())),
-            ),
-          ),
-          (_) => false,
-        ),
-      );
+    // If we were pushed (e.g. "Se connecter autrement"), pop back to AuthGate
+    if (mounted && Navigator.of(context).canPop()) {
+      Navigator.of(context).pop();
     }
   }
 
@@ -365,18 +357,18 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
           onConnect: _handleConnect,
         );
       case _Step.twoFactor:
-        return _TwoFactorForm(
-          codeController: _codeController,
+        return TwoFactorForm(
+          controller: _codeController,
           isLoading: _isLoading,
           emailSent: _emailSent,
           saveSecret: _saveSecret,
           scannedSecret: _scannedSecret,
           onTriggerEmail: _handleTriggerEmail,
-          onValidateCode: _handleValidateCode,
-          onScanSecret: _scanSecret,
+          onValidate: _handleValidateCode,
+          onScanQr: _scanSecret,
           onAutoValidate: _handleAutoValidateWithSecret,
           onToggleSaveSecret: (v) => setState(() => _saveSecret = v),
-          onCodeChanged: () => setState(() {}),
+          errorText: null, // Login screen handles errors via dialog
         );
       case _Step.setPin:
         return _SetPinForm(

@@ -98,7 +98,11 @@ class GradesNotifier extends StateNotifier<GradesState> {
   /// Called from the login screen once the full auth flow has succeeded.
   /// Also exports the CAS session so the next launch can skip re-auth.
   Future<void> fetchGradesAfterAuth() async {
-    state = state.copyWith(isLoading: true, error: null);
+    state = state.copyWith(
+      isLoading: true,
+      error: null,
+      authStatus: AuthStatus.authenticated,
+    );
     try {
       // Export session before fetching — captures the authenticated state
       try {

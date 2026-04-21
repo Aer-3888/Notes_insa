@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'app_colors.dart';
 import 'services/auth_service.dart';
 import 'providers/grades_provider.dart';
+import 'providers/auth_providers.dart';
 import 'screens/login_screen.dart';
 import 'screens/dashboard_screen.dart';
 import 'screens/two_factor_screen.dart';
@@ -38,11 +39,6 @@ class MyApp extends StatelessWidget {
   }
 }
 
-// Checks credentials only — pure read, no side effects
-final _hasCredentialsProvider = FutureProvider<bool>((ref) async {
-  return AuthService().isLoggedIn();
-});
-
 // Decides between splash → biometric screen → dashboard, or login.
 // Loads stored grades as a side effect on first build, separately from the
 // credential check so the provider stays pure.
@@ -65,7 +61,7 @@ class _AuthGateState extends ConsumerState<AuthGate> {
   Widget build(BuildContext context) {
     final gradesState = ref.watch(gradesProvider);
 
-    return ref.watch(_hasCredentialsProvider).when(
+    return ref.watch(hasCredentialsProvider).when(
       loading: () => const _SplashScreen(),
       error: (_, _) => const LoginScreen(),
       data: (hasCreds) {
@@ -74,9 +70,10 @@ class _AuthGateState extends ConsumerState<AuthGate> {
         // Interceptor Logic
         switch (gradesState.authStatus) {
           case AuthStatus.unauthenticated:
-          case AuthStatus.authenticating:
           case AuthStatus.error:
             return const _BiometricScreen();
+          case AuthStatus.authenticating:
+            return const _SplashScreen();
           case AuthStatus.pinRequired:
             return const _PinScreen();
           case AuthStatus.twoFactorRequired:
@@ -279,9 +276,7 @@ class _BiometricScreenState extends ConsumerState<_BiometricScreen>
                           borderRadius: BorderRadius.circular(12),
                         ),
                       ),
-                      onPressed:
-                          () =>
-                              ref.read(gradesProvider.notifier).setPinRequired(),
+                      onPressed: () => ref.read(gradesProvider.notifier).setPinRequired(),
                     ),
                   ),
                 ],
