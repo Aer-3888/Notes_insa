@@ -6,6 +6,14 @@ import '../services/coefficients_service.dart';
 import '../services/auth_service.dart';
 import '../constants.dart';
 
+enum AuthStatus {
+  unauthenticated,
+  authenticating,
+  twoFactorRequired,
+  authenticated,
+  error,
+}
+
 /// Grades state that holds the raw JSON data from the API.
 class GradesState {
   final String jsonData;
@@ -14,6 +22,7 @@ class GradesState {
   final String? error;
   final bool needsReauth;
   final DateTime? lastManualRefresh;
+  final AuthStatus authStatus;
 
   const GradesState({
     this.jsonData = '{}',
@@ -22,6 +31,7 @@ class GradesState {
     this.error,
     this.needsReauth = false,
     this.lastManualRefresh,
+    this.authStatus = AuthStatus.unauthenticated,
   });
 
   static const _keep = Object();
@@ -33,18 +43,20 @@ class GradesState {
     String? error,
     bool? needsReauth,
     Object? lastManualRefresh = _keep,
+    AuthStatus? authStatus,
   }) {
     return GradesState(
       jsonData: jsonData ?? this.jsonData,
-      lastUpdated: lastUpdated == _keep
-          ? this.lastUpdated
-          : lastUpdated as DateTime?,
+      lastUpdated:
+          lastUpdated == _keep ? this.lastUpdated : lastUpdated as DateTime?,
       isLoading: isLoading ?? this.isLoading,
       error: error,
       needsReauth: needsReauth ?? this.needsReauth,
-      lastManualRefresh: lastManualRefresh == _keep
-          ? this.lastManualRefresh
-          : lastManualRefresh as DateTime?,
+      lastManualRefresh:
+          lastManualRefresh == _keep
+              ? this.lastManualRefresh
+              : lastManualRefresh as DateTime?,
+      authStatus: authStatus ?? this.authStatus,
     );
   }
 
