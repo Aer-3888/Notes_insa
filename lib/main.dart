@@ -6,6 +6,7 @@ import 'services/auth_service.dart';
 import 'providers/grades_provider.dart';
 import 'screens/login_screen.dart';
 import 'screens/dashboard_screen.dart';
+import 'screens/two_factor_screen.dart';
 import 'background_tasks.dart';
 import 'constants.dart';
 
@@ -62,14 +63,33 @@ class _AuthGateState extends ConsumerState<AuthGate> {
 
   @override
   Widget build(BuildContext context) {
-    return ref
-        .watch(_hasCredentialsProvider)
-        .when(
-          loading: () => const _SplashScreen(),
-          error: (_, _) => const LoginScreen(),
-          data: (hasCreds) =>
-              hasCreds ? const _BiometricScreen() : const LoginScreen(),
-        );
+    final gradesState = ref.watch(gradesProvider);
+
+    return ref.watch(_hasCredentialsProvider).when(
+      loading: () => const _SplashScreen(),
+      error: (_, _) => const LoginScreen(),
+      data: (hasCreds) {
+        if (!hasCreds) return const LoginScreen();
+
+        // Interceptor Logic
+        switch (gradesState.authStatus) {
+          case AuthStatus.unauthenticated:
+          case AuthStatus.authenticating:
+          case AuthStatus.error:
+            return const _BiometricScreen();
+          case AuthStatus.pinRequired:
+            return const _PinScreen();
+          case AuthStatus.twoFactorRequired:
+            return const TwoFactorScreen();
+          case AuthStatus.authenticated:
+            return DashboardScreen(
+              onReauthRequired: () => Navigator.of(context).push(
+                MaterialPageRoute(builder: (_) => const LoginScreen()),
+              ),
+            );
+        }
+      },
+    );
   }
 }
 
@@ -170,7 +190,7 @@ class _BiometricScreenState extends ConsumerState<_BiometricScreen>
       _onSuccess();
     } else if (result == AuthResult.pinRequired) {
       setState(() => _authenticating = false);
-      _replaceWith(const _PinScreen());
+      ref.read(gradesProvider.notifier).setPinRequired();
     } else {
       setState(() {
         _failed = true;
@@ -186,20 +206,6 @@ class _BiometricScreenState extends ConsumerState<_BiometricScreen>
           .read(gradesProvider.notifier)
           .fetchGradesWithStoredCredentials()
           .catchError((_) {}),
-    );
-    _replaceWith(
-      DashboardScreen(
-        onReauthRequired: () => Navigator.of(
-          context,
-        ).push(MaterialPageRoute(builder: (_) => const LoginScreen())),
-      ),
-    );
-  }
-
-  void _replaceWith(Widget screen) {
-    Navigator.of(context).pushAndRemoveUntil(
-      MaterialPageRoute(builder: (_) => screen),
-      (_) => false,
     );
   }
 
@@ -273,7 +279,9 @@ class _BiometricScreenState extends ConsumerState<_BiometricScreen>
                           borderRadius: BorderRadius.circular(12),
                         ),
                       ),
-                      onPressed: () => _replaceWith(const _PinScreen()),
+                      onPressed:
+                          () =>
+                              ref.read(gradesProvider.notifier).setPinRequired(),
                     ),
                   ),
                 ],
@@ -317,16 +325,6 @@ class _PinScreenState extends ConsumerState<_PinScreen> {
             .read(gradesProvider.notifier)
             .fetchGradesWithStoredCredentials()
             .catchError((_) {}),
-      );
-      await Navigator.of(context).pushAndRemoveUntil(
-        MaterialPageRoute(
-          builder: (ctx) => DashboardScreen(
-            onReauthRequired: () => Navigator.of(
-              ctx,
-            ).push(MaterialPageRoute(builder: (_) => const LoginScreen())),
-          ),
-        ),
-        (_) => false,
       );
     } else {
       setState(() {

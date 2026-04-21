@@ -9,6 +9,7 @@ import '../constants.dart';
 enum AuthStatus {
   unauthenticated,
   authenticating,
+  pinRequired,
   twoFactorRequired,
   authenticated,
   error,
@@ -228,6 +229,11 @@ class GradesNotifier extends StateNotifier<GradesState> {
   /// Clear all grades data (called on logout).
   void clearGrades() {
     state = const GradesState();
+  }
+
+  /// Manually trigger a PIN requirement in the UI.
+  void setPinRequired() {
+    state = state.copyWith(authStatus: AuthStatus.pinRequired);
   }
 }
 
