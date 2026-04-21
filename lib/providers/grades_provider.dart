@@ -114,9 +114,15 @@ class GradesNotifier extends StateNotifier<GradesState> {
         lastUpdated: DateTime.now(),
         isLoading: false,
         error: null,
+        authStatus: AuthStatus.authenticated,
+        needsReauth: false,
       );
     } catch (e) {
-      state = state.copyWith(isLoading: false, error: e.toString());
+      state = state.copyWith(
+        isLoading: false,
+        error: e.toString(),
+        authStatus: AuthStatus.error,
+      );
       rethrow;
     }
   }
@@ -214,7 +220,7 @@ class GradesNotifier extends StateNotifier<GradesState> {
   Future<bool> manualRefresh() async {
     if (state.isLoading) return false;
     if (state.manualRefreshCooldown != null) return false;
-    state = state.copyWith(lastManualRefresh: DateTime.now());
+    state = state.copyWith(lastManualRefresh: DateTime.now(), error: null);
     unawaited(fetchGradesWithStoredCredentials().catchError((_) {}));
     return true;
   }
