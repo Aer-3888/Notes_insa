@@ -134,7 +134,11 @@ class GradesNotifier extends StateNotifier<GradesState> {
       return;
     }
 
-    state = state.copyWith(isLoading: true, error: null);
+    state = state.copyWith(
+      isLoading: true,
+      error: null,
+      authStatus: AuthStatus.authenticating,
+    );
 
     try {
       // Try to restore the previous session — avoids re-auth when still valid
@@ -168,6 +172,7 @@ class GradesNotifier extends StateNotifier<GradesState> {
               isLoading: false,
               error: '2FA required',
               needsReauth: true,
+              authStatus: AuthStatus.twoFactorRequired,
             );
             return;
           }
@@ -191,9 +196,14 @@ class GradesNotifier extends StateNotifier<GradesState> {
         isLoading: false,
         error: null,
         needsReauth: false,
+        authStatus: AuthStatus.authenticated,
       );
     } catch (e) {
-      state = state.copyWith(isLoading: false, error: e.toString());
+      state = state.copyWith(
+        isLoading: false,
+        error: e.toString(),
+        authStatus: AuthStatus.error,
+      );
       rethrow;
     }
   }
