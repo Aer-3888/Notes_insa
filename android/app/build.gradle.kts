@@ -64,9 +64,8 @@ android {
         }
     }
 
-    packagingOptions {
-        pickFirst("**/libc++_shared.so")
-        pickFirst("**/libjsc.so")
+    packaging {
+        resources.pickFirsts += setOf("**/libc++_shared.so", "**/libjsc.so")
     }
 }
 

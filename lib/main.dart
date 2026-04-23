@@ -61,34 +61,46 @@ class _AuthGateState extends ConsumerState<AuthGate> {
   Widget build(BuildContext context) {
     final gradesState = ref.watch(gradesProvider);
 
-    return ref.watch(hasCredentialsProvider).when(
-      loading: () => const _SplashScreen(),
-      error: (_, _) => const LoginScreen(),
-      data: (hasCreds) {
-        if (!hasCreds) return const LoginScreen();
+    return ref
+        .watch(hasCredentialsProvider)
+        .when(
+          loading: () => const _SplashScreen(),
+          error: (_, _) => const LoginScreen(),
+          data: (hasCreds) {
+            if (!hasCreds) return const LoginScreen();
 
-        // Interceptor Logic
-        switch (gradesState.authStatus) {
-          case AuthStatus.unauthenticated:
-            return const _BiometricScreen();
-          case AuthStatus.authenticating:
-            return const _SplashScreen();
-          case AuthStatus.pinRequired:
-            return const _PinScreen();
-          case AuthStatus.error:
-          case AuthStatus.twoFactorRequired:
-          case AuthStatus.authenticated:
-            // If biometrics passed (or weren't needed), and we either succeeded, 
-            // failed (offline), or need 2FA, show the Dashboard.
-            // The Dashboard will handle showing the cached data and any necessary banners.
-            return DashboardScreen(
-              onReauthRequired: () => Navigator.of(context).push(
-                MaterialPageRoute(builder: (_) => const TwoFactorScreen()),
-              ),
-            );
-        }
-      },
-    );
+            // Interceptor Logic
+            switch (gradesState.authStatus) {
+              case AuthStatus.unauthenticated:
+                return const _BiometricScreen();
+              case AuthStatus.authenticating:
+                // Only show splash if we have no data to show yet
+                if (gradesState.hasData) {
+                  return DashboardScreen(
+                    onReauthRequired: () => Navigator.of(context).push(
+                      MaterialPageRoute(
+                        builder: (_) => const TwoFactorScreen(),
+                      ),
+                    ),
+                  );
+                }
+                return const _SplashScreen();
+              case AuthStatus.pinRequired:
+                return const _PinScreen();
+              case AuthStatus.error:
+              case AuthStatus.twoFactorRequired:
+              case AuthStatus.authenticated:
+                // If biometrics passed (or weren't needed), and we either succeeded,
+                // failed (offline), or need 2FA, show the Dashboard.
+                // The Dashboard will handle showing the cached data and any necessary banners.
+                return DashboardScreen(
+                  onReauthRequired: () => Navigator.of(context).push(
+                    MaterialPageRoute(builder: (_) => const TwoFactorScreen()),
+                  ),
+                );
+            }
+          },
+        );
   }
 }
 
@@ -278,7 +290,8 @@ class _BiometricScreenState extends ConsumerState<_BiometricScreen>
                           borderRadius: BorderRadius.circular(12),
                         ),
                       ),
-                      onPressed: () => ref.read(gradesProvider.notifier).setPinRequired(),
+                      onPressed: () =>
+                          ref.read(gradesProvider.notifier).setPinRequired(),
                     ),
                   ),
                 ],
