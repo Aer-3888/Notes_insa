@@ -28,7 +28,7 @@ class CoefficientsService {
     int semester,
     String academicYear,
   ) {
-    return '${kStorageCoefficientsPrefix}${department}_${semester}_$academicYear';
+    return '$kStorageCoefficientsPrefix${department}_${semester}_$academicYear';
   }
 
   /// Fetch coefficients for a department+semester+academicYear.
@@ -111,8 +111,9 @@ class CoefficientsService {
         );
       }
     } catch (e) {
-      if (kDebugMode)
+      if (kDebugMode) {
         debugPrint('[Coefficients] fetchAndCacheFromApi failed: $e');
+      }
     }
   }
 

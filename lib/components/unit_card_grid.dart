@@ -67,7 +67,7 @@ class UnitCardGrid extends StatelessWidget {
                       borderRadius: BorderRadius.circular(24),
                       boxShadow: [
                         BoxShadow(
-                          color: Colors.black.withOpacity(.05),
+                          color: Colors.black.withValues(alpha: .05),
                           blurRadius: 10,
                           offset: const Offset(0, 4),
                         ),
@@ -83,7 +83,7 @@ class UnitCardGrid extends StatelessWidget {
                           mainAxisAlignment: MainAxisAlignment.spaceBetween,
                           children: [
                             CircleAvatar(
-                              backgroundColor: color.withOpacity(.1),
+                              backgroundColor: color.withValues(alpha: .1),
                               child: Icon(Icons.school, color: color, size: 20),
                             ),
                             Text(

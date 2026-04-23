@@ -152,7 +152,7 @@ class _ScanScreenState extends State<ScanScreen>
                   width: 40,
                   height: 40,
                   decoration: BoxDecoration(
-                    color: AppColors.primary.withOpacity(0.1),
+                    color: AppColors.primary.withValues(alpha: 0.1),
                     borderRadius: BorderRadius.circular(10),
                   ),
                   child: const Icon(
@@ -306,7 +306,7 @@ class _ScanScreenState extends State<ScanScreen>
           // Success flash
           FadeTransition(
             opacity: _successFade,
-            child: Container(color: Colors.white.withOpacity(0.25)),
+            child: Container(color: Colors.white.withValues(alpha: 0.25)),
           ),
 
           // Top bar: back button + title
@@ -370,7 +370,7 @@ class _ScanScreenState extends State<ScanScreen>
                         style: OutlinedButton.styleFrom(
                           foregroundColor: Colors.white,
                           side: BorderSide(
-                            color: Colors.white.withOpacity(0.5),
+                            color: Colors.white.withValues(alpha: 0.5),
                           ),
                           padding: const EdgeInsets.symmetric(vertical: 14),
                           shape: RoundedRectangleBorder(
@@ -440,7 +440,7 @@ class _OverlayPainter extends CustomPainter {
     );
 
     // Dark overlay with hole
-    final overlayPaint = Paint()..color = Colors.black.withOpacity(0.55);
+    final overlayPaint = Paint()..color = Colors.black.withValues(alpha: 0.55);
     final fullRect = Rect.fromLTWH(0, 0, size.width, size.height);
     final path = Path()
       ..addRect(fullRect)
@@ -537,7 +537,7 @@ class _OverlayButton extends StatelessWidget {
         width: 40,
         height: 40,
         decoration: BoxDecoration(
-          color: Colors.black.withOpacity(0.4),
+          color: Colors.black.withValues(alpha: 0.4),
           borderRadius: BorderRadius.circular(10),
         ),
         child: Icon(icon, color: Colors.white, size: 22),

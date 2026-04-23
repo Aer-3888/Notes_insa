@@ -29,8 +29,9 @@ final departmentNameProvider = Provider<String>((ref) {
   final semester = ref.watch(effectiveSemesterProvider);
 
   try {
-    if (semester == null)
+    if (semester == null) {
       return JsonCurriculumParser.getDepartmentName(jsonString);
+    }
     return JsonCurriculumParser.getDepartmentForSemester(jsonString, semester);
   } catch (_) {
     return 'Etudiant';

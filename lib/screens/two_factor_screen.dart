@@ -50,9 +50,9 @@ class _TwoFactorScreenState extends ConsumerState<TwoFactorScreen> {
   }
 
   Future<void> _scanQr() async {
-    final secret = await Navigator.of(context).push<String>(
-      MaterialPageRoute(builder: (_) => const ScanScreen()),
-    );
+    final secret = await Navigator.of(
+      context,
+    ).push<String>(MaterialPageRoute(builder: (_) => const ScanScreen()));
     if (secret != null && mounted) {
       setState(() => _scannedSecret = secret);
     }
@@ -75,7 +75,7 @@ class _TwoFactorScreenState extends ConsumerState<TwoFactorScreen> {
   }
 
   void _logout() async {
-    await AuthService().logout();
+    await AuthService().clear();
     ref.read(gradesProvider.notifier).clearGrades();
     ref.invalidate(hasCredentialsProvider);
   }
@@ -107,14 +107,15 @@ class _TwoFactorScreenState extends ConsumerState<TwoFactorScreen> {
               emailSent: _emailSent,
               scannedSecret: _scannedSecret,
               onAutoValidate: _autoValidate,
-              onToggleSaveSecret: (_) {}, // Always saved if using auto-validate here
+              onToggleSaveSecret:
+                  (_) {}, // Always saved if using auto-validate here
               saveSecret: true,
             ),
             const SizedBox(height: 24),
             TextButton(
-              onPressed: () => Navigator.of(context).push(
-                MaterialPageRoute(builder: (_) => const LoginScreen()),
-              ),
+              onPressed: () => Navigator.of(
+                context,
+              ).push(MaterialPageRoute(builder: (_) => const LoginScreen())),
               child: const Text('Se connecter autrement'),
             ),
           ],

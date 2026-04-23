@@ -120,7 +120,7 @@ class SettingsScreen extends ConsumerWidget {
                                 },
                                 activeThumbColor: AppColors.statusPositive,
                                 activeTrackColor: AppColors.statusPositive
-                                    .withOpacity(0.4),
+                                    .withValues(alpha: 0.4),
                               ),
                             ),
                           ],
@@ -281,7 +281,7 @@ class SettingsScreen extends ConsumerWidget {
                                 },
                                 activeThumbColor: AppColors.statusPositive,
                                 activeTrackColor: AppColors.statusPositive
-                                    .withOpacity(0.4),
+                                    .withValues(alpha: 0.4),
                               ),
                             ),
                           ],
@@ -353,7 +353,7 @@ class _IntervalSelector extends StatelessWidget {
                     borderRadius: BorderRadius.circular(12),
                     boxShadow: [
                       BoxShadow(
-                        color: AppColors.primary.withOpacity(0.25),
+                        color: AppColors.primary.withValues(alpha: 0.25),
                         blurRadius: 8,
                         offset: const Offset(0, 2),
                       ),

@@ -49,7 +49,7 @@ class TwoFactorForm extends StatelessWidget {
             Container(
               padding: const EdgeInsets.all(8),
               decoration: BoxDecoration(
-                color: AppColors.primary.withOpacity(.1),
+                color: AppColors.primary.withValues(alpha: .1),
                 borderRadius: BorderRadius.circular(8),
               ),
               child: const Icon(Icons.security, color: AppColors.primary),
@@ -84,8 +84,9 @@ class TwoFactorForm extends StatelessWidget {
             ),
             style: OutlinedButton.styleFrom(
               padding: const EdgeInsets.all(14),
-              foregroundColor:
-                  emailSent ? AppColors.statusPositive : AppColors.primary,
+              foregroundColor: emailSent
+                  ? AppColors.statusPositive
+                  : AppColors.primary,
               side: BorderSide(
                 color: emailSent ? AppColors.statusPositive : AppColors.primary,
               ),
@@ -122,7 +123,7 @@ class TwoFactorForm extends StatelessWidget {
           style: ElevatedButton.styleFrom(
             padding: const EdgeInsets.all(16),
             backgroundColor: AppColors.primary,
-            disabledBackgroundColor: AppColors.primary.withOpacity(.3),
+            disabledBackgroundColor: AppColors.primary.withValues(alpha: .3),
             shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(12),
             ),
@@ -180,7 +181,7 @@ class TwoFactorForm extends StatelessWidget {
             padding: const EdgeInsets.all(16),
             decoration: BoxDecoration(
               color: scannedSecret != null
-                  ? AppColors.statusPositive.withOpacity(.1)
+                  ? AppColors.statusPositive.withValues(alpha: .1)
                   : Colors.grey.shade100,
               border: Border.all(
                 color: scannedSecret != null
@@ -251,7 +252,9 @@ class TwoFactorForm extends StatelessWidget {
             style: ElevatedButton.styleFrom(
               padding: const EdgeInsets.all(16),
               backgroundColor: AppColors.statusPositive,
-              disabledBackgroundColor: AppColors.statusPositive.withOpacity(.3),
+              disabledBackgroundColor: AppColors.statusPositive.withValues(
+                alpha: .3,
+              ),
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(12),
               ),
