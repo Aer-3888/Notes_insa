@@ -221,9 +221,11 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen>
         ref.invalidate(coefficientsProvider);
       }
 
-      // Show a persistent banner when 2FA is needed and no secret is stored.
+      // Reactively show or hide the 2FA banner
       if (next.needsReauth && !(prev?.needsReauth ?? false)) {
         _showReauthBanner();
+      } else if (!next.needsReauth && (prev?.needsReauth ?? false)) {
+        ScaffoldMessenger.of(context).clearMaterialBanners();
       }
     });
 
