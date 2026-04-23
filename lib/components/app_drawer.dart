@@ -105,6 +105,9 @@ class AppDrawer extends ConsumerWidget {
                   label: 'Profils',
                   isSelected: selected == DrawerItem.config,
                   onTap: () {
+                    if (context.mounted) {
+                      ScaffoldMessenger.of(context).clearMaterialBanners();
+                    }
                     Navigator.pop(context);
                     Navigator.push(
                       context,
@@ -118,6 +121,9 @@ class AppDrawer extends ConsumerWidget {
                   label: 'Paramètres',
                   isSelected: selected == DrawerItem.settings,
                   onTap: () {
+                    if (context.mounted) {
+                      ScaffoldMessenger.of(context).clearMaterialBanners();
+                    }
                     Navigator.pop(context);
                     Navigator.push(
                       context,
@@ -131,6 +137,9 @@ class AppDrawer extends ConsumerWidget {
                   label: 'JSON Brut',
                   isSelected: selected == DrawerItem.rawJson,
                   onTap: () {
+                    if (context.mounted) {
+                      ScaffoldMessenger.of(context).clearMaterialBanners();
+                    }
                     Navigator.pop(context);
                     Navigator.push(
                       context,
@@ -164,6 +173,9 @@ class AppDrawer extends ConsumerWidget {
                     ),
                   ),
                   onTap: () async {
+                    if (context.mounted) {
+                      ScaffoldMessenger.of(context).clearMaterialBanners();
+                    }
                     ref.read(gradesProvider.notifier).clearGrades();
                     await AuthService().clear();
                     // Reset native CAS session so no in-memory state leaks to the next user.
