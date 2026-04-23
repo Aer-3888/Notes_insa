@@ -137,19 +137,24 @@ class GradesNotifier extends StateNotifier<GradesState> {
   /// skips re-auth entirely. Falls back to full auth if the session expired.
   /// If 2FA is required and no OTP secret is stored, sets an error state.
   Future<void> fetchGradesWithStoredCredentials() async {
-    final authService = AuthService();
-    final credentials = await authService.getCredentials();
-
-    if (credentials == null) {
-      state = state.copyWith(isLoading: false, error: 'No stored credentials');
-      return;
-    }
-
+    if (state.isLoading) return; // Guard clause
     state = state.copyWith(
       isLoading: true,
       error: null,
       authStatus: AuthStatus.authenticating,
     );
+
+    final authService = AuthService();
+    final credentials = await authService.getCredentials();
+
+    if (credentials == null) {
+      state = state.copyWith(
+        isLoading: false,
+        error: 'No stored credentials',
+        authStatus: AuthStatus.unauthenticated,
+      );
+      return;
+    }
 
     try {
       // Try to restore the previous session — avoids re-auth when still valid
@@ -187,7 +192,18 @@ class GradesNotifier extends StateNotifier<GradesState> {
             );
             return;
           }
-          await GradesService.autoValidate(secret);
+          try {
+            await GradesService.autoValidate(secret);
+          } catch (_) {
+            // Secret invalid or expired - trigger manual re-auth
+            state = state.copyWith(
+              isLoading: false,
+              error: '2FA required (auto-validate failed)',
+              needsReauth: true,
+              authStatus: AuthStatus.twoFactorRequired,
+            );
+            return;
+          }
         }
       }
 
