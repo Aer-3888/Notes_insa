@@ -30,6 +30,9 @@ class _TwoFactorScreenState extends ConsumerState<TwoFactorScreen> {
     try {
       await GradesService.validate(_codeController.text.trim());
       await ref.read(gradesProvider.notifier).fetchGradesAfterAuth();
+      if (mounted && Navigator.canPop(context)) {
+        Navigator.pop(context);
+      }
     } catch (e) {
       setState(() => _errorText = 'Code invalide ou expiré');
     } finally {
@@ -67,6 +70,9 @@ class _TwoFactorScreenState extends ConsumerState<TwoFactorScreen> {
       await AuthService().storeOtpSecret(secret);
       await GradesService.autoValidate(secret);
       await ref.read(gradesProvider.notifier).fetchGradesAfterAuth();
+      if (mounted && Navigator.canPop(context)) {
+        Navigator.pop(context);
+      }
     } catch (e) {
       setState(() => _errorText = 'Secret OTP invalide');
     } finally {
