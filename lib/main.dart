@@ -70,18 +70,20 @@ class _AuthGateState extends ConsumerState<AuthGate> {
         // Interceptor Logic
         switch (gradesState.authStatus) {
           case AuthStatus.unauthenticated:
-          case AuthStatus.error:
             return const _BiometricScreen();
           case AuthStatus.authenticating:
             return const _SplashScreen();
           case AuthStatus.pinRequired:
             return const _PinScreen();
+          case AuthStatus.error:
           case AuthStatus.twoFactorRequired:
-            return const TwoFactorScreen();
           case AuthStatus.authenticated:
+            // If biometrics passed (or weren't needed), and we either succeeded, 
+            // failed (offline), or need 2FA, show the Dashboard.
+            // The Dashboard will handle showing the cached data and any necessary banners.
             return DashboardScreen(
               onReauthRequired: () => Navigator.of(context).push(
-                MaterialPageRoute(builder: (_) => const LoginScreen()),
+                MaterialPageRoute(builder: (_) => const TwoFactorScreen()),
               ),
             );
         }
