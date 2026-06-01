@@ -57,11 +57,11 @@
 
 	<!-- Notification permissions -->
 	<key>NSUserNotificationUsageDescription</key>
-	<string>This app uses notifications to alert you about grade updates.</string>
+	<string>Cette application utilise les notifications pour vous alerter des nouvelles notes.</string>
 
 	<!-- Camera permission for QR scanner -->
 	<key>NSCameraUsageDescription</key>
-	<string>This app uses the camera to scan QR codes for authentication.</string>
+	<string>Cette application utilise la caméra pour scanner les QR codes d'authentification.</string>
 
 	<!-- Export compliance: app only uses standard platform encryption (HTTPS, Keychain) -->
 	<key>ITSAppUsesNonExemptEncryption</key>
