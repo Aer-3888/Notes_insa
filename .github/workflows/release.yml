@@ -4,45 +4,17 @@ on:
   push:
     branches: [main]
 
+# Serial execution: if a second push arrives while a release is in progress, it
+# waits instead of cancelling. This prevents two jobs bumping from the same base
+# version and colliding on the git tag.
 concurrency:
   group: release-${{ github.ref }}
-  cancel-in-progress: true
+  cancel-in-progress: false
 
 jobs:
-  # 1. Check if version was bumped
-  check-version:
-    name: Check Version Bump
-    runs-on: ubuntu-latest
-    outputs:
-      is_new_version: ${{ steps.check.outputs.is_new_version }}
-      version: ${{ steps.check.outputs.version }}
-    steps:
-      - uses: actions/checkout@v4
-        with:
-          fetch-depth: 0 # Needed to see all tags
-
-      - name: Extract Version
-        id: check
-        run: |
-          # Get version from pubspec.yaml
-          VERSION=$(grep 'version: ' pubspec.yaml | sed 's/version: //')
-          echo "Current pubspec version: $VERSION"
-          echo "version=$VERSION" >> $GITHUB_OUTPUT
-
-          # Check if tag already exists
-          if git rev-parse "v$VERSION" >/dev/null 2>&1; then
-            echo "Tag v$VERSION already exists. Skipping release."
-            echo "is_new_version=false" >> $GITHUB_OUTPUT
-          else
-            echo "New version detected: v$VERSION"
-            echo "is_new_version=true" >> $GITHUB_OUTPUT
-          fi
-
-  # 2. Validation and Tests
+  # 1. Lint & test — fast gate before the expensive build
   validate:
     name: Lint & Test
-    needs: check-version
-    if: needs.check-version.outputs.is_new_version == 'true'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -55,126 +27,89 @@ jobs:
         run: flutter pub get
       - name: Analyze
         run: flutter analyze --fatal-infos
-      - name: Run Tests
+      - name: Test
         run: flutter test
 
-  # 3. Build Android Artifacts
-  build-android:
-    name: Build Android
-    needs: [check-version, validate]
+  # 2. Bump build number, build artifacts, commit bump, publish release
+  build-and-release:
+    name: Build & Release
+    needs: validate
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
     steps:
+      # Checkout the tip of main (not the triggering SHA) so that if a previous
+      # release job already bumped pubspec.yaml, this job reads the new value.
       - uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Bump build number
+        id: bump
+        run: |
+          CURRENT=$(grep '^version: ' pubspec.yaml | sed 's/version: //' | tr -d '[:space:]')
+          VERSION_NAME=$(echo "$CURRENT" | cut -d'+' -f1)
+          BUILD_NUM=$(echo "$CURRENT" | cut -d'+' -f2)
+          NEW_BUILD=$((BUILD_NUM + 1))
+          NEW_VERSION="${VERSION_NAME}+${NEW_BUILD}"
+          sed -i "s/^version: .*/version: ${NEW_VERSION}/" pubspec.yaml
+          echo "version=$NEW_VERSION" >> $GITHUB_OUTPUT
+          echo "tag=v${NEW_VERSION}" >> $GITHUB_OUTPUT
+          echo "Bumped: ${CURRENT} → ${NEW_VERSION}"
+
       - name: Setup Java
         uses: actions/setup-java@v4
         with:
           distribution: 'zulu'
           java-version: '17'
+
       - name: Setup Flutter
         uses: subosito/flutter-action@v2
         with:
-          flutter-version: '3.10.4'
           channel: 'stable'
           cache: true
+
       - name: Get Dependencies
         run: flutter pub get
+
       - name: Decode Keystore
         run: echo "${{ secrets.KEYSTORE_BASE64 }}" | base64 --decode > android/app/upload-keystore.jks
+
       - name: Create key.properties
         run: |
           echo "storePassword=${{ secrets.KEY_STORE_PASSWORD }}" > android/key.properties
-          echo "keyPassword=${{ secrets.KEY_PASSWORD }}" >> android/key.properties
-          echo "keyAlias=${{ secrets.KEY_ALIAS }}" >> android/key.properties
-          echo "storeFile=upload-keystore.jks" >> android/key.properties
+          echo "keyPassword=${{ secrets.KEY_PASSWORD }}"         >> android/key.properties
+          echo "keyAlias=${{ secrets.KEY_ALIAS }}"               >> android/key.properties
+          echo "storeFile=upload-keystore.jks"                   >> android/key.properties
+
       - name: Build APK
         run: flutter build apk --release --dart-define=APP_SECRET=${{ secrets.APP_SECRET }}
-      - name: Build App Bundle
-        run: flutter build appbundle --release --dart-define=APP_SECRET=${{ secrets.APP_SECRET }}
-      - name: Upload Artifacts for Release
-        uses: actions/upload-artifact@v4
-        with:
-          name: android-build
-          path: |
-            build/app/outputs/flutter-apk/app-release.apk
-            build/app/outputs/bundle/release/app-release.aab
 
-  # 4. Deploy Cloudflare Worker
-  deploy-worker:
-    name: Deploy Worker
-    needs: [check-version, validate]
-    runs-on: ubuntu-latest
-    permissions:
-      contents: read
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-      - name: Setup Node.js (with cache)
-        uses: actions/setup-node@v4
-        with:
-          node-version: 'lts/*'
-          cache: 'npm'
-          cache-dependency-path: worker/package-lock.json
-      - name: Install dependencies
-        working-directory: worker
-        run: npm ci
-      - name: Create wrangler.toml from template
-        shell: bash
-        env:
-          CF_ACCOUNT_ID: ${{ secrets.CF_ACCOUNT_ID }}
-          D1_ID: ${{ secrets.D1_ID }}
-          KV_ID: ${{ secrets.KV_ID }}
-        working-directory: worker
-        run: |
-          set -euo pipefail
-          if [ -f wrangler.toml.template ]; then
-            cp wrangler.toml.template wrangler.toml
-            if [ -n "${CF_ACCOUNT_ID:-}" ]; then sed -i "s/ACCOUNT_ID/${CF_ACCOUNT_ID}/g" wrangler.toml; fi
-            if [ -n "${D1_ID:-}" ]; then sed -i "s/D1_DATABASE_ID/${D1_ID}/g" wrangler.toml; fi
-            if [ -n "${KV_ID:-}" ]; then sed -i "s/KV_NAMESPACE_ID/${KV_ID}/g" wrangler.toml; fi
-            sed -i "s/workers_dev = false/workers_dev = true/" wrangler.toml || true
-          fi
-      - name: Verify Wrangler & Token
-        working-directory: worker
-        env:
-          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
-        run: |
-          set -euo pipefail
-          if [ -z "${CLOUDFLARE_API_TOKEN:-}" ]; then
-            echo "ERROR: CLOUDFLARE_API_TOKEN secret is not set. Aborting deployment."
-            exit 1
-          fi
-          npx wrangler --version
-          npx wrangler whoami
-      - name: Deploy with Wrangler
-        working-directory: worker
-        env:
-          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
-        run: npx wrangler deploy
+      # - name: Build App Bundle
+      #   run: flutter build appbundle --release --dart-define=APP_SECRET=${{ secrets.APP_SECRET }}
 
-  # 5. Create GitHub Release & Tag
-  create-release:
-    name: Create Release
-    needs: [check-version, build-android, deploy-worker]
-    runs-on: ubuntu-latest
-    permissions:
-      contents: write
-    steps:
-      - uses: actions/checkout@v4
-      - name: Download Android Artifacts
-        uses: actions/download-artifact@v4
-        with:
-          name: android-build
+      # Create the release first so the tag points at your feature commit (current
+      # HEAD), not at the bot's version-bump commit that follows.
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: v${{ needs.check-version.outputs.version }}
+          tag_name: ${{ steps.bump.outputs.tag }}
           files: |
-            app-release.apk
-            app-release.aab
+            build/app/outputs/flutter-apk/app-release.apk
           generate_release_notes: true
           draft: false
           prerelease: false
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      # Commit the bumped pubspec.yaml back to main. [skip ci] prevents this
+      # commit from re-triggering the workflow.
+      - name: Commit version bump
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add pubspec.yaml
+          git commit -m "chore: bump build number to ${{ steps.bump.outputs.version }} [skip ci]"
+          git push
