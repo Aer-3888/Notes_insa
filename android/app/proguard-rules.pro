@@ -17,3 +17,8 @@
 ## CameraX / ML Kit (mobile_scanner)
 -keep class androidx.camera.** { *; }
 -keep class com.google.mlkit.** { *; }
+
+## Flutter engine references Play Core split-install classes for deferred components.
+## This app doesn't use Play Store dynamic delivery, so suppress the missing-class warnings.
+-dontwarn com.google.android.play.core.splitinstall.**
+-dontwarn com.google.android.play.core.tasks.**
