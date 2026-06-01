@@ -201,6 +201,9 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
       _passController.text,
     );
 
+    // Fresh login counts as unlocking this session — don't re-prompt biometrics.
+    ref.read(appUnlockedProvider.notifier).state = true;
+
     // Invalidate the provider so AuthGate re-runs its logic
     ref.invalidate(hasCredentialsProvider);
 

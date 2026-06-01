@@ -16,6 +16,12 @@ const kStorageCasSession = 'cas_session';
 // Cached grades JSON — shared between GradesService and the background task.
 const kStorageGradesJson = 'stored_grades_json';
 // User PIN for secondary authentication (fallback for biometrics).
+// Stored as a salted SHA-256 hash (never plaintext).
 const kStoragePin = 'user_pin';
+// Random per-user salt for the PIN hash.
+const kStoragePinSalt = 'user_pin_salt';
+// Consecutive failed PIN attempts, and lockout expiry timestamp (ISO-8601).
+const kStoragePinAttempts = 'user_pin_attempts';
+const kStoragePinLockUntil = 'user_pin_lock_until';
 // Cached coefficients JSON — keyed per dept_semester_year.
 const kStorageCoefficientsPrefix = 'coefficients_';

@@ -1,8 +1,10 @@
+import 'dart:async';
 import 'dart:convert';
 import 'package:flutter/services.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:flutter/foundation.dart';
 import '../constants.dart';
+import 'worker_sync_service.dart';
 
 class GradesService {
   static const MethodChannel _channel = MethodChannel(
@@ -11,41 +13,48 @@ class GradesService {
   static const FlutterSecureStorage _storage = FlutterSecureStorage();
   static const String _gradesKey = kStorageGradesJson;
 
+  /// Native calls go through the CAS server; cap them so a hung native call
+  /// can't strand the UI on a control-less splash (see AuthGate).
+  static const Duration _nativeTimeout = Duration(seconds: 30);
+
+  /// Wraps [MethodChannel.invokeMethod] with a timeout. Throws
+  /// [TimeoutException] if the native side does not respond in time.
+  static Future<T?> _invoke<T>(String method, [dynamic arguments]) {
+    return _channel.invokeMethod<T>(method, arguments).timeout(_nativeTimeout);
+  }
+
   // ---------------------------------------------------------------------------
   // Auth step primitives
   // ---------------------------------------------------------------------------
 
   static Future<void> auth(String username, String password) async {
-    await _channel.invokeMethod<void>('Auth', {
-      'username': username,
-      'password': password,
-    });
+    await _invoke<void>('Auth', {'username': username, 'password': password});
   }
 
   static Future<bool> isTokenNeeded() async {
-    final result = await _channel.invokeMethod<bool>('IsTokenNeeded');
+    final result = await _invoke<bool>('IsTokenNeeded');
     return result ?? false;
   }
 
   static Future<void> triggerEmail() async {
-    await _channel.invokeMethod<void>('TriggerEmail');
+    await _invoke<void>('TriggerEmail');
   }
 
   static Future<void> validate(String code) async {
-    await _channel.invokeMethod<void>('Validate', {'code': code});
+    await _invoke<void>('Validate', {'code': code});
   }
 
   static Future<void> autoValidate(String secret) async {
-    await _channel.invokeMethod<void>('AutoValidate', {'secret': secret});
+    await _invoke<void>('AutoValidate', {'secret': secret});
   }
 
   static Future<bool> isAuthenticated() async {
-    final result = await _channel.invokeMethod<bool>('IsAuthenticated');
+    final result = await _invoke<bool>('IsAuthenticated');
     return result ?? false;
   }
 
   static Future<int> loadGroups() async {
-    final result = await _channel.invokeMethod<int>('LoadGroups');
+    final result = await _invoke<int>('LoadGroups');
     if (result == null) {
       throw PlatformException(
         code: 'ERR_LOADGROUPS',
@@ -56,7 +65,7 @@ class GradesService {
   }
 
   static Future<String> grades(int id) async {
-    final result = await _channel.invokeMethod<String>('Grades', {'id': id});
+    final result = await _invoke<String>('Grades', {'id': id});
     if (result == null) {
       throw PlatformException(
         code: 'ERR_GRADES',
@@ -67,9 +76,7 @@ class GradesService {
   }
 
   static Future<String> coefficients(int id) async {
-    final result = await _channel.invokeMethod<String>('Coefficients', {
-      'id': id,
-    });
+    final result = await _invoke<String>('Coefficients', {'id': id});
     if (result == null) {
       throw PlatformException(
         code: 'ERR_COEFFICIENTS',
@@ -80,11 +87,11 @@ class GradesService {
   }
 
   static Future<void> newCAS() async {
-    await _channel.invokeMethod<void>('NewCAS');
+    await _invoke<void>('NewCAS');
   }
 
   static Future<String> exportCAS() async {
-    final result = await _channel.invokeMethod<String>('ExportCAS');
+    final result = await _invoke<String>('ExportCAS');
     if (result == null) {
       throw PlatformException(
         code: 'ERR_EXPORTCAS',
@@ -95,7 +102,7 @@ class GradesService {
   }
 
   static Future<void> importCAS(String token) async {
-    await _channel.invokeMethod<void>('ImportCAS', {'token': token});
+    await _invoke<void>('ImportCAS', {'token': token});
   }
 
   // ---------------------------------------------------------------------------
@@ -164,6 +171,10 @@ class GradesService {
   static Future<void> saveGrades(String gradesJson) async {
     try {
       await _storage.write(key: _gradesKey, value: gradesJson);
+      // Keep the worker's snapshot in sync so background diffs use fresh data.
+      await WorkerSyncService.sync({
+        WorkerSyncService.keyGradesJson: gradesJson,
+      });
     } catch (e) {
       if (kDebugMode) debugPrint('[GradesService] saveGrades failed: $e');
     }

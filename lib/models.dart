@@ -4,9 +4,13 @@ import 'app_colors.dart';
 /// Utilities for parsing grade strings and mapping grades to colors.
 class GradeUtils {
   static double? parseDouble(String? rawValue) {
-    if (rawValue == null ||
-        rawValue.contains('Aucun') ||
-        rawValue.contains('Abs')) {
+    if (rawValue == null) return null;
+    // Non-numeric status markers carry no numeric grade and are excluded from
+    // averages: "Aucun(e) note", "Abs" (absence), "ABI" (absence injustifiée).
+    final lower = rawValue.toLowerCase();
+    if (lower.contains('aucun') ||
+        lower.contains('abs') ||
+        lower.contains('abi')) {
       return null;
     }
     try {
@@ -173,12 +177,12 @@ class SubjectAverage {
   }
 
   factory SubjectAverage.fromJson(Map<String, dynamic> json) => SubjectAverage(
-    ueName: json['ue_name'] as String,
-    subjectName: json['subject_name'] as String,
-    avg: (json['avg'] as num).toDouble(),
-    min: (json['min'] as num).toDouble(),
-    max: (json['max'] as num).toDouble(),
-    count: json['count'] as int,
+    ueName: (json['ue_name'] as String?) ?? '',
+    subjectName: (json['subject_name'] as String?) ?? '',
+    avg: (json['avg'] as num?)?.toDouble() ?? 0,
+    min: (json['min'] as num?)?.toDouble() ?? 0,
+    max: (json['max'] as num?)?.toDouble() ?? 0,
+    count: (json['count'] as num?)?.toInt() ?? 0,
     buckets: List.generate(20, (i) => (json['b$i'] as num? ?? 0).toInt()),
   );
 }
@@ -225,7 +229,11 @@ class TeachingUnit {
   final String name;
   final List<Subject> subjects;
 
-  TeachingUnit(this.name, this.subjects);
+  /// UE-level coefficient used to weight this unit in the semester average.
+  /// Defaults to 1.0 when the coefficient is unknown.
+  final double coeff;
+
+  TeachingUnit(this.name, this.subjects, {this.coeff = 1.0});
 
   double? get average {
     double totalScore = 0;
@@ -243,12 +251,12 @@ class TeachingUnit {
   }
 
   /// A unit is validated when all subjects have an average and the weighted
-  /// average is strictly greater than 10.
+  /// average is at least 10 (10.00 is a pass).
   bool get isValidated {
     if (subjects.isEmpty) return false;
     final allHaveAverage = subjects.every((s) => s.average != null);
     final avg = average;
-    return allHaveAverage && (avg != null && avg > 10.0);
+    return allHaveAverage && (avg != null && avg >= 10.0);
   }
 }
 

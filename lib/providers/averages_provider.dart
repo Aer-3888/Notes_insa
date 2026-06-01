@@ -11,11 +11,8 @@ typedef AveragesParams = ({
 /// Fetches class averages for a given department + semester + academic year.
 /// Returns [] immediately when department is not yet known.
 /// Throws on network/server errors so the UI can show a retry state.
-final averagesProvider =
-    FutureProvider.family<List<SubjectAverage>, AveragesParams>((
-      ref,
-      params,
-    ) async {
+final averagesProvider = FutureProvider.autoDispose
+    .family<List<SubjectAverage>, AveragesParams>((ref, params) async {
       if (params.department.isEmpty || params.department == 'Etudiant') {
         return [];
       }

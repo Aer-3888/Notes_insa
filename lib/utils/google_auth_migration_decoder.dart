@@ -24,7 +24,9 @@ class GoogleAuthMigrationDecoder {
       throw const FormatException('Missing data parameter in migration URI');
     }
 
-    final decodedBytes = base64.decode(Uri.decodeComponent(dataParam));
+    // Uri.queryParameters already percent-decodes the value, so decode the
+    // base64 directly. (normalize tolerates any missing '=' padding.)
+    final decodedBytes = base64.decode(base64.normalize(dataParam));
     return _parseProtobuf(decodedBytes);
   }
 

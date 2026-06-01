@@ -7,8 +7,6 @@ import android.os.Build
 import android.util.Log
 import androidx.core.app.NotificationCompat
 import androidx.core.app.NotificationManagerCompat
-import androidx.security.crypto.EncryptedSharedPreferences
-import androidx.security.crypto.MasterKey
 import androidx.work.*
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -19,19 +17,17 @@ import java.util.concurrent.TimeUnit
 
 private const val TAG = "GradesBackgroundWorker"
 private const val CHANNEL_ID = "grades_updates"
-private const val SECURE_STORAGE_FILE = "FlutterSecureStorage"
 private const val SHARED_PREFS_FILE = "FlutterSharedPreferences"
 
-// Storage keys — must stay in sync with lib/constants.dart
-private const val KEY_USERNAME = "username"
-private const val KEY_PASSWORD = "password"
-private const val KEY_OTP_SECRET = "otp_secret"
-private const val KEY_CAS_SESSION = "cas_session"
-private const val KEY_GRADES_JSON = "stored_grades_json"
+// Storage keys — read from WorkerStore (see WorkerStore.kt).
+private const val KEY_USERNAME = WorkerStore.KEY_USERNAME
+private const val KEY_PASSWORD = WorkerStore.KEY_PASSWORD
+private const val KEY_OTP_SECRET = WorkerStore.KEY_OTP_SECRET
+private const val KEY_CAS_SESSION = WorkerStore.KEY_CAS_SESSION
+private const val KEY_GRADES_JSON = WorkerStore.KEY_GRADES_JSON
 
-// SharedPreferences keys written by the Flutter shared_preferences plugin (flutter.* prefix)
+// SharedPreferences key written by the Flutter shared_preferences plugin (flutter.* prefix)
 private const val PREF_FETCH_ENABLED = "flutter.background_fetch_enabled"
-private const val PREF_LAST_FETCH_TIME = "flutter.last_fetch_time"
 
 internal const val TASK_UNIQUE_NAME = "grades_fetch_native"
 
@@ -42,8 +38,9 @@ internal const val TASK_UNIQUE_NAME = "grades_fetch_native"
  * so MethodChannel calls fail in the headless isolate when the app process was killed.
  * This worker calls Mobinsapi directly, making background fetch reliable across process restarts.
  *
- * Reads credentials from the same EncryptedSharedPreferences file used by flutter_secure_storage,
- * so no data duplication is needed.
+ * Reads credentials and the previous grades snapshot from [WorkerStore], a dedicated AndroidX
+ * EncryptedSharedPreferences file the Flutter app mirrors on every credential change. The worker
+ * cannot read flutter_secure_storage 10.x directly (custom cipher + prefixed keys).
  */
 class GradesBackgroundWorker(
     private val appContext: Context,
@@ -58,7 +55,7 @@ class GradesBackgroundWorker(
                 return@withContext Result.success()
             }
 
-            val securePrefs = openSecurePrefs() ?: return@withContext Result.success()
+            val securePrefs = WorkerStore.openOrNull(appContext) ?: return@withContext Result.success()
 
             val username = securePrefs.getString(KEY_USERNAME, null)
             val password = securePrefs.getString(KEY_PASSWORD, null)
@@ -87,7 +84,14 @@ class GradesBackgroundWorker(
             // Re-auth only if the restored session is no longer valid
             if (!Mobinsapi.isAuthenticated()) {
                 Log.d(TAG, "Not authenticated, running re-auth")
-                Mobinsapi.auth(username, password)
+                try {
+                    Mobinsapi.auth(username, password)
+                } catch (e: Exception) {
+                    // Wrong credentials or a transient blip — skip this run silently
+                    // rather than retry-storming the CAS endpoint with backoff.
+                    Log.w(TAG, "Auth failed — skipping this run")
+                    return@withContext Result.success()
+                }
 
                 if (Mobinsapi.isTokenNeeded()) {
                     if (otpSecret == null) {
@@ -95,7 +99,14 @@ class GradesBackgroundWorker(
                         showReauthNotification()
                         return@withContext Result.success()
                     }
-                    Mobinsapi.autoValidate(otpSecret)
+                    try {
+                        Mobinsapi.autoValidate(otpSecret)
+                    } catch (e: Exception) {
+                        // Stored OTP secret invalid/expired — prompt manual reconnect.
+                        Log.w(TAG, "Auto-validate failed — prompting user to reconnect")
+                        showReauthNotification()
+                        return@withContext Result.success()
+                    }
                 }
             }
 
@@ -143,8 +154,6 @@ class GradesBackgroundWorker(
                 first.toString()
             }
             securePrefs.edit().putString(KEY_GRADES_JSON, newJson).apply()
-
-            prefs.edit().putString(PREF_LAST_FETCH_TIME, java.time.Instant.now().toString()).apply()
             Log.d(TAG, "Grades fetched successfully")
 
             when {
@@ -191,36 +200,22 @@ class GradesBackgroundWorker(
         }
     }
 
-    // Opens the same EncryptedSharedPreferences file that flutter_secure_storage uses.
-    private fun openSecurePrefs() = try {
-        val masterKey = MasterKey.Builder(appContext)
-            .setKeyScheme(MasterKey.KeyScheme.AES256_GCM)
-            .build()
-        EncryptedSharedPreferences.create(
-            appContext,
-            SECURE_STORAGE_FILE,
-            masterKey,
-            EncryptedSharedPreferences.PrefKeyEncryptionScheme.AES256_SIV,
-            EncryptedSharedPreferences.PrefValueEncryptionScheme.AES256_GCM,
-        )
-    } catch (e: Exception) {
-        Log.e(TAG, "Failed to open secure storage")
-        null
-    }
+    // A subject's grades plus its display name (the map key is a composite path).
+    private data class SubjectGrades(val displayName: String, val grades: List<String>)
 
-    // Returns (newGrades, updatedGrades) subject name lists.
+    // Returns (newGrades, updatedGrades) subject display-name lists.
     private fun detectChanges(oldJson: String, newJson: String): Pair<List<String>, List<String>> {
         return try {
             val oldSubjects = extractSubjects(oldJson)
             val newSubjects = extractSubjects(newJson)
             val newGrades = mutableListOf<String>()
             val updatedGrades = mutableListOf<String>()
-            for ((name, newGradeList) in newSubjects) {
-                if (newGradeList.isEmpty()) continue
-                val oldGradeList = oldSubjects[name]
+            for ((key, newEntry) in newSubjects) {
+                if (newEntry.grades.isEmpty()) continue
+                val oldEntry = oldSubjects[key]
                 when {
-                    oldGradeList == null || oldGradeList.isEmpty() -> newGrades.add(name)
-                    oldGradeList != newGradeList -> updatedGrades.add(name)
+                    oldEntry == null || oldEntry.grades.isEmpty() -> newGrades.add(newEntry.displayName)
+                    oldEntry.grades != newEntry.grades -> updatedGrades.add(newEntry.displayName)
                 }
             }
             Pair(newGrades, updatedGrades)
@@ -231,17 +226,20 @@ class GradesBackgroundWorker(
     }
 
     // Mirrors JsonCurriculumParser in lib/data.dart.
-    // Returns: subject name → list of "gradeName:score" strings.
-    private fun extractSubjects(json: String): Map<String, List<String>> {
-        val result = mutableMapOf<String, List<String>>()
+    // Returns: "semester|ue|subject" composite key → subject grades. The composite
+    // key avoids collisions when the same subject name appears in different UEs/semesters.
+    private fun extractSubjects(json: String): Map<String, SubjectGrades> {
+        val result = mutableMapOf<String, SubjectGrades>()
         try {
             val root = JSONObject(json)
             val yearDetails = root.optJSONArray("details") ?: return result
             for (si in 0 until yearDetails.length()) {
                 val semester = yearDetails.optJSONObject(si) ?: continue
+                val semesterName = semester.optString("name", "")
                 val ues = semester.optJSONArray("details") ?: continue
                 for (ui in 0 until ues.length()) {
                     val ue = ues.optJSONObject(ui) ?: continue
+                    val ueName = ue.optString("name", "")
                     val subjects = ue.optJSONArray("details") ?: continue
                     for (subi in 0 until subjects.length()) {
                         val subject = subjects.optJSONObject(subi) ?: continue
@@ -266,7 +264,7 @@ class GradesBackgroundWorker(
                                 gradeList.add("$name:$score")
                             }
                         }
-                        result[name] = gradeList
+                        result["$semesterName|$ueName|$name"] = SubjectGrades(name, gradeList)
                     }
                 }
             }
@@ -276,7 +274,7 @@ class GradesBackgroundWorker(
         return result
     }
 
-    // Handles both String scores (old inscore format) and List scores (new mobinsapi format).
+    // Handles both String scores (legacy format) and List scores (current mobinsapi format).
     private fun extractScore(field: Any?): String? = when (field) {
         is String -> field.takeIf { it.isNotEmpty() }
         is JSONArray -> if (field.length() > 0 && field.opt(0) is String) field.optString(0) else null

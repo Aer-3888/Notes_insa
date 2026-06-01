@@ -1,4 +1,5 @@
 import org.jetbrains.kotlin.gradle.tasks.KotlinJvmCompile
+import java.util.Properties
 
 plugins {
     id("com.android.application")
@@ -36,20 +37,24 @@ android {
         }
     }
 
-    val keystorePath = System.getenv("KEYSTORE_PATH")
+    val keystorePropertiesFile = rootProject.file("key.properties")
+    val keystoreProperties = Properties()
+    if (keystorePropertiesFile.exists()) {
+        keystoreProperties.load(keystorePropertiesFile.inputStream())
+    }
+
+    val keystorePath = keystoreProperties.getProperty("storeFile") ?: System.getenv("KEYSTORE_PATH")
     val isCI = System.getenv("CI") != null
 
-    if (keystorePath != null) {
-        signingConfigs {
+    signingConfigs {
+        if (keystorePath != null) {
             create("release") {
                 storeFile = file(keystorePath)
-                storePassword = System.getenv("KEY_STORE_PASSWORD")
-                keyAlias = System.getenv("KEY_ALIAS")
-                keyPassword = System.getenv("KEY_PASSWORD")
+                storePassword = keystoreProperties.getProperty("storePassword") ?: System.getenv("KEY_STORE_PASSWORD")
+                keyAlias = keystoreProperties.getProperty("keyAlias") ?: System.getenv("KEY_ALIAS")
+                keyPassword = keystoreProperties.getProperty("keyPassword") ?: System.getenv("KEY_PASSWORD")
             }
         }
-    } else if (isCI) {
-        throw GradleException("KEYSTORE_PATH must be set in CI for release builds")
     }
 
     buildTypes {
@@ -57,10 +62,10 @@ android {
             isMinifyEnabled = true
             isShrinkResources = true
             proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
-            signingConfig = if (keystorePath != null)
+            signingConfig = if (signingConfigs.findByName("release") != null)
                 signingConfigs.getByName("release")
             else
-                signingConfigs.getByName("debug")  // local dev only
+                signingConfigs.getByName("debug")
         }
     }
 

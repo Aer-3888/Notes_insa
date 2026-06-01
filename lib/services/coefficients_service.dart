@@ -23,6 +23,9 @@ typedef CoeffKey = ({String ue, String subject});
 class CoefficientsService {
   static const FlutterSecureStorage _storage = FlutterSecureStorage();
 
+  /// Local coefficient cache lifetime before a re-fetch is forced.
+  static const Duration _cacheTtl = Duration(days: 7);
+
   static String _cacheKey(
     String department,
     int semester,
@@ -129,8 +132,25 @@ class CoefficientsService {
         key: _cacheKey(department, semester, academicYear),
       );
       if (raw == null || raw.isEmpty) return null;
-      final Map<String, dynamic> decoded =
-          jsonDecode(raw) as Map<String, dynamic>;
+      final decoded = jsonDecode(raw);
+      if (decoded is! Map<String, dynamic>) return null;
+
+      // New format: {"ts": epochMillis, "coeffs": {...}} with a TTL.
+      if (decoded['coeffs'] is Map) {
+        final ts = (decoded['ts'] as num?)?.toInt() ?? 0;
+        final age = DateTime.now().difference(
+          DateTime.fromMillisecondsSinceEpoch(ts),
+        );
+        if (age > _cacheTtl) {
+          if (kDebugMode) debugPrint('[Coefficients] Local cache expired');
+          return null;
+        }
+        final coeffs = decoded['coeffs'] as Map<String, dynamic>;
+        return coeffs.map((k, v) => MapEntry(k, (v as num).toDouble()));
+      }
+
+      // Legacy format: a bare {key: value} map (no timestamp) — accept once;
+      // it gets upgraded to the timestamped format on the next API cache write.
       return decoded.map((k, v) => MapEntry(k, (v as num).toDouble()));
     } catch (e) {
       if (kDebugMode) debugPrint('[Coefficients] Local cache read failed: $e');
@@ -147,7 +167,10 @@ class CoefficientsService {
     try {
       await _storage.write(
         key: _cacheKey(department, semester, academicYear),
-        value: jsonEncode(coefficients),
+        value: jsonEncode({
+          'ts': DateTime.now().millisecondsSinceEpoch,
+          'coeffs': coefficients,
+        }),
       );
     } catch (e) {
       if (kDebugMode) debugPrint('[Coefficients] Local cache write failed: $e');
@@ -182,7 +205,12 @@ class CoefficientsService {
         final ue = (row['ue_name'] as String?)?.cleanName();
         final name = (row['subject_name'] as String?)?.cleanName();
         final coeff = (row['coefficient'] as num?)?.toDouble();
-        if (ue != null && name != null && coeff != null && coeff > 0) {
+        if (ue != null &&
+            ue.isNotEmpty &&
+            name != null &&
+            name.isNotEmpty &&
+            coeff != null &&
+            coeff > 0) {
           result['$ue|$name'] = coeff;
         }
       }
@@ -204,6 +232,9 @@ class CoefficientsService {
       for (final entry in coefficients.entries) {
         final parts = entry.key.split('|');
         if (parts.length != 2) continue;
+        // Skip UE-level sentinel entries ("ueName|") — the community DB only
+        // stores subject coefficients.
+        if (parts[1].isEmpty) continue;
         entries.add({
           'ue': parts[0],
           'name': parts[1],
@@ -348,6 +379,14 @@ class CoefficientsService {
     for (final ueNode in ueList) {
       if (ueNode is! Map<String, dynamic>) continue;
       final ueName = (ueNode['name'] ?? '').toString().cleanName();
+
+      // UE-level coefficient is stored under a sentinel key "ueName|" (empty
+      // subject part) so the semester average can weight UEs correctly.
+      final ueCoeff = _parseCoeffString(ueNode['coeff']);
+      if (ueName.isNotEmpty && ueCoeff != null && ueCoeff > 0) {
+        results[semKey]!['$ueName|'] = ueCoeff;
+      }
+
       final subjectList = ueNode['details'];
       if (subjectList is! List) continue;
 

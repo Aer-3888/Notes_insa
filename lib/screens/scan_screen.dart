@@ -14,6 +14,7 @@ class ScanScreen extends StatefulWidget {
 class _ScanScreenState extends State<ScanScreen>
     with SingleTickerProviderStateMixin {
   bool _isScanned = false;
+  DateTime? _lastErrorAt;
   late final AnimationController _successController;
   late final Animation<double> _successFade;
 
@@ -47,7 +48,14 @@ class _ScanScreenState extends State<ScanScreen>
       final result = _extractSecretFromQR(barcode.rawValue!);
 
       if (result == null) {
-        _showError('QR non reconnu. Scannez un code OTP valide.');
+        // mobile_scanner fires every frame; debounce so an unrecognised QR in
+        // view doesn't spam a SnackBar on each frame.
+        final now = DateTime.now();
+        if (_lastErrorAt == null ||
+            now.difference(_lastErrorAt!) > const Duration(seconds: 2)) {
+          _lastErrorAt = now;
+          _showError('QR non reconnu. Scannez un code OTP valide.');
+        }
         setState(() => _isScanned = false);
       } else if (result.isNotEmpty && mounted) {
         _successController.forward().then((_) {

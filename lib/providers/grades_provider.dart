@@ -5,6 +5,7 @@ import '../services/grades_service.dart';
 import '../services/coefficients_service.dart';
 import '../services/auth_service.dart';
 import '../constants.dart';
+import 'coefficients_provider.dart';
 
 enum AuthStatus {
   unauthenticated,
@@ -41,22 +42,22 @@ class GradesState {
     String? jsonData,
     Object? lastUpdated = _keep,
     bool? isLoading,
-    String? error,
+    Object? error = _keep,
     bool? needsReauth,
     Object? lastManualRefresh = _keep,
     AuthStatus? authStatus,
   }) {
     return GradesState(
       jsonData: jsonData ?? this.jsonData,
-      lastUpdated:
-          lastUpdated == _keep ? this.lastUpdated : lastUpdated as DateTime?,
+      lastUpdated: lastUpdated == _keep
+          ? this.lastUpdated
+          : lastUpdated as DateTime?,
       isLoading: isLoading ?? this.isLoading,
-      error: error,
+      error: error == _keep ? this.error : error as String?,
       needsReauth: needsReauth ?? this.needsReauth,
-      lastManualRefresh:
-          lastManualRefresh == _keep
-              ? this.lastManualRefresh
-              : lastManualRefresh as DateTime?,
+      lastManualRefresh: lastManualRefresh == _keep
+          ? this.lastManualRefresh
+          : lastManualRefresh as DateTime?,
       authStatus: authStatus ?? this.authStatus,
     );
   }
@@ -75,7 +76,28 @@ class GradesState {
 
 /// Notifier to manage grades state.
 class GradesNotifier extends StateNotifier<GradesState> {
-  GradesNotifier() : super(const GradesState());
+  GradesNotifier(this._ref) : super(const GradesState());
+
+  final Ref _ref;
+
+  /// Single-flight guard: while a fetch sequence is running, additional callers
+  /// await the same future instead of starting a second sequence. This prevents
+  /// concurrent native CAS-session calls (e.g. biometric + PIN + resume) from
+  /// interleaving and corrupting the shared session.
+  Future<void>? _inFlight;
+
+  Future<void> _runExclusive(Future<void> Function() body) {
+    final existing = _inFlight;
+    if (existing != null) return existing;
+    // body() runs synchronously up to its first await before returning the
+    // future, so loading/auth state is set before _inFlight is observed.
+    final future = body();
+    _inFlight = future;
+    future.whenComplete(() {
+      if (identical(_inFlight, future)) _inFlight = null;
+    });
+    return future;
+  }
 
   /// Load grades from local secure storage.
   Future<void> loadStoredGrades() async {
@@ -97,7 +119,9 @@ class GradesNotifier extends StateNotifier<GradesState> {
   /// Fetch grades after auth + optional 2FA are already complete.
   /// Called from the login screen once the full auth flow has succeeded.
   /// Also exports the CAS session so the next launch can skip re-auth.
-  Future<void> fetchGradesAfterAuth() async {
+  Future<void> fetchGradesAfterAuth() => _runExclusive(_fetchGradesAfterAuth);
+
+  Future<void> _fetchGradesAfterAuth() async {
     state = state.copyWith(
       isLoading: true,
       error: null,
@@ -114,6 +138,9 @@ class GradesNotifier extends StateNotifier<GradesState> {
 
       final result = await GradesService.fetchAndSaveGrades();
       await CoefficientsService.fetchAndCacheFromApi(result);
+      // Fresh coefficients were just cached — drop the (possibly empty) cached
+      // provider results so averages recompute weighted without a restart.
+      _ref.invalidate(coefficientsProvider);
       state = state.copyWith(
         jsonData: result,
         lastUpdated: DateTime.now(),
@@ -136,8 +163,10 @@ class GradesNotifier extends StateNotifier<GradesState> {
   /// Tries to restore the previous CAS session first — if still authenticated,
   /// skips re-auth entirely. Falls back to full auth if the session expired.
   /// If 2FA is required and no OTP secret is stored, sets an error state.
-  Future<void> fetchGradesWithStoredCredentials() async {
-    if (state.isLoading) return; // Guard clause
+  Future<void> fetchGradesWithStoredCredentials() =>
+      _runExclusive(_fetchGradesWithStoredCredentials);
+
+  Future<void> _fetchGradesWithStoredCredentials() async {
     state = state.copyWith(
       isLoading: true,
       error: null,
@@ -217,6 +246,9 @@ class GradesNotifier extends StateNotifier<GradesState> {
 
       final result = await GradesService.fetchAndSaveGrades();
       await CoefficientsService.fetchAndCacheFromApi(result);
+      // Fresh coefficients were just cached — drop the (possibly empty) cached
+      // provider results so averages recompute weighted without a restart.
+      _ref.invalidate(coefficientsProvider);
       state = state.copyWith(
         jsonData: result,
         lastUpdated: DateTime.now(),
@@ -261,5 +293,5 @@ class GradesNotifier extends StateNotifier<GradesState> {
 final gradesProvider = StateNotifierProvider<GradesNotifier, GradesState>((
   ref,
 ) {
-  return GradesNotifier();
+  return GradesNotifier(ref);
 });

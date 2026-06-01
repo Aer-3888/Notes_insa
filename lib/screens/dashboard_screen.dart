@@ -266,6 +266,9 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen>
                     builder: (context) => DashboardHeader(
                       title: departmentName,
                       average: semesterAverage,
+                      provisional: ref.watch(
+                        semesterAverageProvisionalProvider,
+                      ),
                       onMenuPressed: () => Scaffold.of(context).openDrawer(),
                       lastUpdated: lastUpdated,
                       selectedSemester: effectiveSemester ?? 0,

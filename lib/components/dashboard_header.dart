@@ -19,6 +19,9 @@ class DashboardHeader extends StatelessWidget {
   final List<int> availableSemesters;
   final ValueChanged<int> onSemesterChanged;
 
+  /// When true, coefficients are unavailable and the average is unweighted.
+  final bool provisional;
+
   const DashboardHeader({
     super.key,
     required this.average,
@@ -28,6 +31,7 @@ class DashboardHeader extends StatelessWidget {
     required this.selectedSemester,
     required this.availableSemesters,
     required this.onSemesterChanged,
+    this.provisional = false,
   });
 
   @override
@@ -68,6 +72,15 @@ class DashboardHeader extends StatelessWidget {
                           fontWeight: FontWeight.w400,
                         ),
                       ),
+                    if (provisional && average != null)
+                      Text(
+                        'Coefficients indisponibles — moyenne provisoire',
+                        style: TextStyle(
+                          fontSize: 11,
+                          color: Colors.orange.shade700,
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
                   ],
                 ),
               ),
@@ -89,7 +102,9 @@ class DashboardHeader extends StatelessWidget {
                 ),
                 alignment: Alignment.center,
                 child: Text(
-                  average?.toStringAsFixed(2) ?? '-',
+                  average == null
+                      ? '-'
+                      : '${provisional ? '≈' : ''}${average!.toStringAsFixed(2)}',
                   style: const TextStyle(
                     color: Colors.white,
                     fontSize: 20,

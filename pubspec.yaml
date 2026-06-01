@@ -60,6 +60,7 @@ dependencies:
   flutter_staggered_animations: ^1.1.1
   # Shimmer skeleton loading effect
   shimmer: ^3.0.0
+  crypto: ^3.0.7
 
 dev_dependencies:
   flutter_test:

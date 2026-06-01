@@ -78,8 +78,10 @@ final curriculumProvider = Provider<List<TeachingUnit>>((ref) {
   }
 });
 
-/// Computed provider for semester average
-/// Caches calculation and only recomputes when curriculum changes
+/// Computed provider for semester average.
+/// The official transcript average is the UE-coefficient-weighted average of the
+/// per-UE averages (each UE average is itself coefficient-weighted over its
+/// subjects), so weight by [TeachingUnit.coeff] here — not by flattening subjects.
 final semesterAverageProvider = Provider<double?>((ref) {
   final curriculum = ref.watch(curriculumProvider);
 
@@ -87,15 +89,39 @@ final semesterAverageProvider = Provider<double?>((ref) {
   double totalSemCoeff = 0;
 
   for (var unit in curriculum) {
-    for (var sub in unit.subjects) {
-      if (sub.average != null) {
-        totalSemScore += sub.average! * sub.coeff;
-        totalSemCoeff += sub.coeff;
-      }
+    final ueAvg = unit.average;
+    if (ueAvg != null) {
+      totalSemScore += ueAvg * unit.coeff;
+      totalSemCoeff += unit.coeff;
     }
   }
 
   return (totalSemCoeff > 0) ? totalSemScore / totalSemCoeff : null;
+});
+
+/// True when real coefficients are loaded for the current semester. When false,
+/// the curriculum parser falls back to 1.0 for every coefficient, so averages
+/// are unweighted (and therefore provisional).
+final coefficientsReadyProvider = Provider<bool>((ref) {
+  final semester = ref.watch(effectiveSemesterProvider);
+  if (semester == null) return false;
+  final department = ref.watch(departmentNameProvider);
+  final academicYear = ref.watch(academicYearProvider);
+  final coeffsAsync = ref.watch(
+    coefficientsProvider((
+      department: department,
+      semester: semester,
+      academicYear: academicYear,
+    )),
+  );
+  return coeffsAsync.maybeWhen(data: (d) => d.isNotEmpty, orElse: () => false);
+});
+
+/// True when the displayed semester average is unweighted (coefficients missing)
+/// so the UI can label it as provisional.
+final semesterAverageProvisionalProvider = Provider<bool>((ref) {
+  if (ref.watch(semesterAverageProvider) == null) return false;
+  return !ref.watch(coefficientsReadyProvider);
 });
 
 /// Computed provider for available semesters from grades data

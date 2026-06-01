@@ -202,9 +202,16 @@ class AveragesService {
     }
 
     final List<dynamic> data = jsonDecode(response.body) as List<dynamic>;
-    return data
-        .cast<Map<String, dynamic>>()
-        .map(SubjectAverage.fromJson)
-        .toList();
+    final result = <SubjectAverage>[];
+    for (final row in data) {
+      if (row is! Map<String, dynamic>) continue;
+      try {
+        result.add(SubjectAverage.fromJson(row));
+      } catch (e) {
+        // Skip a malformed row rather than failing the whole list.
+        if (kDebugMode) debugPrint('[Averages] skipped bad row: $e');
+      }
+    }
+    return result;
   }
 }

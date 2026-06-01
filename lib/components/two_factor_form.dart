@@ -1,7 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import '../app_colors.dart';
 
-class TwoFactorForm extends StatelessWidget {
+class TwoFactorForm extends StatefulWidget {
   final TextEditingController controller;
   final bool isLoading;
   final VoidCallback onValidate;
@@ -34,8 +35,29 @@ class TwoFactorForm extends StatelessWidget {
   });
 
   @override
+  State<TwoFactorForm> createState() => _TwoFactorFormState();
+}
+
+class _TwoFactorFormState extends State<TwoFactorForm> {
+  @override
+  void initState() {
+    super.initState();
+    // Rebuild on input so the 'Valider' button enable state stays in sync.
+    widget.controller.addListener(_onChanged);
+  }
+
+  @override
+  void dispose() {
+    widget.controller.removeListener(_onChanged);
+    super.dispose();
+  }
+
+  void _onChanged() => setState(() {});
+
+  @override
   Widget build(BuildContext context) {
-    final codeReady = controller.text.trim().isNotEmpty;
+    // Codes are numeric; require at least 4 digits before enabling validation.
+    final codeReady = widget.controller.text.trim().length >= 4;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -75,20 +97,26 @@ class TwoFactorForm extends StatelessWidget {
         const SizedBox(height: 24),
 
         // Option: Email (if supported)
-        if (onTriggerEmail != null) ...[
+        if (widget.onTriggerEmail != null) ...[
           OutlinedButton.icon(
-            onPressed: (isLoading || emailSent) ? null : onTriggerEmail,
-            icon: Icon(emailSent ? Icons.check_circle : Icons.email_outlined),
+            onPressed: (widget.isLoading || widget.emailSent)
+                ? null
+                : widget.onTriggerEmail,
+            icon: Icon(
+              widget.emailSent ? Icons.check_circle : Icons.email_outlined,
+            ),
             label: Text(
-              emailSent ? 'Email envoyé' : 'Recevoir un code par email',
+              widget.emailSent ? 'Email envoyé' : 'Recevoir un code par email',
             ),
             style: OutlinedButton.styleFrom(
               padding: const EdgeInsets.all(14),
-              foregroundColor: emailSent
+              foregroundColor: widget.emailSent
                   ? AppColors.statusPositive
                   : AppColors.primary,
               side: BorderSide(
-                color: emailSent ? AppColors.statusPositive : AppColors.primary,
+                color: widget.emailSent
+                    ? AppColors.statusPositive
+                    : AppColors.primary,
               ),
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(12),
@@ -100,26 +128,25 @@ class TwoFactorForm extends StatelessWidget {
 
         // Code input
         TextField(
-          controller: controller,
+          controller: widget.controller,
           keyboardType: TextInputType.number,
           maxLength: 8,
-          onChanged: (_) {
-            // Force rebuild to update 'Validate' button state if needed
-            (context as Element).markNeedsBuild();
-          },
+          inputFormatters: [FilteringTextInputFormatter.digitsOnly],
           decoration: InputDecoration(
             labelText: 'Code de vérification',
             border: const OutlineInputBorder(),
             prefixIcon: const Icon(Icons.pin_outlined),
             counterText: '',
-            errorText: errorText,
+            errorText: widget.errorText,
           ),
         ),
         const SizedBox(height: 16),
 
         // Validate code button
         ElevatedButton(
-          onPressed: (codeReady && !isLoading) ? onValidate : null,
+          onPressed: (codeReady && !widget.isLoading)
+              ? widget.onValidate
+              : null,
           style: ElevatedButton.styleFrom(
             padding: const EdgeInsets.all(16),
             backgroundColor: AppColors.primary,
@@ -128,7 +155,7 @@ class TwoFactorForm extends StatelessWidget {
               borderRadius: BorderRadius.circular(12),
             ),
           ),
-          child: isLoading
+          child: widget.isLoading
               ? const SizedBox(
                   width: 20,
                   height: 20,
@@ -165,7 +192,7 @@ class TwoFactorForm extends StatelessWidget {
             fontWeight: FontWeight.bold,
           ),
         ),
-        if (onToggleSaveSecret != null) ...[
+        if (widget.onToggleSaveSecret != null) ...[
           const SizedBox(height: 4),
           Text(
             'Scannez le QR code 2FA pour éviter de ressaisir un code à chaque connexion.',
@@ -175,16 +202,16 @@ class TwoFactorForm extends StatelessWidget {
         const SizedBox(height: 10),
 
         InkWell(
-          onTap: isLoading ? null : onScanQr,
+          onTap: widget.isLoading ? null : widget.onScanQr,
           borderRadius: BorderRadius.circular(12),
           child: Container(
             padding: const EdgeInsets.all(16),
             decoration: BoxDecoration(
-              color: scannedSecret != null
+              color: widget.scannedSecret != null
                   ? AppColors.statusPositive.withValues(alpha: .1)
                   : Colors.grey.shade100,
               border: Border.all(
-                color: scannedSecret != null
+                color: widget.scannedSecret != null
                     ? AppColors.statusPositive
                     : Colors.grey.shade300,
               ),
@@ -193,21 +220,21 @@ class TwoFactorForm extends StatelessWidget {
             child: Row(
               children: [
                 Icon(
-                  scannedSecret != null
+                  widget.scannedSecret != null
                       ? Icons.check_circle
                       : Icons.qr_code_scanner,
-                  color: scannedSecret != null
+                  color: widget.scannedSecret != null
                       ? AppColors.statusPositive
                       : AppColors.primary,
                 ),
                 const SizedBox(width: 16),
                 Expanded(
                   child: Text(
-                    scannedSecret != null
+                    widget.scannedSecret != null
                         ? 'Secret scanné'
                         : 'Scanner le QR code',
                     style: TextStyle(
-                      color: scannedSecret != null
+                      color: widget.scannedSecret != null
                           ? AppColors.statusPositive
                           : Colors.black87,
                       fontWeight: FontWeight.bold,
@@ -220,11 +247,11 @@ class TwoFactorForm extends StatelessWidget {
         ),
 
         // Optional save secret checkbox
-        if (onToggleSaveSecret != null) ...[
+        if (widget.onToggleSaveSecret != null) ...[
           const SizedBox(height: 8),
           CheckboxListTile(
-            value: saveSecret,
-            onChanged: (v) => onToggleSaveSecret!(v ?? false),
+            value: widget.saveSecret,
+            onChanged: (v) => widget.onToggleSaveSecret!(v ?? false),
             contentPadding: EdgeInsets.zero,
             title: const Text(
               'Mémoriser le secret pour les prochaines connexions',
@@ -240,10 +267,12 @@ class TwoFactorForm extends StatelessWidget {
         ],
 
         // Optional auto-validate button
-        if (scannedSecret != null && onAutoValidate != null) ...[
+        if (widget.scannedSecret != null && widget.onAutoValidate != null) ...[
           const SizedBox(height: 8),
           ElevatedButton.icon(
-            onPressed: isLoading ? null : () => onAutoValidate!(scannedSecret!),
+            onPressed: widget.isLoading
+                ? null
+                : () => widget.onAutoValidate!(widget.scannedSecret!),
             icon: const Icon(Icons.auto_fix_high, color: Colors.white),
             label: const Text(
               'Valider automatiquement',

@@ -41,6 +41,8 @@ class JsonCurriculumParser {
         final String ueName = (ueNode['name'] ?? 'Unknown UE')
             .toString()
             .cleanName();
+        // UE-level coefficient stored under the "ueName|" sentinel key.
+        final double ueCoeff = coefficients?['$ueName|'] ?? 1.0;
         final List<Subject> subjects = [];
 
         if (ueNode['details'] is List) {
@@ -103,7 +105,7 @@ class JsonCurriculumParser {
         }
 
         if (subjects.isNotEmpty) {
-          teachingUnits.add(TeachingUnit(ueName, subjects));
+          teachingUnits.add(TeachingUnit(ueName, subjects, coeff: ueCoeff));
         }
       }
 
@@ -293,7 +295,7 @@ class JsonCurriculumParser {
   }
 
   /// Extracts a score string from a field that may be either a bare String
-  /// (old inscore format) or a List (new mobinsapi format: ["16/20", "VAL"]).
+  /// (legacy format) or a List (current mobinsapi format: ["16/20", "VAL"]).
   /// Returns null if the field is absent or not a recognised type.
   static String? _extractScore(dynamic field) {
     if (field is String) return field;

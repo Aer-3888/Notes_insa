@@ -67,8 +67,10 @@ class _TwoFactorScreenState extends ConsumerState<TwoFactorScreen> {
       _errorText = null;
     });
     try {
-      await AuthService().storeOtpSecret(secret);
+      // Store the secret only after it is confirmed valid, so a wrong secret
+      // isn't persisted.
       await GradesService.autoValidate(secret);
+      await AuthService().storeOtpSecret(secret);
       await ref.read(gradesProvider.notifier).fetchGradesAfterAuth();
       if (mounted && Navigator.canPop(context)) {
         Navigator.pop(context);
@@ -80,10 +82,14 @@ class _TwoFactorScreenState extends ConsumerState<TwoFactorScreen> {
     }
   }
 
-  void _logout() async {
+  Future<void> _logout() async {
     await AuthService().clear();
+    if (!mounted) return;
     ref.read(gradesProvider.notifier).clearGrades();
     ref.invalidate(hasCredentialsProvider);
+    // Pop this pushed route so the rebuilt AuthGate (now showing LoginScreen)
+    // isn't left covered by a dangling 2FA screen.
+    if (Navigator.canPop(context)) Navigator.pop(context);
   }
 
   @override

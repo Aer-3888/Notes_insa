@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'app_colors.dart';
 import 'services/auth_service.dart';
+import 'services/worker_sync_service.dart';
 import 'providers/grades_provider.dart';
 import 'providers/auth_providers.dart';
 import 'screens/login_screen.dart';
@@ -49,13 +50,38 @@ class AuthGate extends ConsumerStatefulWidget {
   ConsumerState<AuthGate> createState() => _AuthGateState();
 }
 
-class _AuthGateState extends ConsumerState<AuthGate> {
+class _AuthGateState extends ConsumerState<AuthGate>
+    with WidgetsBindingObserver {
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     // Load cached grades into state once on app start — independent of auth
     ref.read(gradesProvider.notifier).loadStoredGrades();
+    // One-time mirror of existing secrets into the native worker store so
+    // already-logged-in users enable background fetch without re-authenticating.
+    unawaited(WorkerSyncService.backfill());
   }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    // Re-arm the biometric/PIN gate whenever the app leaves the foreground.
+    if (state == AppLifecycleState.paused) {
+      ref.read(appUnlockedProvider.notifier).state = false;
+    }
+  }
+
+  DashboardScreen _dashboard(BuildContext context) => DashboardScreen(
+    onReauthRequired: () => Navigator.of(
+      context,
+    ).push(MaterialPageRoute(builder: (_) => const TwoFactorScreen())),
+  );
 
   @override
   Widget build(BuildContext context) {
@@ -69,35 +95,30 @@ class _AuthGateState extends ConsumerState<AuthGate> {
           data: (hasCreds) {
             if (!hasCreds) return const LoginScreen();
 
-            // Interceptor Logic
+            // Lock gate: until the user passes biometric/PIN this session, no
+            // auth state may reveal the dashboard.
+            final unlocked = ref.watch(appUnlockedProvider);
+            if (!unlocked) {
+              return gradesState.authStatus == AuthStatus.pinRequired
+                  ? const _PinScreen()
+                  : const _BiometricScreen();
+            }
+
+            // Unlocked — drive the dashboard/splash from auth status.
             switch (gradesState.authStatus) {
-              case AuthStatus.unauthenticated:
-                return const _BiometricScreen();
               case AuthStatus.authenticating:
-                // Only show splash if we have no data to show yet
-                if (gradesState.hasData) {
-                  return DashboardScreen(
-                    onReauthRequired: () => Navigator.of(context).push(
-                      MaterialPageRoute(
-                        builder: (_) => const TwoFactorScreen(),
-                      ),
-                    ),
-                  );
-                }
-                return const _SplashScreen();
+                // Show data immediately if we have it; otherwise a splash with
+                // an escape hatch in case the native call hangs.
+                return gradesState.hasData
+                    ? _dashboard(context)
+                    : const _AuthenticatingSplash();
+              case AuthStatus.unauthenticated:
               case AuthStatus.pinRequired:
-                return const _PinScreen();
               case AuthStatus.error:
               case AuthStatus.twoFactorRequired:
               case AuthStatus.authenticated:
-                // If biometrics passed (or weren't needed), and we either succeeded,
-                // failed (offline), or need 2FA, show the Dashboard.
-                // The Dashboard will handle showing the cached data and any necessary banners.
-                return DashboardScreen(
-                  onReauthRequired: () => Navigator.of(context).push(
-                    MaterialPageRoute(builder: (_) => const TwoFactorScreen()),
-                  ),
-                );
+                // The Dashboard handles cached data and any necessary banners.
+                return _dashboard(context);
             }
           },
         );
@@ -129,6 +150,113 @@ class _SplashScreen extends StatelessWidget {
               ),
             ),
           ],
+        ),
+      ),
+    );
+  }
+}
+
+// Shown while the first post-unlock fetch is running and there's no cached data
+// yet. If the native call hangs, an escape hatch appears so the user is never
+// stranded on a control-less splash.
+class _AuthenticatingSplash extends ConsumerStatefulWidget {
+  const _AuthenticatingSplash();
+
+  @override
+  ConsumerState<_AuthenticatingSplash> createState() =>
+      _AuthenticatingSplashState();
+}
+
+class _AuthenticatingSplashState extends ConsumerState<_AuthenticatingSplash> {
+  bool _showEscape = false;
+  Timer? _timer;
+
+  @override
+  void initState() {
+    super.initState();
+    _timer = Timer(const Duration(seconds: 8), () {
+      if (mounted) setState(() => _showEscape = true);
+    });
+  }
+
+  @override
+  void dispose() {
+    _timer?.cancel();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: AppColors.scaffoldBg,
+      body: Center(
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 40),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Icon(Icons.school, size: 72, color: AppColors.primary),
+              const SizedBox(height: 16),
+              const Text(
+                'Notes INSA',
+                style: TextStyle(
+                  color: AppColors.primary,
+                  fontSize: 24,
+                  fontWeight: FontWeight.bold,
+                  letterSpacing: 1.2,
+                ),
+              ),
+              const SizedBox(height: 24),
+              const CircularProgressIndicator(color: AppColors.primary),
+              if (_showEscape) ...[
+                const SizedBox(height: 32),
+                Text(
+                  'La connexion prend plus de temps que prévu.',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(color: Colors.grey.shade600),
+                ),
+                const SizedBox(height: 16),
+                SizedBox(
+                  width: double.infinity,
+                  child: ElevatedButton.icon(
+                    icon: const Icon(Icons.refresh),
+                    label: const Text('Réessayer'),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: AppColors.primary,
+                      foregroundColor: Colors.white,
+                      padding: const EdgeInsets.symmetric(vertical: 14),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                    ),
+                    onPressed: () {
+                      setState(() => _showEscape = false);
+                      _timer?.cancel();
+                      _timer = Timer(const Duration(seconds: 8), () {
+                        if (mounted) setState(() => _showEscape = true);
+                      });
+                      unawaited(
+                        ref
+                            .read(gradesProvider.notifier)
+                            .fetchGradesWithStoredCredentials()
+                            .catchError((_) {}),
+                      );
+                    },
+                  ),
+                ),
+                const SizedBox(height: 12),
+                SizedBox(
+                  width: double.infinity,
+                  child: TextButton(
+                    onPressed: () => Navigator.of(context).push(
+                      MaterialPageRoute(builder: (_) => const LoginScreen()),
+                    ),
+                    child: const Text('Se connecter autrement'),
+                  ),
+                ),
+              ],
+            ],
+          ),
         ),
       ),
     );
@@ -212,6 +340,7 @@ class _BiometricScreenState extends ConsumerState<_BiometricScreen>
   }
 
   void _onSuccess() {
+    ref.read(appUnlockedProvider.notifier).state = true;
     unawaited(
       ref
           .read(gradesProvider.notifier)
@@ -325,11 +454,36 @@ class _PinScreenState extends ConsumerState<_PinScreen> {
   final _pinController = TextEditingController();
   final _authService = AuthService();
   bool _error = false;
+  int? _remainingAttempts;
+  Duration? _lockout;
+  Timer? _lockoutTimer;
+
+  @override
+  void initState() {
+    super.initState();
+    unawaited(_refreshLockout());
+  }
+
+  Future<void> _refreshLockout() async {
+    final remaining = await _authService.pinLockoutRemaining();
+    if (!mounted) return;
+    setState(() => _lockout = remaining);
+    _lockoutTimer?.cancel();
+    if (remaining != null) {
+      // Tick down once a second until the lockout expires.
+      _lockoutTimer = Timer.periodic(const Duration(seconds: 1), (_) {
+        unawaited(_refreshLockout());
+      });
+    }
+  }
 
   Future<void> _verify() async {
+    if (_lockout != null) return;
     final success = await _authService.verifyPin(_pinController.text);
     if (success) {
+      await _authService.resetPinAttempts();
       if (!mounted) return;
+      ref.read(appUnlockedProvider.notifier).state = true;
       unawaited(
         ref
             .read(gradesProvider.notifier)
@@ -337,11 +491,26 @@ class _PinScreenState extends ConsumerState<_PinScreen> {
             .catchError((_) {}),
       );
     } else {
+      final remaining = await _authService.recordPinFailure();
+      if (!mounted) return;
       setState(() {
         _error = true;
+        _remainingAttempts = remaining;
         _pinController.clear();
       });
+      if (remaining == 0) await _refreshLockout();
     }
+  }
+
+  String? get _errorText {
+    if (_lockout != null) {
+      return 'Trop de tentatives. Réessayez dans ${_lockout!.inSeconds + 1} s.';
+    }
+    if (!_error) return null;
+    if (_remainingAttempts != null && _remainingAttempts! > 0) {
+      return 'Code PIN incorrect ($_remainingAttempts tentative(s) restante(s))';
+    }
+    return 'Code PIN incorrect';
   }
 
   @override
@@ -377,6 +546,7 @@ class _PinScreenState extends ConsumerState<_PinScreen> {
               const SizedBox(height: 32),
               TextField(
                 controller: _pinController,
+                enabled: _lockout == null,
                 obscureText: true,
                 keyboardType: TextInputType.number,
                 maxLength: 8,
@@ -389,14 +559,14 @@ class _PinScreenState extends ConsumerState<_PinScreen> {
                 decoration: InputDecoration(
                   border: const OutlineInputBorder(),
                   counterText: '',
-                  errorText: _error ? 'Code PIN incorrect' : null,
+                  errorText: _errorText,
                 ),
               ),
               const SizedBox(height: 24),
               SizedBox(
                 width: double.infinity,
                 child: ElevatedButton(
-                  onPressed: _verify,
+                  onPressed: _lockout == null ? _verify : null,
                   style: ElevatedButton.styleFrom(
                     padding: const EdgeInsets.symmetric(vertical: 16),
                     backgroundColor: AppColors.primary,
@@ -424,6 +594,7 @@ class _PinScreenState extends ConsumerState<_PinScreen> {
 
   @override
   void dispose() {
+    _lockoutTimer?.cancel();
     _pinController.dispose();
     super.dispose();
   }

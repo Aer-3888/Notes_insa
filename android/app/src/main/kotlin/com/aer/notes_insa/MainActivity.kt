@@ -122,6 +122,25 @@ class MainActivity : FlutterFragmentActivity() {
                     }
                 }
 
+                "SyncWorkerStore" -> {
+                    val values = call.argument<Map<String, String?>>("values")
+                    if (values == null) {
+                        result.error("ERR_INVALID_ARGS", "values missing", null)
+                        return@setMethodCallHandler
+                    }
+                    runInBackground("SyncWorkerStore", result) {
+                        WorkerStore.write(applicationContext, values)
+                        null
+                    }
+                }
+
+                "ClearWorkerStore" -> {
+                    runInBackground("ClearWorkerStore", result) {
+                        WorkerStore.clearAll(applicationContext)
+                        null
+                    }
+                }
+
                 "InitBackgroundTask" -> {
                     val intervalMinutes = (call.argument<Int>("intervalMinutes") ?: 15).toLong()
                     GradesBackgroundWorker.schedule(applicationContext, intervalMinutes)
