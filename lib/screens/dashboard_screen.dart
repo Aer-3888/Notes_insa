@@ -1104,7 +1104,7 @@ class _HistogramPainter extends CustomPainter {
     final maxCount = buckets.fold<int>(0, (m, b) => b > m ? b : m);
     if (maxCount == 0) return;
 
-    final n = buckets.length; // 10
+    final n = buckets.length; // 20
     // Each bar occupies an equal slot; label centered under bar center
     final slotWidth = size.width / n;
     final barWidth = slotWidth - barInset * 2;

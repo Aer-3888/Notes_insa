@@ -7,7 +7,6 @@ import '../services/grades_service.dart';
 import '../providers/grades_provider.dart';
 import '../screens/login_screen.dart';
 import '../screens/raw_json_viewer_screen.dart';
-import '../screens/config_screen.dart';
 import '../screens/settings_screen.dart';
 import '../screens/dashboard_screen.dart';
 
@@ -97,22 +96,6 @@ class AppDrawer extends ConsumerWidget {
                         ),
                       );
                     }
-                  },
-                ),
-                _NavTile(
-                  icon: Icons.layers_outlined,
-                  selectedIcon: Icons.layers,
-                  label: 'Profils',
-                  isSelected: selected == DrawerItem.config,
-                  onTap: () {
-                    if (context.mounted) {
-                      ScaffoldMessenger.of(context).clearMaterialBanners();
-                    }
-                    Navigator.pop(context);
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(builder: (_) => const ConfigScreen()),
-                    );
                   },
                 ),
                 _NavTile(
