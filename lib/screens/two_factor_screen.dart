@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../components/two_factor_form.dart';
@@ -29,15 +30,21 @@ class _TwoFactorScreenState extends ConsumerState<TwoFactorScreen> {
     });
     try {
       await GradesService.validate(_codeController.text.trim());
-      await ref.read(gradesProvider.notifier).fetchGradesAfterAuth();
-      if (mounted && Navigator.canPop(context)) {
-        Navigator.pop(context);
-      }
     } catch (e) {
-      setState(() => _errorText = 'Code invalide ou expiré');
-    } finally {
-      if (mounted) setState(() => _isLoading = false);
+      if (mounted)
+        setState(() {
+          _isLoading = false;
+          _errorText = 'Code invalide ou expiré';
+        });
+      return;
     }
+    unawaited(
+      ref
+          .read(gradesProvider.notifier)
+          .fetchGradesAfterAuth()
+          .catchError((_) {}),
+    );
+    if (mounted && Navigator.canPop(context)) Navigator.pop(context);
   }
 
   Future<void> _triggerEmail() async {
@@ -71,15 +78,21 @@ class _TwoFactorScreenState extends ConsumerState<TwoFactorScreen> {
       // isn't persisted.
       await GradesService.autoValidate(secret);
       await AuthService().storeOtpSecret(secret);
-      await ref.read(gradesProvider.notifier).fetchGradesAfterAuth();
-      if (mounted && Navigator.canPop(context)) {
-        Navigator.pop(context);
-      }
     } catch (e) {
-      setState(() => _errorText = 'Secret OTP invalide');
-    } finally {
-      if (mounted) setState(() => _isLoading = false);
+      if (mounted)
+        setState(() {
+          _isLoading = false;
+          _errorText = 'Secret OTP invalide';
+        });
+      return;
     }
+    unawaited(
+      ref
+          .read(gradesProvider.notifier)
+          .fetchGradesAfterAuth()
+          .catchError((_) {}),
+    );
+    if (mounted && Navigator.canPop(context)) Navigator.pop(context);
   }
 
   Future<void> _logout() async {

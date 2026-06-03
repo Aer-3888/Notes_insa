@@ -2,7 +2,9 @@ package com.aer.notes_insa
 
 import android.app.NotificationChannel
 import android.app.NotificationManager
+import android.app.PendingIntent
 import android.content.Context
+import android.content.Intent
 import android.os.Build
 import android.util.Log
 import androidx.core.app.NotificationCompat
@@ -307,12 +309,22 @@ class GradesBackgroundWorker(
     }
 
     private fun buildAndPost(id: Int, title: String, body: String) {
+        val launchIntent = appContext.packageManager
+            .getLaunchIntentForPackage(appContext.packageName)
+            ?.apply { flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP }
+        val pendingIntent = launchIntent?.let {
+            PendingIntent.getActivity(
+                appContext, id, it,
+                PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
+            )
+        }
         val notification = NotificationCompat.Builder(appContext, CHANNEL_ID)
             .setSmallIcon(R.mipmap.launcher_icon)
             .setContentTitle(title)
             .setContentText(body)
             .setPriority(NotificationCompat.PRIORITY_HIGH)
             .setAutoCancel(true)
+            .apply { if (pendingIntent != null) setContentIntent(pendingIntent) }
             .build()
         try {
             NotificationManagerCompat.from(appContext).notify(id, notification)

@@ -1,6 +1,7 @@
+import 'dart:async';
+import 'dart:io';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:permission_handler/permission_handler.dart';
-import 'dart:io';
 
 // Simple cross-platform notification helper.
 class NotificationService {
@@ -13,6 +14,23 @@ class NotificationService {
   // rather than stacking up across process restarts.
   static const int _idNewGrades = 1;
   static const int _idUpdatedGrades = 2;
+
+  // Broadcast stream for notification taps while the app is running.
+  static final _tapController = StreamController<String>.broadcast();
+  static Stream<String> get tapStream => _tapController.stream;
+
+  // Payload from a notification that cold-started the app (read once via consumePendingPayload).
+  static String? _pendingPayload;
+  static String? consumePendingPayload() {
+    final p = _pendingPayload;
+    _pendingPayload = null;
+    return p;
+  }
+
+  static void _onTap(NotificationResponse response) {
+    final payload = response.payload;
+    if (payload != null) _tapController.add(payload);
+  }
 
   // Request notification permission — call this from the foreground UI only.
   static Future<void> requestPermission() async {
@@ -48,8 +66,15 @@ class NotificationService {
 
       await _notifications.initialize(
         settings: settings,
-        onDidReceiveNotificationResponse: (_) {},
+        onDidReceiveNotificationResponse: _onTap,
       );
+
+      // Cold start: app was launched by tapping a Flutter local notification.
+      final launchDetails = await _notifications
+          .getNotificationAppLaunchDetails();
+      if (launchDetails?.didNotificationLaunchApp == true) {
+        _pendingPayload = launchDetails?.notificationResponse?.payload;
+      }
 
       if (Platform.isAndroid) {
         const AndroidNotificationChannel gradesChannel =

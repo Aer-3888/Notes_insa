@@ -11,6 +11,7 @@ import 'screens/dashboard_screen.dart';
 import 'screens/two_factor_screen.dart';
 import 'background_tasks.dart';
 import 'constants.dart';
+import 'services/notification_service.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -52,6 +53,8 @@ class AuthGate extends ConsumerStatefulWidget {
 
 class _AuthGateState extends ConsumerState<AuthGate>
     with WidgetsBindingObserver {
+  StreamSubscription<String>? _notifSub;
+
   @override
   void initState() {
     super.initState();
@@ -61,10 +64,41 @@ class _AuthGateState extends ConsumerState<AuthGate>
     // One-time mirror of existing secrets into the native worker store so
     // already-logged-in users enable background fetch without re-authenticating.
     unawaited(WorkerSyncService.backfill());
+    unawaited(_setupNotifications());
+  }
+
+  Future<void> _setupNotifications() async {
+    await NotificationService.initialize();
+    // Discard any cold-start payload — the normal startup flow already handles
+    // everything: grades are re-fetched after biometric unlock, and a failed
+    // 2FA auto-validate sets the reauth banner on the dashboard.
+    NotificationService.consumePendingPayload();
+    _notifSub = NotificationService.tapStream.listen(_onNotificationTap);
+  }
+
+  void _onNotificationTap(String payload) {
+    if (!mounted) return;
+    // Do nothing while the user hasn't passed the biometric/PIN gate yet.
+    if (!ref.read(appUnlockedProvider)) return;
+    switch (payload) {
+      case 'reauth_required':
+        Navigator.of(
+          context,
+        ).push(MaterialPageRoute(builder: (_) => const TwoFactorScreen()));
+      case 'new_grades':
+      case 'updated_grades':
+        unawaited(
+          ref
+              .read(gradesProvider.notifier)
+              .fetchGradesWithStoredCredentials()
+              .catchError((_) {}),
+        );
+    }
   }
 
   @override
   void dispose() {
+    _notifSub?.cancel();
     WidgetsBinding.instance.removeObserver(this);
     super.dispose();
   }
