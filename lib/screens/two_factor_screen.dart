@@ -31,11 +31,12 @@ class _TwoFactorScreenState extends ConsumerState<TwoFactorScreen> {
     try {
       await GradesService.validate(_codeController.text.trim());
     } catch (e) {
-      if (mounted)
+      if (mounted) {
         setState(() {
           _isLoading = false;
           _errorText = 'Code invalide ou expiré';
         });
+      }
       return;
     }
     unawaited(
@@ -79,11 +80,12 @@ class _TwoFactorScreenState extends ConsumerState<TwoFactorScreen> {
       await GradesService.autoValidate(secret);
       await AuthService().storeOtpSecret(secret);
     } catch (e) {
-      if (mounted)
+      if (mounted) {
         setState(() {
           _isLoading = false;
           _errorText = 'Secret OTP invalide';
         });
+      }
       return;
     }
     unawaited(
