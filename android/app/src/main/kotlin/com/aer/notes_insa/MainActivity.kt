@@ -134,6 +134,13 @@ class MainActivity : FlutterFragmentActivity() {
                     }
                 }
 
+                "ReadWorkerStore" -> {
+                    val keys = call.argument<List<String>>("keys") ?: emptyList()
+                    runInBackground("ReadWorkerStore", result) {
+                        WorkerStore.read(applicationContext, keys)
+                    }
+                }
+
                 "ClearWorkerStore" -> {
                     runInBackground("ClearWorkerStore", result) {
                         WorkerStore.clearAll(applicationContext)

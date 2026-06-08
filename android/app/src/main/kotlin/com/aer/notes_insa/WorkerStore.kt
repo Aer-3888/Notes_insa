@@ -46,6 +46,20 @@ object WorkerStore {
     }
 
     /**
+     * Reads the requested keys. Returns null if the store cannot be opened;
+     * keys with no stored value are returned as null entries.
+     *
+     * Used by the Flutter side to pull back values the worker updated on its
+     * own (e.g. a CAS session rotated during a background re-auth) — the
+     * Flutter → worker mirror in [write] is one-way, so this is the only path
+     * for those changes to reach flutter_secure_storage.
+     */
+    fun read(context: Context, keys: List<String>): Map<String, String?>? {
+        val prefs = openOrNull(context) ?: return null
+        return keys.associateWith { prefs.getString(it, null) }
+    }
+
+    /**
      * Writes the provided keys. A null value removes that key. Keys absent from
      * [values] are left untouched, so callers can sync a subset.
      */

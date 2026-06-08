@@ -171,10 +171,17 @@ class AuthService {
         return await hasPin() ? AuthResult.pinRequired : AuthResult.failure;
       }
 
-      final success = await _auth.authenticate(
-        localizedReason: 'Veuillez vous authentifier pour accéder à vos notes',
-        biometricOnly: true,
-      );
+      // Bounded so a native lifecycle race (BiometricPrompt invoked while the
+      // FragmentManager still reports a saved state right after resume, e.g.
+      // "Called after onSaveInstanceState") can't strand the future — and the
+      // caller — forever; it resolves to failure and the UI offers a retry.
+      final success = await _auth
+          .authenticate(
+            localizedReason:
+                'Veuillez vous authentifier pour accéder à vos notes',
+            biometricOnly: true,
+          )
+          .timeout(const Duration(seconds: 30));
 
       if (success) return AuthResult.success;
       return AuthResult.failure;

@@ -345,6 +345,13 @@ class _BiometricScreenState extends ConsumerState<_BiometricScreen>
     final authService = AuthService();
     final hasPin = await authService.hasPin();
     if (mounted) setState(() => _hasPin = hasPin);
+    // Requesting the prompt on the very first frame can race with the Android
+    // activity's resume transition — the FragmentManager may still report a
+    // saved state from before the app was backgrounded, so BiometricPrompt
+    // throws "Called after onSaveInstanceState" and the user is stuck on this
+    // screen. A brief delay lets onResume() settle before the first attempt.
+    await Future.delayed(const Duration(milliseconds: 400));
+    if (!mounted) return;
     await _authenticate();
   }
 

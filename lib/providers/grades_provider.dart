@@ -4,6 +4,7 @@ import 'package:flutter/foundation.dart';
 import '../services/grades_service.dart';
 import '../services/coefficients_service.dart';
 import '../services/auth_service.dart';
+import '../services/worker_sync_service.dart';
 import '../constants.dart';
 import 'coefficients_provider.dart';
 
@@ -186,6 +187,16 @@ class GradesNotifier extends StateNotifier<GradesState> {
     }
 
     try {
+      // The background worker rotates the CAS session (and grades snapshot)
+      // directly in its own store after a headless re-auth, but has no way to
+      // mirror that back to flutter_secure_storage (see WorkerSyncService).
+      // Adopt its copy first so we restore the session the server currently
+      // recognizes — otherwise importCAS below fails on our stale copy, which
+      // forces a redundant full re-auth + 2FA cycle (and risks the OTP server
+      // rejecting a replayed TOTP code from the same time-step the worker just
+      // used, surfacing as "2FA required" despite a valid stored secret).
+      await _adoptWorkerCasSession(authService);
+
       // Try to restore the previous session — avoids re-auth when still valid
       final savedSession = await authService.getCasSession();
       if (savedSession != null) {
@@ -264,6 +275,26 @@ class GradesNotifier extends StateNotifier<GradesState> {
         authStatus: AuthStatus.error,
       );
       rethrow;
+    }
+  }
+
+  /// Pulls the CAS session from the native worker store and adopts it locally
+  /// if it differs from ours. [storeCasSession] always mirrors forward to the
+  /// worker store, so a mismatch can only mean the worker rotated its copy
+  /// behind our back — its version is the one the server currently honors.
+  /// Best-effort: any failure leaves the existing session untouched.
+  Future<void> _adoptWorkerCasSession(AuthService authService) async {
+    try {
+      final values = await WorkerSyncService.read([
+        WorkerSyncService.keyCasSession,
+      ]);
+      final workerSession = values?[WorkerSyncService.keyCasSession];
+      if (workerSession == null) return;
+      if (workerSession != await authService.getCasSession()) {
+        await authService.storeCasSession(workerSession);
+      }
+    } catch (_) {
+      // Fall back to whatever session we already have
     }
   }
 
