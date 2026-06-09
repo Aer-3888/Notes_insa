@@ -294,6 +294,25 @@ class JsonCurriculumParser {
     return null;
   }
 
+  /// Returns the semester-level score embedded in the JSON by the school,
+  /// bypassing any manual recalculation. Returns null when the semester node
+  /// is missing or carries no score field.
+  static double? getSemesterAverage(String jsonString, int semesterNumber) {
+    try {
+      final Map<String, dynamic> rawData =
+          jsonDecode(jsonString) as Map<String, dynamic>;
+      if (rawData['details'] is! List) return null;
+      final semesterNode = _findSemesterNode(
+        rawData['details'] as List<dynamic>,
+        semesterNumber,
+      );
+      if (semesterNode == null) return null;
+      return GradeUtils.parseDouble(_extractScore(semesterNode['score']));
+    } catch (_) {
+      return null;
+    }
+  }
+
   /// Extracts a score string from a field that may be either a bare String
   /// (legacy format) or a List (current mobinsapi format: ["16/20", "VAL"]).
   /// Returns null if the field is absent or not a recognised type.

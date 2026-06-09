@@ -78,11 +78,25 @@ final curriculumProvider = Provider<List<TeachingUnit>>((ref) {
   }
 });
 
+/// The semester average embedded directly in the grades JSON by the school.
+/// Returns null when the data does not carry a pre-computed score for this
+/// semester (older payloads or semesters still in progress may omit it).
+final _semesterAverageFromDataProvider = Provider<double?>((ref) {
+  final semester = ref.watch(effectiveSemesterProvider);
+  if (semester == null) return null;
+  return JsonCurriculumParser.getSemesterAverage(
+    ref.watch(gradesProvider).jsonData,
+    semester,
+  );
+});
+
 /// Computed provider for semester average.
-/// The official transcript average is the UE-coefficient-weighted average of the
-/// per-UE averages (each UE average is itself coefficient-weighted over its
-/// subjects), so weight by [TeachingUnit.coeff] here — not by flattening subjects.
+/// Prefers the official score already in the JSON; falls back to the
+/// UE-coefficient-weighted calculation when the data doesn't carry it.
 final semesterAverageProvider = Provider<double?>((ref) {
+  final fromData = ref.watch(_semesterAverageFromDataProvider);
+  if (fromData != null) return fromData;
+
   final curriculum = ref.watch(curriculumProvider);
 
   double totalSemScore = 0;
@@ -121,6 +135,8 @@ final coefficientsReadyProvider = Provider<bool>((ref) {
 /// so the UI can label it as provisional.
 final semesterAverageProvisionalProvider = Provider<bool>((ref) {
   if (ref.watch(semesterAverageProvider) == null) return false;
+  // The school's own pre-computed value is authoritative — never provisional.
+  if (ref.watch(_semesterAverageFromDataProvider) != null) return false;
   return !ref.watch(coefficientsReadyProvider);
 });
 

@@ -46,6 +46,31 @@ void main() {
     expect(units.single.average, closeTo(13, 1e-9));
   });
 
+  test(
+    'getSemesterAverage reads the pre-computed score from the semester node',
+    () {
+      const json = '''
+    {
+      "name": "DOE John (INFO)",
+      "details": [
+        {"name": "SEMESTRE 5", "score": "13.25/20", "details": []}
+      ]
+    }
+    ''';
+      expect(
+        JsonCurriculumParser.getSemesterAverage(json, 5),
+        closeTo(13.25, 1e-9),
+      );
+    },
+  );
+
+  test(
+    'getSemesterAverage returns null when the semester node has no score',
+    () {
+      expect(JsonCurriculumParser.getSemesterAverage(gradesJson, 5), isNull);
+    },
+  );
+
   test('round-trips through jsonEncode/Decode without error', () {
     // Sanity: the fixture is valid JSON.
     expect(() => jsonDecode(gradesJson), returnsNormally);
