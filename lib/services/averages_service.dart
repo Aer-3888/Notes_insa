@@ -1,7 +1,9 @@
 import 'dart:async';
 import 'dart:convert';
+import 'package:crypto/crypto.dart';
 import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
+import 'package:shared_preferences/shared_preferences.dart';
 import '../constants.dart';
 import '../models.dart';
 import '../data.dart';
@@ -134,6 +136,22 @@ class AveragesService {
       return;
     }
 
+    final prefs = await SharedPreferences.getInstance();
+    final hashKey =
+        '$kStorageSubmittedHashPrefix${department}_${semester}_$academicYear';
+    final currentHash = sha256
+        .convert(utf8.encode('$username:${jsonEncode(subjects)}'))
+        .toString();
+
+    if (prefs.getString(hashKey) == currentHash) {
+      if (kDebugMode) {
+        debugPrint(
+          '[AveragesService] Semester $semester: grades unchanged, skipping submission',
+        );
+      }
+      return;
+    }
+
     final body = jsonEncode({
       'department': department,
       'semester': semester,
@@ -170,6 +188,7 @@ class AveragesService {
         'Server returned ${response.statusCode}: ${response.body}',
       );
     } else {
+      await prefs.setString(hashKey, currentHash);
       final data = jsonDecode(response.body);
       final status = data['status'] ?? 'unknown';
       if (kDebugMode) {
