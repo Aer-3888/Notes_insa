@@ -37,6 +37,16 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen>
   Timer? _clockTimer;
   bool _consentDialogShown = false;
 
+  // Guard so we only call requestPermission() once across all DashboardScreen
+  // instances in this process lifetime (the widget is recreated on every unlock).
+  static bool _notificationPermissionRequested = false;
+
+  void _requestNotificationPermissionOnce() {
+    if (_notificationPermissionRequested) return;
+    _notificationPermissionRequested = true;
+    unawaited(NotificationService.requestPermission());
+  }
+
   @override
   void initState() {
     super.initState();
@@ -45,8 +55,11 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen>
     _clockTimer = Timer.periodic(const Duration(minutes: 1), (_) {
       if (mounted) setState(() {});
     });
-    // Request notification permission the first time the dashboard is shown
-    unawaited(NotificationService.requestPermission());
+    // Request notification permission once per app session (not on every unlock).
+    // Permission.notification.request() may re-prompt on Android 13+ if denied
+    // but not permanently — calling it on every DashboardScreen init (every
+    // biometric/PIN unlock) would show the dialog every screen-timeout cycle.
+    _requestNotificationPermissionOnce();
 
     WidgetsBinding.instance.addPostFrameCallback((_) {
       // If 2FA was already required before the dashboard was built, show the banner now.

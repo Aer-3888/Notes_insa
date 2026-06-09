@@ -30,6 +30,8 @@ private const val KEY_GRADES_JSON = WorkerStore.KEY_GRADES_JSON
 
 // SharedPreferences key written by the Flutter shared_preferences plugin (flutter.* prefix)
 private const val PREF_FETCH_ENABLED = "flutter.background_fetch_enabled"
+private const val PREF_LAST_REAUTH_NOTIF_MS = "flutter.last_reauth_notif_ms"
+private const val REAUTH_NOTIF_COOLDOWN_MS = 4 * 60 * 60 * 1000L // 4 hours
 
 internal const val TASK_UNIQUE_NAME = "grades_fetch_native"
 
@@ -300,6 +302,13 @@ class GradesBackgroundWorker(
     }
 
     private fun showReauthNotification() {
+        val prefs = appContext.getSharedPreferences(SHARED_PREFS_FILE, Context.MODE_PRIVATE)
+        val lastMs = prefs.getLong(PREF_LAST_REAUTH_NOTIF_MS, 0L)
+        if (System.currentTimeMillis() - lastMs < REAUTH_NOTIF_COOLDOWN_MS) {
+            Log.d(TAG, "Reauth notification suppressed (cooldown active)")
+            return
+        }
+        prefs.edit().putLong(PREF_LAST_REAUTH_NOTIF_MS, System.currentTimeMillis()).apply()
         ensureNotificationChannel()
         buildAndPost(
             id = 3,
@@ -364,7 +373,7 @@ class GradesBackgroundWorker(
             WorkManager.getInstance(context)
                 .enqueueUniquePeriodicWork(
                     TASK_UNIQUE_NAME,
-                    ExistingPeriodicWorkPolicy.CANCEL_AND_REENQUEUE,
+                    ExistingPeriodicWorkPolicy.UPDATE,
                     request,
                 )
             Log.d(TAG, "Scheduled native background task: ${intervalMinutes}min")
