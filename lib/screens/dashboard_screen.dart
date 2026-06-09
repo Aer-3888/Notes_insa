@@ -35,8 +35,6 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen>
   int _cooldownSecs = 0;
   Timer? _cooldownTimer;
   Timer? _clockTimer;
-  bool _consentDialogShown = false;
-
   // Guard so we only call requestPermission() once across all DashboardScreen
   // instances in this process lifetime (the widget is recreated on every unlock).
   static bool _notificationPermissionRequested = false;
@@ -178,27 +176,6 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen>
     );
   }
 
-  void _showConsentDialog() {
-    showModalBottomSheet(
-      context: context,
-      backgroundColor: Colors.transparent,
-      isDismissible: false,
-      enableDrag: false,
-      builder: (sheetContext) => _ConsentSheet(
-        onAccept: () {
-          ref.read(settingsProvider.notifier).setSharingConsent(true);
-          ref.read(settingsProvider.notifier).markConsentAsked();
-          Navigator.pop(sheetContext);
-        },
-        onDecline: () {
-          ref.read(settingsProvider.notifier).setSharingConsent(false);
-          ref.read(settingsProvider.notifier).markConsentAsked();
-          Navigator.pop(sheetContext);
-        },
-      ),
-    );
-  }
-
   // Called after every successful fresh fetch (login + manual refresh).
   void _trySubmitGrades() {
     final settings = ref.read(settingsProvider);
@@ -212,19 +189,6 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen>
 
   @override
   Widget build(BuildContext context) {
-    // Show consent dialog exactly once — when settings finishes loading for
-    // the first time and the user has never been asked. Reading at construction
-    // time is unreliable because _loadSettings() is async.
-    ref.listen<SettingsState>(settingsProvider, (prev, next) {
-      if (prev?.isLoading == true &&
-          !next.isLoading &&
-          !next.sharingConsentAsked &&
-          !_consentDialogShown) {
-        _consentDialogShown = true;
-        _showConsentDialog();
-      }
-    });
-
     ref.listen<GradesState>(gradesProvider, (prev, next) {
       if (prev?.isLoading == true &&
           !next.isLoading &&
@@ -1193,127 +1157,4 @@ class _HistogramPainter extends CustomPainter {
       old.buckets != buckets ||
       old.myBucket != myBucket ||
       old.myBucketColor != myBucketColor;
-}
-
-// ---------------------------------------------------------------------------
-// Consent bottom sheet
-// ---------------------------------------------------------------------------
-
-class _ConsentSheet extends StatelessWidget {
-  final VoidCallback onAccept;
-  final VoidCallback onDecline;
-
-  const _ConsentSheet({required this.onAccept, required this.onDecline});
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      decoration: const BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-      ),
-      padding: const EdgeInsets.fromLTRB(24, 12, 24, 32),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          // Drag handle
-          Container(
-            width: 36,
-            height: 4,
-            decoration: BoxDecoration(
-              color: Colors.grey.shade300,
-              borderRadius: BorderRadius.circular(2),
-            ),
-          ),
-          const SizedBox(height: 24),
-          const Icon(Icons.people_outline, size: 40, color: AppColors.primary),
-          const SizedBox(height: 16),
-          const Text(
-            'Contribuer aux moyennes',
-            style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
-          ),
-          const SizedBox(height: 12),
-          Text(
-            'Partagez vos notes de façon anonyme pour afficher la moyenne de promo par matière.',
-            textAlign: TextAlign.center,
-            style: TextStyle(fontSize: 14, color: Colors.grey.shade600),
-          ),
-          const SizedBox(height: 16),
-          const _BulletPoint('Aucune donnée personnelle identifiable'),
-          const _BulletPoint('Calculé à partir des notes partagées'),
-          const _BulletPoint('Modifiable à tout moment dans Paramètres'),
-          const SizedBox(height: 28),
-          Row(
-            children: [
-              Expanded(
-                child: OutlinedButton(
-                  onPressed: onDecline,
-                  style: OutlinedButton.styleFrom(
-                    padding: const EdgeInsets.symmetric(vertical: 14),
-                    side: BorderSide(color: Colors.grey.shade400),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                  ),
-                  child: Text(
-                    'Désactiver',
-                    style: TextStyle(color: Colors.grey.shade700),
-                  ),
-                ),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: ElevatedButton(
-                  onPressed: onAccept,
-                  style: ElevatedButton.styleFrom(
-                    padding: const EdgeInsets.symmetric(vertical: 14),
-                    backgroundColor: AppColors.primary,
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                  ),
-                  child: const Text(
-                    'Participer',
-                    style: TextStyle(color: Colors.white),
-                  ),
-                ),
-              ),
-            ],
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _BulletPoint extends StatelessWidget {
-  final String text;
-  const _BulletPoint(this.text);
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 4),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Container(
-            margin: const EdgeInsets.only(top: 6, right: 10),
-            width: 5,
-            height: 5,
-            decoration: const BoxDecoration(
-              color: AppColors.primary,
-              shape: BoxShape.circle,
-            ),
-          ),
-          Expanded(
-            child: Text(
-              text,
-              style: TextStyle(fontSize: 13, color: Colors.grey.shade700),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
 }

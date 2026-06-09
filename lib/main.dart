@@ -7,6 +7,7 @@ import 'services/worker_sync_service.dart';
 import 'providers/grades_provider.dart';
 import 'providers/auth_providers.dart';
 import 'screens/login_screen.dart';
+import 'screens/onboarding/onboarding_screen.dart';
 import 'screens/dashboard_screen.dart';
 import 'screens/two_factor_screen.dart';
 import 'background_tasks.dart';
@@ -125,9 +126,9 @@ class _AuthGateState extends ConsumerState<AuthGate>
         .watch(hasCredentialsProvider)
         .when(
           loading: () => const _SplashScreen(),
-          error: (_, _) => const LoginScreen(),
+          error: (_, _) => const OnboardingScreen(),
           data: (hasCreds) {
-            if (!hasCreds) return const LoginScreen();
+            if (!hasCreds) return const OnboardingScreen();
 
             // Lock gate: until the user passes biometric/PIN this session, no
             // auth state may reveal the dashboard.
