@@ -121,10 +121,10 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen>
     if (current == null) return;
     final idx = available.indexOf(current);
     if (idx == -1) return;
-    // Display is highest semester on left, so swipe right → higher semester.
+    // Display is lowest semester on left, so swipe left → newer semester.
     final newIdx = velocity > 0
-        ? (idx + 1).clamp(0, available.length - 1)
-        : (idx - 1).clamp(0, available.length - 1);
+        ? (idx - 1).clamp(0, available.length - 1)
+        : (idx + 1).clamp(0, available.length - 1);
     if (newIdx != idx) {
       HapticFeedback.lightImpact();
       ref.read(selectedSemesterProvider.notifier).state = available[newIdx];

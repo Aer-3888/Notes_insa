@@ -149,8 +149,8 @@ class _AnimatedSemesterSelectorState extends State<_AnimatedSemesterSelector> {
   // Fixed item width used only when there are enough items to scroll.
   static const double _scrollItemWidth = 100.0;
 
-  // Semesters displayed highest-first (most recent on the left).
-  List<int> get _display => widget.availableSemesters.reversed.toList();
+  // Semesters displayed lowest-first (oldest on the left, most recent on the right).
+  List<int> get _display => widget.availableSemesters.toList();
 
   final ScrollController _scrollController = ScrollController();
 
