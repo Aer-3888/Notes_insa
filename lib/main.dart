@@ -308,10 +308,12 @@ class _BiometricScreen extends ConsumerStatefulWidget {
 }
 
 class _BiometricScreenState extends ConsumerState<_BiometricScreen>
-    with TickerProviderStateMixin {
+    with TickerProviderStateMixin, WidgetsBindingObserver {
   bool _failed = false;
   bool _authenticating = false;
   bool _hasPin = false;
+  // True when _init() ran while backgrounded and auth must fire on next resume.
+  bool _pendingAuth = false;
 
   late final AnimationController _shakeController;
   late final Animation<double> _shakeAnimation;
@@ -319,6 +321,7 @@ class _BiometricScreenState extends ConsumerState<_BiometricScreen>
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     _shakeController = AnimationController(
       vsync: this,
       duration: const Duration(milliseconds: 400),
@@ -337,19 +340,39 @@ class _BiometricScreenState extends ConsumerState<_BiometricScreen>
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     _shakeController.dispose();
     super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    // If _init() ran while backgrounded, fire the deferred biometric prompt
+    // now that the activity is back in the foreground and onResume() has run.
+    if (state == AppLifecycleState.resumed && _pendingAuth && mounted) {
+      _pendingAuth = false;
+      Future.delayed(const Duration(milliseconds: 400), () {
+        if (mounted) unawaited(_authenticate());
+      });
+    }
   }
 
   Future<void> _init() async {
     final authService = AuthService();
     final hasPin = await authService.hasPin();
     if (mounted) setState(() => _hasPin = hasPin);
+
+    // If the app is backgrounded (paused/hidden), BiometricPrompt cannot be
+    // shown — the FragmentManager has already saved state and any attempt
+    // throws "Called after onSaveInstanceState". Defer to the next resume.
+    final lifecycle = WidgetsBinding.instance.lifecycleState;
+    if (lifecycle != null && lifecycle != AppLifecycleState.resumed) {
+      _pendingAuth = true;
+      return;
+    }
+
     // Requesting the prompt on the very first frame can race with the Android
-    // activity's resume transition — the FragmentManager may still report a
-    // saved state from before the app was backgrounded, so BiometricPrompt
-    // throws "Called after onSaveInstanceState" and the user is stuck on this
-    // screen. A brief delay lets onResume() settle before the first attempt.
+    // activity's resume transition — a brief delay lets onResume() settle.
     await Future.delayed(const Duration(milliseconds: 400));
     if (!mounted) return;
     await _authenticate();
