@@ -184,22 +184,38 @@ class AppDrawer extends ConsumerWidget {
 
           // App version
           Padding(
-            padding: const EdgeInsets.fromLTRB(20, 0, 20, 12),
-            child: Align(
-              alignment: Alignment.centerLeft,
-              child: ref
-                  .watch(packageInfoProvider)
-                  .when(
-                    data: (info) => Text(
-                      'v${info.version}+${info.buildNumber}',
-                      style: TextStyle(
-                        color: Colors.grey.shade400,
-                        fontSize: 12,
-                      ),
-                    ),
-                    loading: () => const SizedBox.shrink(),
-                    error: (_, _) => const SizedBox.shrink(),
+            padding: const EdgeInsets.fromLTRB(12, 0, 12, 12),
+            child: Container(
+              width: double.infinity,
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+              decoration: BoxDecoration(
+                color: Colors.grey.shade100,
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Row(
+                children: [
+                  Icon(
+                    Icons.info_outline,
+                    size: 18,
+                    color: Colors.grey.shade400,
                   ),
+                  const SizedBox(width: 10),
+                  ref
+                      .watch(packageInfoProvider)
+                      .when(
+                        data: (info) => Text(
+                          'v${info.version}+${info.buildNumber}',
+                          style: TextStyle(
+                            color: Colors.grey.shade500,
+                            fontSize: 12,
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                        loading: () => const SizedBox.shrink(),
+                        error: (_, _) => const SizedBox.shrink(),
+                      ),
+                ],
+              ),
             ),
           ),
         ],

@@ -137,13 +137,16 @@ class GradesNotifier extends StateNotifier<GradesState> {
         // Non-fatal — session just won't be restored next time
       }
 
-      final result = await GradesService.fetchAndSaveGrades();
-      await CoefficientsService.fetchAndCacheFromApi(result);
+      final fetched = await GradesService.fetchAndSaveGrades();
+      await CoefficientsService.fetchAndCacheFromApi(
+        fetched.json,
+        fetched.groupCount,
+      );
       // Fresh coefficients were just cached — drop the (possibly empty) cached
       // provider results so averages recompute weighted without a restart.
       _ref.invalidate(coefficientsProvider);
       state = state.copyWith(
-        jsonData: result,
+        jsonData: fetched.json,
         lastUpdated: DateTime.now(),
         isLoading: false,
         error: null,
@@ -255,13 +258,16 @@ class GradesNotifier extends StateNotifier<GradesState> {
         // Non-fatal
       }
 
-      final result = await GradesService.fetchAndSaveGrades();
-      await CoefficientsService.fetchAndCacheFromApi(result);
+      final fetched = await GradesService.fetchAndSaveGrades();
+      await CoefficientsService.fetchAndCacheFromApi(
+        fetched.json,
+        fetched.groupCount,
+      );
       // Fresh coefficients were just cached — drop the (possibly empty) cached
       // provider results so averages recompute weighted without a restart.
       _ref.invalidate(coefficientsProvider);
       state = state.copyWith(
-        jsonData: result,
+        jsonData: fetched.json,
         lastUpdated: DateTime.now(),
         isLoading: false,
         error: null,

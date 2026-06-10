@@ -88,7 +88,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
       // Show 2FA step
       if (mounted) setState(() => _step = _Step.twoFactor);
     } on PlatformException catch (e) {
-      await _showError(e.message ?? 'Erreur d\'authentification', e);
+      await _showError('Erreur d\'authentification', e);
     } catch (e) {
       await _showError(
         kDebugMode ? e.toString() : 'Une erreur inattendue est survenue.',
@@ -109,7 +109,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
       await GradesService.triggerEmail();
       if (mounted) setState(() => _emailSent = true);
     } on PlatformException catch (e) {
-      await _showError(e.message ?? 'Erreur lors de l\'envoi de l\'email', e);
+      await _showError('Erreur lors de l\'envoi de l\'email', e);
     } finally {
       if (mounted) setState(() => _isLoading = false);
     }
@@ -131,7 +131,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
       }
       await _checkPinAndComplete();
     } on PlatformException catch (e) {
-      await _showError(e.message ?? 'Code invalide', e);
+      await _showError('Code invalide ou expiré', e);
     } finally {
       if (mounted) setState(() => _isLoading = false);
     }
@@ -148,7 +148,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
       if (_saveSecret) await _authService.storeOtpSecret(secret);
       await _checkPinAndComplete();
     } on PlatformException catch (e) {
-      await _showError(e.message ?? 'Secret invalide', e);
+      await _showError('Secret OTP invalide', e);
     } finally {
       if (mounted) setState(() => _isLoading = false);
     }

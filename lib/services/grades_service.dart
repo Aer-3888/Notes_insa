@@ -110,13 +110,15 @@ class GradesService {
   // ---------------------------------------------------------------------------
 
   /// Fetches grades for all groups, merges their details into a single JSON
-  /// payload, saves to secure storage, and returns the merged JSON string.
+  /// payload, saves to secure storage, and returns the merged JSON string
+  /// along with the group count (so callers needing it, e.g. the
+  /// coefficients API tier, don't have to call loadGroups() again).
   ///
   /// loadGroups() returns the number of available groups (cards);
   /// grades() takes a 0-based index. When there are multiple groups we
   /// merge all `details` arrays under the first group's top-level object
   /// so the parser sees every semester regardless of which card it belongs to.
-  static Future<String> fetchAndSaveGrades() async {
+  static Future<({String json, int groupCount})> fetchAndSaveGrades() async {
     final groupCount = await loadGroups();
     if (groupCount <= 0) {
       throw PlatformException(
@@ -128,7 +130,7 @@ class GradesService {
     if (groupCount == 1) {
       final json = await grades(0);
       await saveGrades(json);
-      return json;
+      return (json: json, groupCount: groupCount);
     }
 
     final firstJson = await grades(0);
@@ -161,7 +163,7 @@ class GradesService {
     merged['details'] = mergedDetails;
     final result = jsonEncode(merged);
     await saveGrades(result);
-    return result;
+    return (json: result, groupCount: groupCount);
   }
 
   // ---------------------------------------------------------------------------

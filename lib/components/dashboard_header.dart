@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import '../models.dart';
 import '../app_colors.dart';
@@ -64,14 +65,7 @@ class DashboardHeader extends StatelessWidget {
                       ),
                     ),
                     if (lastUpdated != null)
-                      Text(
-                        _formatLastUpdated(lastUpdated!),
-                        style: TextStyle(
-                          fontSize: 11,
-                          color: Colors.grey.shade500,
-                          fontWeight: FontWeight.w400,
-                        ),
-                      ),
+                      _LastUpdatedLabel(lastUpdated: lastUpdated!),
                     if (provisional && average != null)
                       Text(
                         'Coefficients indisponibles — moyenne provisoire',
@@ -124,6 +118,47 @@ class DashboardHeader extends StatelessWidget {
             const SizedBox(height: 12),
           ],
         ],
+      ),
+    );
+  }
+}
+
+/// Displays "Mis à jour il y a X min" and refreshes itself every minute,
+/// without forcing a rebuild of the rest of the dashboard.
+class _LastUpdatedLabel extends StatefulWidget {
+  final DateTime lastUpdated;
+
+  const _LastUpdatedLabel({required this.lastUpdated});
+
+  @override
+  State<_LastUpdatedLabel> createState() => _LastUpdatedLabelState();
+}
+
+class _LastUpdatedLabelState extends State<_LastUpdatedLabel> {
+  Timer? _timer;
+
+  @override
+  void initState() {
+    super.initState();
+    _timer = Timer.periodic(const Duration(minutes: 1), (_) {
+      if (mounted) setState(() {});
+    });
+  }
+
+  @override
+  void dispose() {
+    _timer?.cancel();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Text(
+      _formatLastUpdated(widget.lastUpdated),
+      style: TextStyle(
+        fontSize: 11,
+        color: Colors.grey.shade500,
+        fontWeight: FontWeight.w400,
       ),
     );
   }

@@ -122,8 +122,8 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
       }
 
       await _buildStepsAndAdvance(needs2fa: needs2fa);
-    } on PlatformException catch (e) {
-      setState(() => _error = e.message ?? 'Erreur d\'authentification');
+    } on PlatformException catch (_) {
+      setState(() => _error = 'Erreur d\'authentification');
     } catch (e) {
       setState(
         () => _error = kDebugMode
@@ -196,8 +196,8 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
     try {
       await GradesService.validate(code);
       _advance();
-    } on PlatformException catch (e) {
-      setState(() => _error = e.message ?? 'Code invalide ou expiré');
+    } on PlatformException catch (_) {
+      setState(() => _error = 'Code invalide ou expiré');
     } finally {
       if (mounted) setState(() => _isLoading = false);
     }
@@ -222,8 +222,8 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
       await GradesService.autoValidate(_scannedSecret!);
       if (_saveOtpSecret) await _authService.storeOtpSecret(_scannedSecret!);
       _advance();
-    } on PlatformException catch (e) {
-      setState(() => _error = e.message ?? 'Secret OTP invalide');
+    } on PlatformException catch (_) {
+      setState(() => _error = 'Secret OTP invalide');
     } finally {
       if (mounted) setState(() => _isLoading = false);
     }

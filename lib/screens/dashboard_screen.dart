@@ -34,7 +34,6 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen>
   _PillMode _pillMode = _PillMode.hidden;
   int _cooldownSecs = 0;
   Timer? _cooldownTimer;
-  Timer? _clockTimer;
   // Guard so we only call requestPermission() once across all DashboardScreen
   // instances in this process lifetime (the widget is recreated on every unlock).
   static bool _notificationPermissionRequested = false;
@@ -49,10 +48,6 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen>
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
-    // Rebuild every minute so the "last updated" label stays accurate
-    _clockTimer = Timer.periodic(const Duration(minutes: 1), (_) {
-      if (mounted) setState(() {});
-    });
     // Request notification permission once per app session (not on every unlock).
     // Permission.notification.request() may re-prompt on Android 13+ if denied
     // but not permanently — calling it on every DashboardScreen init (every
@@ -68,7 +63,6 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen>
   @override
   void dispose() {
     _cooldownTimer?.cancel();
-    _clockTimer?.cancel();
     WidgetsBinding.instance.removeObserver(this);
     super.dispose();
   }

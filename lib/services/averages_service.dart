@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:convert';
 import 'package:crypto/crypto.dart';
 import 'package:flutter/foundation.dart';
+import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 import '../constants.dart';
@@ -197,6 +198,20 @@ class AveragesService {
     }
   }
 
+  /// Class averages shift slowly as students submit grades, so a short
+  /// local cache avoids re-fetching on every dashboard visit.
+  static const Duration _cacheTtl = Duration(hours: 1);
+
+  static const FlutterSecureStorage _storage = FlutterSecureStorage();
+
+  static String _cacheKey(
+    String department,
+    int semester,
+    String academicYear,
+  ) {
+    return '$kStorageAveragesPrefix${department}_${semester}_$academicYear';
+  }
+
   /// Fetch class averages for a department + semester.
   /// Returns an empty list when the server has no data yet.
   /// Throws on network errors or non-200 responses so the caller
@@ -206,6 +221,11 @@ class AveragesService {
     required int semester,
     required String academicYear,
   }) async {
+    final cacheKey = _cacheKey(department, semester, academicYear);
+
+    final cached = await _readLocalCache(cacheKey);
+    if (cached != null) return cached;
+
     final uri = Uri.parse('$kWorkerBaseUrl/averages').replace(
       queryParameters: {
         'department': department,
@@ -231,6 +251,56 @@ class AveragesService {
         if (kDebugMode) debugPrint('[Averages] skipped bad row: $e');
       }
     }
+    unawaited(_writeLocalCache(cacheKey, data));
     return result;
+  }
+
+  static Future<List<SubjectAverage>?> _readLocalCache(String cacheKey) async {
+    try {
+      final raw = await _storage.read(key: cacheKey);
+      if (raw == null || raw.isEmpty) return null;
+      final decoded = jsonDecode(raw);
+      if (decoded is! Map<String, dynamic>) return null;
+
+      final ts = (decoded['ts'] as num?)?.toInt() ?? 0;
+      final age = DateTime.now().difference(
+        DateTime.fromMillisecondsSinceEpoch(ts),
+      );
+      if (age > _cacheTtl) return null;
+
+      final data = decoded['data'];
+      if (data is! List) return null;
+
+      final result = <SubjectAverage>[];
+      for (final row in data) {
+        if (row is! Map<String, dynamic>) continue;
+        try {
+          result.add(SubjectAverage.fromJson(row));
+        } catch (_) {
+          // Skip a malformed cached row rather than failing the whole list.
+        }
+      }
+      return result;
+    } catch (e) {
+      if (kDebugMode) debugPrint('[Averages] Local cache read failed: $e');
+      return null;
+    }
+  }
+
+  static Future<void> _writeLocalCache(
+    String cacheKey,
+    List<dynamic> data,
+  ) async {
+    try {
+      await _storage.write(
+        key: cacheKey,
+        value: jsonEncode({
+          'ts': DateTime.now().millisecondsSinceEpoch,
+          'data': data,
+        }),
+      );
+    } catch (e) {
+      if (kDebugMode) debugPrint('[Averages] Local cache write failed: $e');
+    }
   }
 }

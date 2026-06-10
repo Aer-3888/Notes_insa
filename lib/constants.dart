@@ -28,3 +28,5 @@ const kStorageCoefficientsPrefix = 'coefficients_';
 // Last-submitted grades hash — keyed per dept_semester_year, used to skip
 // redundant Cloudflare Worker submissions when grades haven't changed.
 const kStorageSubmittedHashPrefix = 'submitted_hash_';
+// Cached class averages JSON — keyed per dept_semester_year.
+const kStorageAveragesPrefix = 'averages_';

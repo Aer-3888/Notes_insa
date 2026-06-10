@@ -76,10 +76,15 @@ class CoefficientsService {
 
   /// Call right after fetchAndSaveGrades() while the Vaadin session is alive.
   /// Fetches coefficients from the Mobinsapi API, caches all semesters
-  /// locally, and pushes to Cloudflare.
-  static Future<void> fetchAndCacheFromApi(String gradesJson) async {
+  /// locally, and pushes to Cloudflare. [groupCount] is the value already
+  /// returned by fetchAndSaveGrades(), so this doesn't need to call
+  /// loadGroups() again.
+  static Future<void> fetchAndCacheFromApi(
+    String gradesJson,
+    int groupCount,
+  ) async {
     try {
-      final api = await _fetchFromApi();
+      final api = await _fetchFromApi(groupCount);
       if (api == null || api.isEmpty) return;
 
       final availableSems =
@@ -267,12 +272,10 @@ class CoefficientsService {
 
   // ── Tier 3: Mobinsapi API ────────────────────────────────────────────────
 
-  static Future<Map<String, Map<String, double>>?> _fetchFromApi() async {
+  static Future<Map<String, Map<String, double>>?> _fetchFromApi(
+    int groupCount,
+  ) async {
     try {
-      final groupCount = await GradesService.loadGroups();
-      if (kDebugMode) {
-        debugPrint('[Coefficients] loadGroups returned: $groupCount');
-      }
       if (groupCount <= 0) return null;
 
       final allCoeffs = <String, Map<String, double>>{};
