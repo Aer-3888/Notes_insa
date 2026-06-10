@@ -9,6 +9,7 @@ import '../screens/login_screen.dart';
 import '../screens/raw_json_viewer_screen.dart';
 import '../screens/settings_screen.dart';
 import '../screens/dashboard_screen.dart';
+import '../providers/package_info_provider.dart';
 
 enum DrawerItem { notes, rawJson, config, settings }
 
@@ -178,6 +179,27 @@ class AppDrawer extends ConsumerWidget {
                   },
                 ),
               ],
+            ),
+          ),
+
+          // App version
+          Padding(
+            padding: const EdgeInsets.fromLTRB(20, 0, 20, 12),
+            child: Align(
+              alignment: Alignment.centerLeft,
+              child: ref
+                  .watch(packageInfoProvider)
+                  .when(
+                    data: (info) => Text(
+                      'v${info.version}+${info.buildNumber}',
+                      style: TextStyle(
+                        color: Colors.grey.shade400,
+                        fontSize: 12,
+                      ),
+                    ),
+                    loading: () => const SizedBox.shrink(),
+                    error: (_, _) => const SizedBox.shrink(),
+                  ),
             ),
           ),
         ],

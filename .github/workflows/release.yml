@@ -2,11 +2,10 @@ name: Build & Release
 
 on:
   push:
-    branches: [main]
+    branches: [dev]
 
 # Serial execution: if a second push arrives while a release is in progress, it
-# waits instead of cancelling. This prevents two jobs bumping from the same base
-# version and colliding on the git tag.
+# waits instead of cancelling, so every pushed version gets its own release.
 concurrency:
   group: release-${{ github.ref }}
   cancel-in-progress: false
@@ -30,7 +29,7 @@ jobs:
       - name: Test
         run: flutter test
 
-  # 2. Bump build number, build artifacts, commit bump, publish release
+  # 2. Build artifacts and publish a release for the version in pubspec.yaml
   build-and-release:
     name: Build & Release
     needs: validate
@@ -38,26 +37,17 @@ jobs:
     permissions:
       contents: write
     steps:
-      # Checkout the tip of main (not the triggering SHA) so that if a previous
-      # release job already bumped pubspec.yaml, this job reads the new value.
       - uses: actions/checkout@v4
-        with:
-          ref: main
-          fetch-depth: 0
-          token: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Bump build number
-        id: bump
+      # The build number in pubspec.yaml is bumped locally by the .husky/pre-push
+      # hook (once per push to dev), so just read the version that's already there.
+      - name: Read version
+        id: version
         run: |
           CURRENT=$(grep '^version: ' pubspec.yaml | sed 's/version: //' | tr -d '[:space:]')
-          VERSION_NAME=$(echo "$CURRENT" | cut -d'+' -f1)
-          BUILD_NUM=$(echo "$CURRENT" | cut -d'+' -f2)
-          NEW_BUILD=$((BUILD_NUM + 1))
-          NEW_VERSION="${VERSION_NAME}+${NEW_BUILD}"
-          sed -i "s/^version: .*/version: ${NEW_VERSION}/" pubspec.yaml
-          echo "version=$NEW_VERSION" >> $GITHUB_OUTPUT
-          echo "tag=v${NEW_VERSION}" >> $GITHUB_OUTPUT
-          echo "Bumped: ${CURRENT} → ${NEW_VERSION}"
+          echo "version=$CURRENT" >> $GITHUB_OUTPUT
+          echo "tag=v${CURRENT}" >> $GITHUB_OUTPUT
+          echo "Releasing: ${CURRENT}"
 
       - name: Setup Java
         uses: actions/setup-java@v4
@@ -90,12 +80,10 @@ jobs:
       # - name: Build App Bundle
       #   run: flutter build appbundle --release --dart-define=APP_SECRET=${{ secrets.APP_SECRET }}
 
-      # Create the release first so the tag points at your feature commit (current
-      # HEAD), not at the bot's version-bump commit that follows.
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: ${{ steps.bump.outputs.tag }}
+          tag_name: ${{ steps.version.outputs.tag }}
           files: |
             build/app/outputs/flutter-apk/app-release.apk
           generate_release_notes: true
@@ -103,13 +91,3 @@ jobs:
           prerelease: false
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
-      # Commit the bumped pubspec.yaml back to main. [skip ci] prevents this
-      # commit from re-triggering the workflow.
-      - name: Commit version bump
-        run: |
-          git config user.name "github-actions[bot]"
-          git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add pubspec.yaml
-          git commit -m "chore: bump build number to ${{ steps.bump.outputs.version }} [skip ci]"
-          git push

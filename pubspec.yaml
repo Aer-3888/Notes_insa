@@ -49,6 +49,8 @@ dependencies:
   flutter_local_notifications: ^20.1.0
   # Persistence for snapshots
   shared_preferences: ^2.1.1
+  # App version/build info for display
+  package_info_plus: ^8.0.0
   # HTTP requests
   http: ^1.6.0
   # JSON serialization

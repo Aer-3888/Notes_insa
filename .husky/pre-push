@@ -1,0 +1,26 @@
+while read -r local_ref local_sha remote_ref remote_sha
+do
+  if [ "$remote_ref" = "refs/heads/dev" ]; then
+    # Already bumped for this push attempt (retry after the abort below).
+    if git log -1 --pretty=%s | grep -q "^chore(pubspec): bump build number"; then
+      continue
+    fi
+
+    CURRENT=$(grep '^version: ' pubspec.yaml | sed 's/version: //' | tr -d '[:space:]')
+    VERSION_NAME=$(echo "$CURRENT" | cut -d'+' -f1)
+    BUILD_NUM=$(echo "$CURRENT" | cut -d'+' -f2)
+    NEW_BUILD=$((BUILD_NUM + 1))
+    NEW_VERSION="${VERSION_NAME}+${NEW_BUILD}"
+
+    sed -i "s/^version: .*/version: ${NEW_VERSION}/" pubspec.yaml
+    git add pubspec.yaml
+    git commit -m "chore(pubspec): bump build number to ${NEW_VERSION}"
+
+    echo ""
+    echo "pubspec.yaml bumped to ${NEW_VERSION} (one increment per push to dev)."
+    echo "Run 'git push' again to push your commits including this bump."
+    exit 1
+  fi
+done
+
+exit 0
