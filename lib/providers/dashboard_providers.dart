@@ -24,8 +24,7 @@ final effectiveSemesterProvider = Provider<int?>((ref) {
 /// Department name for the currently selected semester (e.g. "3INFO", "1STPI").
 /// Per-semester because a student may belong to different departments across years.
 final departmentNameProvider = Provider<String>((ref) {
-  final gradesState = ref.watch(gradesProvider);
-  final jsonString = gradesState.jsonData;
+  final jsonString = ref.watch(gradesProvider.select((s) => s.jsonData));
   final semester = ref.watch(effectiveSemesterProvider);
 
   try {
@@ -42,8 +41,7 @@ final departmentNameProvider = Provider<String>((ref) {
 /// Watches coefficients and re-parses when they arrive. While coefficients
 /// are loading, parses with defaults (1.0) so the UI is never blocked.
 final curriculumProvider = Provider<List<TeachingUnit>>((ref) {
-  final gradesState = ref.watch(gradesProvider);
-  final jsonString = gradesState.jsonData;
+  final jsonString = ref.watch(gradesProvider.select((s) => s.jsonData));
   final semester = ref.watch(effectiveSemesterProvider);
   if (semester == null) return [];
 
@@ -85,7 +83,7 @@ final _semesterAverageFromDataProvider = Provider<double?>((ref) {
   final semester = ref.watch(effectiveSemesterProvider);
   if (semester == null) return null;
   return JsonCurriculumParser.getSemesterAverage(
-    ref.watch(gradesProvider).jsonData,
+    ref.watch(gradesProvider.select((s) => s.jsonData)),
     semester,
   );
 });
@@ -143,8 +141,7 @@ final semesterAverageProvisionalProvider = Provider<bool>((ref) {
 /// Computed provider for available semesters from grades data
 /// Caches result and only recomputes when jsonData changes
 final availableSemestersProvider = Provider<List<int>>((ref) {
-  final gradesState = ref.watch(gradesProvider);
-  final jsonString = gradesState.jsonData;
+  final jsonString = ref.watch(gradesProvider.select((s) => s.jsonData));
 
   try {
     return JsonCurriculumParser.getAvailableSemesters(jsonString);
@@ -159,7 +156,7 @@ final availableSemestersProvider = Provider<List<int>>((ref) {
 /// semester later finds its coefficients already loaded instead of briefly
 /// falling back to unweighted (1.0) averages.
 final coefficientsPrefetchProvider = Provider<void>((ref) {
-  final jsonString = ref.watch(gradesProvider).jsonData;
+  final jsonString = ref.watch(gradesProvider.select((s) => s.jsonData));
   final available = ref.watch(availableSemestersProvider);
   if (available.isEmpty) return;
 

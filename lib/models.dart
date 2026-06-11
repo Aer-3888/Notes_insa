@@ -30,6 +30,9 @@ class GradeUtils {
   }
 }
 
+final RegExp _apostropheRegex = RegExp(r"['’]");
+final RegExp _whitespaceRegex = RegExp(r'\s+');
+
 /// Convert labels (often uppercase) to presentation-friendly Title Case.
 /// Preserves common small French words in lowercase unless they are the first word.
 String titleCase(String input) {
@@ -68,10 +71,9 @@ String titleCase(String input) {
   }
 
   String processWord(String word, bool isFirstWord) {
-    final apostropheRegex = RegExp(r"['’]");
-    if (apostropheRegex.hasMatch(word)) {
-      final parts = word.split(apostropheRegex);
-      final matches = apostropheRegex.allMatches(word).toList();
+    if (_apostropheRegex.hasMatch(word)) {
+      final parts = word.split(_apostropheRegex);
+      final matches = _apostropheRegex.allMatches(word).toList();
       final processedParts = <String>[];
 
       for (var i = 0; i < parts.length; i++) {
@@ -131,7 +133,7 @@ String titleCase(String input) {
     return titleSegment(word, isFirstWord);
   }
 
-  final parts = input.trim().split(RegExp(r'\s+'));
+  final parts = input.trim().split(_whitespaceRegex);
   return parts
       .asMap()
       .entries
@@ -272,11 +274,15 @@ class Profile {
 }
 
 extension StringCleaning on String {
+  static final RegExp _cleanNameRegex = RegExp(
+    r'[\s\u00A0\u200B\u200D\uFEFF]+',
+  );
+
   /// Aggressively clean a string by replacing all whitespace (including
   /// non-breaking spaces and hidden characters) with a single space and
   /// trimming it. This ensures consistent key matching between the
   /// curriculum parser and backend averages.
   String cleanName() {
-    return replaceAll(RegExp(r'[\s\u00A0\u200B\u200D\uFEFF]+'), ' ').trim();
+    return replaceAll(_cleanNameRegex, ' ').trim();
   }
 }
