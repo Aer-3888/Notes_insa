@@ -208,6 +208,10 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen>
 
     final academicYear = ref.watch(academicYearProvider);
 
+    // Pre-fetch coefficients for every semester so switching semesters
+    // doesn't briefly show unweighted (1.0) averages while they load.
+    ref.watch(coefficientsPrefetchProvider);
+
     // Pre-fetch averages in the background so data is ready when user taps a subject.
     if (effectiveSemester != null) {
       ref.watch(

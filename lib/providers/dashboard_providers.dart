@@ -153,6 +153,36 @@ final availableSemestersProvider = Provider<List<int>>((ref) {
   }
 });
 
+/// Prefetches coefficients for every available semester as soon as grades
+/// data is available. Coefficients are cached per session (see
+/// [coefficientsProvider]), so warming them all up here means switching to a
+/// semester later finds its coefficients already loaded instead of briefly
+/// falling back to unweighted (1.0) averages.
+final coefficientsPrefetchProvider = Provider<void>((ref) {
+  final jsonString = ref.watch(gradesProvider).jsonData;
+  final available = ref.watch(availableSemestersProvider);
+  if (available.isEmpty) return;
+
+  final maxSemester = available.last;
+  for (final semester in available) {
+    final department = JsonCurriculumParser.getDepartmentForSemester(
+      jsonString,
+      semester,
+    );
+    final academicYear = AveragesService.academicYearForSemester(
+      semester,
+      maxSemester,
+    );
+    ref.watch(
+      coefficientsProvider((
+        department: department,
+        semester: semester,
+        academicYear: academicYear,
+      )),
+    );
+  }
+});
+
 /// Academic year for the currently selected semester.
 final academicYearProvider = Provider<String>((ref) {
   final semester = ref.watch(effectiveSemesterProvider);
