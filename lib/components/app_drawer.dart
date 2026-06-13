@@ -8,7 +8,6 @@ import '../providers/grades_provider.dart';
 import '../screens/login_screen.dart';
 import '../screens/raw_json_viewer_screen.dart';
 import '../screens/settings_screen.dart';
-import '../screens/dashboard_screen.dart';
 import '../providers/package_info_provider.dart';
 
 enum DrawerItem { notes, rawJson, config, settings }
@@ -90,12 +89,10 @@ class AppDrawer extends ConsumerWidget {
                   onTap: () {
                     Navigator.pop(context);
                     if (selected != DrawerItem.notes) {
-                      Navigator.pushReplacement(
-                        context,
-                        MaterialPageRoute(
-                          builder: (_) => const DashboardScreen(),
-                        ),
-                      );
+                      // Return to the AuthGate-owned dashboard (which keeps the
+                      // 2FA reauth callback and stays under AuthGate's control)
+                      // rather than pushing a new bare DashboardScreen on top.
+                      Navigator.popUntil(context, (route) => route.isFirst);
                     }
                   },
                 ),
