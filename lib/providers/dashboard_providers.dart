@@ -6,6 +6,19 @@ import '../services/averages_service.dart';
 import 'coefficients_provider.dart';
 import 'grades_provider.dart';
 
+/// Single memoized decode of the grades payload. Returns null when there is no
+/// usable data — either nothing loaded yet (`{}`/empty) or a decode failure
+/// (corrupt/changed schema). A non-null map is structurally valid (possibly
+/// empty), so callers can tell "corrupt" apart from "loaded but empty".
+///
+/// Every downstream parser provider reads this instead of decoding the JSON
+/// string itself, so the payload is decoded once per state change rather than
+/// once per provider.
+final decodedGradesProvider = Provider<Map<String, dynamic>?>((ref) {
+  final jsonString = ref.watch(gradesProvider.select((s) => s.jsonData));
+  return JsonCurriculumParser.tryDecode(jsonString);
+});
+
 /// Raw semester selection — -1 is the sentinel for "not explicitly chosen".
 final selectedSemesterProvider = StateProvider<int>((ref) => -1);
 
@@ -24,14 +37,15 @@ final effectiveSemesterProvider = Provider<int?>((ref) {
 /// Department name for the currently selected semester (e.g. "3INFO", "1STPI").
 /// Per-semester because a student may belong to different departments across years.
 final departmentNameProvider = Provider<String>((ref) {
-  final jsonString = ref.watch(gradesProvider.select((s) => s.jsonData));
+  final data = ref.watch(decodedGradesProvider);
   final semester = ref.watch(effectiveSemesterProvider);
+  if (data == null) return 'Etudiant';
 
   try {
     if (semester == null) {
-      return JsonCurriculumParser.getDepartmentName(jsonString);
+      return JsonCurriculumParser.getDepartmentName(data);
     }
-    return JsonCurriculumParser.getDepartmentForSemester(jsonString, semester);
+    return JsonCurriculumParser.getDepartmentForSemester(data, semester);
   } catch (_) {
     return 'Etudiant';
   }
@@ -41,9 +55,9 @@ final departmentNameProvider = Provider<String>((ref) {
 /// Watches coefficients and re-parses when they arrive. While coefficients
 /// are loading, parses with defaults (1.0) so the UI is never blocked.
 final curriculumProvider = Provider<List<TeachingUnit>>((ref) {
-  final jsonString = ref.watch(gradesProvider.select((s) => s.jsonData));
+  final data = ref.watch(decodedGradesProvider);
   final semester = ref.watch(effectiveSemesterProvider);
-  if (semester == null) return [];
+  if (data == null || semester == null) return [];
 
   final department = ref.watch(departmentNameProvider);
   final academicYear = ref.watch(academicYearProvider);
@@ -67,7 +81,7 @@ final curriculumProvider = Provider<List<TeachingUnit>>((ref) {
 
   try {
     return JsonCurriculumParser.parseSemester(
-      jsonString,
+      data,
       semester,
       coefficients: coefficients.isEmpty ? null : coefficients,
     );
@@ -80,12 +94,10 @@ final curriculumProvider = Provider<List<TeachingUnit>>((ref) {
 /// Returns null when the data does not carry a pre-computed score for this
 /// semester (older payloads or semesters still in progress may omit it).
 final _semesterAverageFromDataProvider = Provider<double?>((ref) {
+  final data = ref.watch(decodedGradesProvider);
   final semester = ref.watch(effectiveSemesterProvider);
-  if (semester == null) return null;
-  return JsonCurriculumParser.getSemesterAverage(
-    ref.watch(gradesProvider.select((s) => s.jsonData)),
-    semester,
-  );
+  if (data == null || semester == null) return null;
+  return JsonCurriculumParser.getSemesterAverage(data, semester);
 });
 
 /// Computed provider for semester average.
@@ -141,10 +153,11 @@ final semesterAverageProvisionalProvider = Provider<bool>((ref) {
 /// Computed provider for available semesters from grades data
 /// Caches result and only recomputes when jsonData changes
 final availableSemestersProvider = Provider<List<int>>((ref) {
-  final jsonString = ref.watch(gradesProvider.select((s) => s.jsonData));
+  final data = ref.watch(decodedGradesProvider);
+  if (data == null) return [];
 
   try {
-    return JsonCurriculumParser.getAvailableSemesters(jsonString);
+    return JsonCurriculumParser.getAvailableSemesters(data);
   } catch (_) {
     return [];
   }
@@ -156,19 +169,23 @@ final availableSemestersProvider = Provider<List<int>>((ref) {
 /// semester later finds its coefficients already loaded instead of briefly
 /// falling back to unweighted (1.0) averages.
 final coefficientsPrefetchProvider = Provider<void>((ref) {
-  final jsonString = ref.watch(gradesProvider.select((s) => s.jsonData));
+  final data = ref.watch(decodedGradesProvider);
   final available = ref.watch(availableSemestersProvider);
-  if (available.isEmpty) return;
+  if (data == null || available.isEmpty) return;
 
+  final baseline = ref.watch(
+    gradesProvider.select((s) => s.academicYearBaseline),
+  );
   final maxSemester = available.last;
   for (final semester in available) {
     final department = JsonCurriculumParser.getDepartmentForSemester(
-      jsonString,
+      data,
       semester,
     );
     final academicYear = AveragesService.academicYearForSemester(
       semester,
       maxSemester,
+      baseline ?? AveragesService.currentAcademicYear(),
     );
     ref.watch(
       coefficientsProvider((
@@ -184,8 +201,15 @@ final coefficientsPrefetchProvider = Provider<void>((ref) {
 final academicYearProvider = Provider<String>((ref) {
   final semester = ref.watch(effectiveSemesterProvider);
   final available = ref.watch(availableSemestersProvider);
+  final baseline =
+      ref.watch(gradesProvider.select((s) => s.academicYearBaseline)) ??
+      AveragesService.currentAcademicYear();
   if (semester == null || available.isEmpty) {
-    return AveragesService.currentAcademicYear();
+    return baseline;
   }
-  return AveragesService.academicYearForSemester(semester, available.last);
+  return AveragesService.academicYearForSemester(
+    semester,
+    available.last,
+    baseline,
+  );
 });
