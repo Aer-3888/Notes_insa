@@ -27,6 +27,7 @@ object WorkerStore {
     const val KEY_OTP_SECRET = "otp_secret"
     const val KEY_CAS_SESSION = "cas_session"
     const val KEY_GRADES_JSON = "stored_grades_json"
+    const val KEY_GRADES_UPDATED_AT = "stored_grades_updated_at"
 
     /** Opens the store, or returns null if it cannot be created/decrypted. */
     fun openOrNull(context: Context): SharedPreferences? = try {

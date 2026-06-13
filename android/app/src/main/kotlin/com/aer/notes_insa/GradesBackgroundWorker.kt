@@ -27,6 +27,7 @@ private const val KEY_PASSWORD = WorkerStore.KEY_PASSWORD
 private const val KEY_OTP_SECRET = WorkerStore.KEY_OTP_SECRET
 private const val KEY_CAS_SESSION = WorkerStore.KEY_CAS_SESSION
 private const val KEY_GRADES_JSON = WorkerStore.KEY_GRADES_JSON
+private const val KEY_GRADES_UPDATED_AT = WorkerStore.KEY_GRADES_UPDATED_AT
 
 // SharedPreferences key written by the Flutter shared_preferences plugin (flutter.* prefix)
 private const val PREF_FETCH_ENABLED = "flutter.background_fetch_enabled"
@@ -134,30 +135,22 @@ class GradesBackgroundWorker(
                 Mobinsapi.grades(0)
             } else {
                 val first = JSONObject(Mobinsapi.grades(0))
-                val seenNames = mutableSetOf<String>()
                 val mergedDetails = JSONArray()
 
-                fun addDetails(items: JSONArray?) {
-                    if (items == null) return
-                    for (j in 0 until items.length()) {
-                        val item = items.optJSONObject(j)
-                        if (item != null) {
-                            val name = item.optString("name", "")
-                            if (name.isNotEmpty() && !seenNames.add(name)) continue
-                        }
-                        mergedDetails.put(items.get(j))
-                    }
-                }
-
-                addDetails(first.optJSONArray("details"))
+                first.optJSONArray("details")?.let { mergeDetails(mergedDetails, it) }
                 for (i in 1 until groupCount) {
                     val extra = JSONObject(Mobinsapi.grades(i.toLong()))
-                    addDetails(extra.optJSONArray("details"))
+                    extra.optJSONArray("details")?.let { mergeDetails(mergedDetails, it) }
                 }
                 first.put("details", mergedDetails)
                 first.toString()
             }
-            securePrefs.edit().putString(KEY_GRADES_JSON, newJson).apply()
+            // Stamp the write so the foreground can tell this snapshot is newer
+            // than its own copy and adopt it on resume (see _adoptWorkerGradesIfNewer).
+            securePrefs.edit()
+                .putString(KEY_GRADES_JSON, newJson)
+                .putString(KEY_GRADES_UPDATED_AT, System.currentTimeMillis().toString())
+                .apply()
             Log.d(TAG, "Grades fetched successfully")
 
             when {
@@ -201,6 +194,49 @@ class GradesBackgroundWorker(
         } catch (e: Exception) {
             Log.e(TAG, "Background fetch failed", e)
             Result.retry()
+        }
+    }
+
+    /**
+     * Merges [incoming] nodes into [target], deduplicating by name. When a node
+     * with the same name already exists and both carry child `details` arrays,
+     * their children are merged recursively instead of dropping the second
+     * wrapper wholesale — otherwise distinct semesters sharing a wrapper name
+     * (e.g. two "ANNEE 3" cards) would be lost. Mirrors
+     * GradesService._mergeDetails in lib/services/grades_service.dart.
+     */
+    private fun mergeDetails(target: JSONArray, incoming: JSONArray) {
+        for (j in 0 until incoming.length()) {
+            val item = incoming.optJSONObject(j)
+            if (item == null) {
+                target.put(incoming.get(j))
+                continue
+            }
+            val name = item.optString("name", "")
+            if (name.isEmpty()) {
+                target.put(item)
+                continue
+            }
+
+            var existing: JSONObject? = null
+            for (k in 0 until target.length()) {
+                val candidate = target.optJSONObject(k)
+                if (candidate != null && candidate.optString("name", "") == name) {
+                    existing = candidate
+                    break
+                }
+            }
+
+            if (existing == null) {
+                target.put(item)
+                continue
+            }
+
+            val existingChildren = existing.optJSONArray("details")
+            val itemChildren = item.optJSONArray("details")
+            if (existingChildren != null && itemChildren != null) {
+                mergeDetails(existingChildren, itemChildren)
+            }
         }
     }
 
