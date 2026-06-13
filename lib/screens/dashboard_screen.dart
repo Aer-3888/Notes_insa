@@ -205,6 +205,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen>
     final semesterAverage = ref.watch(semesterAverageProvider);
     final effectiveSemester = ref.watch(effectiveSemesterProvider);
     final gradesState = ref.watch(gradesProvider);
+    final decodedGrades = ref.watch(decodedGradesProvider);
 
     final academicYear = ref.watch(academicYearProvider);
 
@@ -227,6 +228,19 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen>
     final lastUpdated = gradesState.lastUpdated;
     final pillMode = isLoading ? _PillMode.loading : _pillMode;
     final pillVisible = pillMode != _PillMode.hidden;
+
+    // When there is nothing to display, distinguish a real problem (unreadable
+    // data or a failed fetch) from a legitimately empty payload so the user
+    // gets an error + retry instead of a silent "Aucune donnée.".
+    String? gridError;
+    if (curriculum.isEmpty && !isLoading) {
+      final corrupt = gradesState.hasData && decodedGrades == null;
+      if (corrupt) {
+        gridError = 'Données illisibles. Réessayez pour les recharger.';
+      } else if (gradesState.error != null) {
+        gridError = 'Impossible de charger les notes.';
+      }
+    }
 
     return AnnotatedRegion<SystemUiOverlayStyle>(
       value: SystemUiOverlayStyle.dark,
@@ -265,6 +279,13 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen>
                         child: UnitCardGrid(
                           curriculum: curriculum,
                           isLoading: isLoading,
+                          errorMessage: gridError,
+                          onRetry: gridError == null
+                              ? null
+                              : () => ref
+                                    .read(gradesProvider.notifier)
+                                    .fetchGradesWithStoredCredentials()
+                                    .catchError((_) {}),
                           onUnitTap: (unit) => _showUEDetails(context, unit),
                         ),
                       ),

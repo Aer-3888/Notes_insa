@@ -8,11 +8,19 @@ class UnitCardGrid extends StatelessWidget {
   final Function(TeachingUnit) onUnitTap;
   final bool isLoading;
 
+  /// Message to show when there is nothing to display because of a problem
+  /// (fetch failure or unreadable data). When null, an empty curriculum shows
+  /// the neutral "Aucune donnée." placeholder instead.
+  final String? errorMessage;
+  final VoidCallback? onRetry;
+
   const UnitCardGrid({
     super.key,
     required this.curriculum,
     required this.onUnitTap,
     this.isLoading = false,
+    this.errorMessage,
+    this.onRetry,
   });
 
   @override
@@ -30,6 +38,10 @@ class UnitCardGrid extends StatelessWidget {
         itemCount: 6,
         itemBuilder: (_, _) => const _SkeletonCard(),
       );
+    }
+
+    if (curriculum.isEmpty && errorMessage != null) {
+      return _ErrorState(message: errorMessage!, onRetry: onRetry);
     }
 
     if (curriculum.isEmpty) {
@@ -135,6 +147,42 @@ class UnitCardGrid extends StatelessWidget {
             ),
           );
         },
+      ),
+    );
+  }
+}
+
+class _ErrorState extends StatelessWidget {
+  final String message;
+  final VoidCallback? onRetry;
+
+  const _ErrorState({required this.message, this.onRetry});
+
+  @override
+  Widget build(BuildContext context) {
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(32),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(Icons.cloud_off, size: 48, color: Colors.grey.shade400),
+            const SizedBox(height: 16),
+            Text(
+              message,
+              textAlign: TextAlign.center,
+              style: TextStyle(color: Colors.grey.shade600, fontSize: 15),
+            ),
+            if (onRetry != null) ...[
+              const SizedBox(height: 20),
+              FilledButton.tonalIcon(
+                onPressed: onRetry,
+                icon: const Icon(Icons.refresh),
+                label: const Text('Réessayer'),
+              ),
+            ],
+          ],
+        ),
       ),
     );
   }
