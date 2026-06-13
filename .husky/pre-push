@@ -1,7 +1,7 @@
 while read -r local_ref local_sha remote_ref remote_sha
 do
-  if [ "$remote_ref" = "refs/heads/dev" ]; then
-    # Work out which commits this push would actually add to remote dev. On a
+  if [ "$remote_ref" = "refs/heads/main" ]; then
+    # Work out which commits this push would actually add to remote main. On a
     # brand-new branch remote_sha is all zeros, so just inspect the tip.
     if echo "$remote_sha" | grep -qE '^0+$'; then
       range="-1 $local_sha"
@@ -27,7 +27,7 @@ do
     git commit -m "chore(pubspec): bump build number to ${NEW_VERSION}"
 
     echo ""
-    echo "pubspec.yaml bumped to ${NEW_VERSION} (one increment per push to dev)."
+    echo "pubspec.yaml bumped to ${NEW_VERSION} (one increment per push to main)."
     echo "Run 'git push' again to push your commits including this bump."
     exit 1
   fi

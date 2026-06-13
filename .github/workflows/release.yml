@@ -2,7 +2,7 @@ name: Build & Release
 
 on:
   push:
-    branches: [dev]
+    branches: [main]
 
 # Serial execution: if a second push arrives while a release is in progress, it
 # waits instead of cancelling, so every pushed version gets its own release.
