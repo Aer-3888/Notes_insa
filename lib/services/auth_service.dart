@@ -63,9 +63,20 @@ class AuthService {
 
   // PIN methods
   // The PIN is stored as a salted SHA-256 hash. Brute-forcing is further
-  // throttled by an attempt counter + lockout (see pinLockoutRemaining).
+  // throttled by an attempt counter + an escalating lockout (see
+  // pinLockoutRemaining / recordPinFailure).
   static const int _maxPinAttempts = 5;
-  static const Duration _pinLockoutDuration = Duration(minutes: 1);
+  static const int minPinLength = 6;
+
+  // Escalating lockout durations, picked by the cumulative lockout count so the
+  // throttle gets harsher the more it's triggered (unlike a fixed window that
+  // resets each time). Caps at the last entry.
+  static const List<Duration> _lockoutLadder = [
+    Duration(minutes: 1),
+    Duration(minutes: 5),
+    Duration(minutes: 30),
+    Duration(hours: 1),
+  ];
 
   String _generateSalt() {
     final rng = Random.secure();
@@ -81,8 +92,19 @@ class AuthService {
     await Future.wait([
       _storage.write(key: kStoragePinSalt, value: salt),
       _storage.write(key: kStoragePin, value: _hashPin(pin, salt)),
+      _storage.write(key: kStoragePinLength, value: '${pin.length}'),
     ]);
     await resetPinAttempts();
+  }
+
+  /// True when a PIN is set but is shorter than [minPinLength] (or its length
+  /// was never recorded — i.e. configured before the 6-digit requirement), so
+  /// the user should be prompted to set a stronger one.
+  Future<bool> pinNeedsUpgrade() async {
+    if (!await hasPin()) return false;
+    final raw = await _storage.read(key: kStoragePinLength);
+    final len = int.tryParse(raw ?? '');
+    return len == null || len < minPinLength;
   }
 
   Future<bool> hasPin() async {
@@ -122,12 +144,24 @@ class AuthService {
     final raw = await _storage.read(key: kStoragePinAttempts);
     final attempts = (int.tryParse(raw ?? '') ?? 0) + 1;
     if (attempts >= _maxPinAttempts) {
+      // Cumulative lockout count grows across lockouts (only a success clears
+      // it), so each lockout is longer than the last.
+      final countRaw = await _storage.read(key: kStoragePinLockoutCount);
+      final lockoutsSoFar = int.tryParse(countRaw ?? '') ?? 0;
+      final duration =
+          _lockoutLadder[lockoutsSoFar.clamp(0, _lockoutLadder.length - 1)];
       await Future.wait([
         _storage.write(
           key: kStoragePinLockUntil,
-          value: DateTime.now().add(_pinLockoutDuration).toIso8601String(),
+          value: DateTime.now().add(duration).toIso8601String(),
         ),
+        // Reset the per-window counter so the next window starts fresh, but
+        // keep escalating via the cumulative count.
         _storage.write(key: kStoragePinAttempts, value: '0'),
+        _storage.write(
+          key: kStoragePinLockoutCount,
+          value: '${lockoutsSoFar + 1}',
+        ),
       ]);
       return 0;
     }
@@ -139,6 +173,7 @@ class AuthService {
     await Future.wait([
       _storage.delete(key: kStoragePinAttempts),
       _storage.delete(key: kStoragePinLockUntil),
+      _storage.delete(key: kStoragePinLockoutCount),
     ]);
   }
 

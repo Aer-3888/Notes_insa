@@ -517,11 +517,17 @@ class _PinScreen extends ConsumerStatefulWidget {
 
 class _PinScreenState extends ConsumerState<_PinScreen> {
   final _pinController = TextEditingController();
+  final _confirmController = TextEditingController();
   final _authService = AuthService();
   bool _error = false;
   int? _remainingAttempts;
   Duration? _lockout;
   Timer? _lockoutTimer;
+
+  // After a legacy (<6-digit) PIN is verified, switch to upgrade mode and
+  // require the user to set a new, stronger PIN before unlocking.
+  bool _upgradeMode = false;
+  bool _upgradeError = false;
 
   @override
   void initState() {
@@ -548,13 +554,17 @@ class _PinScreenState extends ConsumerState<_PinScreen> {
     if (success) {
       await _authService.resetPinAttempts();
       if (!mounted) return;
-      ref.read(appUnlockedProvider.notifier).state = true;
-      unawaited(
-        ref
-            .read(gradesProvider.notifier)
-            .fetchGradesWithStoredCredentials()
-            .catchError((_) {}),
-      );
+      // Legacy short PIN — require an upgrade before unlocking.
+      if (await _authService.pinNeedsUpgrade()) {
+        if (!mounted) return;
+        setState(() {
+          _upgradeMode = true;
+          _error = false;
+          _pinController.clear();
+        });
+        return;
+      }
+      _unlockAndFetch();
     } else {
       final remaining = await _authService.recordPinFailure();
       if (!mounted) return;
@@ -565,6 +575,28 @@ class _PinScreenState extends ConsumerState<_PinScreen> {
       });
       if (remaining == 0) await _refreshLockout();
     }
+  }
+
+  void _unlockAndFetch() {
+    ref.read(appUnlockedProvider.notifier).state = true;
+    unawaited(
+      ref
+          .read(gradesProvider.notifier)
+          .fetchGradesWithStoredCredentials()
+          .catchError((_) {}),
+    );
+  }
+
+  Future<void> _submitUpgrade() async {
+    final pin = _pinController.text.trim();
+    final confirm = _confirmController.text.trim();
+    if (pin.length < AuthService.minPinLength || pin != confirm) {
+      setState(() => _upgradeError = true);
+      return;
+    }
+    await _authService.setPin(pin);
+    if (!mounted) return;
+    _unlockAndFetch();
   }
 
   String? get _errorText {
@@ -594,9 +626,9 @@ class _PinScreenState extends ConsumerState<_PinScreen> {
                 color: AppColors.primary,
               ),
               const SizedBox(height: 16),
-              const Text(
-                'Code PIN requis',
-                style: TextStyle(
+              Text(
+                _upgradeMode ? 'Renforcez votre code' : 'Code PIN requis',
+                style: const TextStyle(
                   fontSize: 24,
                   fontWeight: FontWeight.bold,
                   color: AppColors.primary,
@@ -604,34 +636,77 @@ class _PinScreenState extends ConsumerState<_PinScreen> {
               ),
               const SizedBox(height: 8),
               Text(
-                'Entrez votre code PIN pour accéder à vos notes',
+                _upgradeMode
+                    ? 'Choisissez un nouveau code PIN de 6 chiffres minimum.'
+                    : 'Entrez votre code PIN pour accéder à vos notes',
                 textAlign: TextAlign.center,
                 style: TextStyle(color: Colors.grey.shade600),
               ),
               const SizedBox(height: 32),
-              TextField(
-                controller: _pinController,
-                enabled: _lockout == null,
-                obscureText: true,
-                keyboardType: TextInputType.number,
-                maxLength: 8,
-                textAlign: TextAlign.center,
-                style: const TextStyle(fontSize: 24, letterSpacing: 8),
-                onChanged: (_) {
-                  if (_error) setState(() => _error = false);
-                },
-                onSubmitted: (_) => _verify(),
-                decoration: InputDecoration(
-                  border: const OutlineInputBorder(),
-                  counterText: '',
-                  errorText: _errorText,
+              if (_upgradeMode) ...[
+                TextField(
+                  controller: _pinController,
+                  obscureText: true,
+                  keyboardType: TextInputType.number,
+                  maxLength: 8,
+                  textAlign: TextAlign.center,
+                  style: const TextStyle(fontSize: 24, letterSpacing: 8),
+                  onChanged: (_) {
+                    if (_upgradeError) setState(() => _upgradeError = false);
+                  },
+                  decoration: const InputDecoration(
+                    labelText: 'Nouveau code PIN',
+                    border: OutlineInputBorder(),
+                    counterText: '',
+                  ),
                 ),
-              ),
+                const SizedBox(height: 16),
+                TextField(
+                  controller: _confirmController,
+                  obscureText: true,
+                  keyboardType: TextInputType.number,
+                  maxLength: 8,
+                  textAlign: TextAlign.center,
+                  style: const TextStyle(fontSize: 24, letterSpacing: 8),
+                  onChanged: (_) {
+                    if (_upgradeError) setState(() => _upgradeError = false);
+                  },
+                  onSubmitted: (_) => _submitUpgrade(),
+                  decoration: InputDecoration(
+                    labelText: 'Confirmer le code PIN',
+                    border: const OutlineInputBorder(),
+                    counterText: '',
+                    errorText: _upgradeError
+                        ? 'Les codes ne correspondent pas ou sont trop courts'
+                        : null,
+                  ),
+                ),
+              ] else
+                TextField(
+                  controller: _pinController,
+                  enabled: _lockout == null,
+                  obscureText: true,
+                  keyboardType: TextInputType.number,
+                  maxLength: 8,
+                  textAlign: TextAlign.center,
+                  style: const TextStyle(fontSize: 24, letterSpacing: 8),
+                  onChanged: (_) {
+                    if (_error) setState(() => _error = false);
+                  },
+                  onSubmitted: (_) => _verify(),
+                  decoration: InputDecoration(
+                    border: const OutlineInputBorder(),
+                    counterText: '',
+                    errorText: _errorText,
+                  ),
+                ),
               const SizedBox(height: 24),
               SizedBox(
                 width: double.infinity,
                 child: ElevatedButton(
-                  onPressed: _lockout == null ? _verify : null,
+                  onPressed: _upgradeMode
+                      ? _submitUpgrade
+                      : (_lockout == null ? _verify : null),
                   style: ElevatedButton.styleFrom(
                     padding: const EdgeInsets.symmetric(vertical: 16),
                     backgroundColor: AppColors.primary,
@@ -643,13 +718,15 @@ class _PinScreenState extends ConsumerState<_PinScreen> {
                   child: const Text('Valider', style: TextStyle(fontSize: 16)),
                 ),
               ),
-              const SizedBox(height: 12),
-              TextButton(
-                onPressed: () => Navigator.of(
-                  context,
-                ).push(MaterialPageRoute(builder: (_) => const LoginScreen())),
-                child: const Text('Se connecter autrement'),
-              ),
+              if (!_upgradeMode) ...[
+                const SizedBox(height: 12),
+                TextButton(
+                  onPressed: () => Navigator.of(context).push(
+                    MaterialPageRoute(builder: (_) => const LoginScreen()),
+                  ),
+                  child: const Text('Se connecter autrement'),
+                ),
+              ],
             ],
           ),
         ),
@@ -661,6 +738,7 @@ class _PinScreenState extends ConsumerState<_PinScreen> {
   void dispose() {
     _lockoutTimer?.cancel();
     _pinController.dispose();
+    _confirmController.dispose();
     super.dispose();
   }
 }

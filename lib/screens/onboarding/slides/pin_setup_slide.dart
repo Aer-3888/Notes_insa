@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import '../../../services/auth_service.dart';
 import '../widgets/slide_layout.dart';
 
 class PinSetupSlide extends StatefulWidget {
@@ -50,7 +51,7 @@ class _PinSetupSlideState extends State<PinSetupSlide> {
   void _submit() {
     final pin = _pinController.text.trim();
     final confirm = _confirmController.text.trim();
-    if (pin.length < 4 || pin != confirm) {
+    if (pin.length < AuthService.minPinLength || pin != confirm) {
       setState(() => _pinMismatch = true);
       return;
     }
@@ -59,7 +60,7 @@ class _PinSetupSlideState extends State<PinSetupSlide> {
 
   @override
   Widget build(BuildContext context) {
-    final pinReady = _pinController.text.length >= 4;
+    final pinReady = _pinController.text.length >= AuthService.minPinLength;
     return SlideLayout(
       stepCount: widget.stepCount,
       currentIndex: widget.currentIndex,
@@ -83,7 +84,7 @@ class _PinSetupSlideState extends State<PinSetupSlide> {
             textInputAction: TextInputAction.next,
             onChanged: (_) => setState(() => _pinMismatch = false),
             decoration: const InputDecoration(
-              labelText: 'Code PIN (4–8 chiffres)',
+              labelText: 'Code PIN (6–8 chiffres)',
               border: OutlineInputBorder(),
               counterText: '',
             ),

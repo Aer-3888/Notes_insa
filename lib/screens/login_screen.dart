@@ -171,7 +171,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
   Future<void> _handleSetPin() async {
     final pin = _pinController.text.trim();
     final confirmPin = _confirmPinController.text.trim();
-    if (pin.length < 4 || pin != confirmPin) return;
+    if (pin.length < AuthService.minPinLength || pin != confirmPin) return;
     await _authService.setPin(pin);
     await _completeLogin();
   }
@@ -414,7 +414,7 @@ class _SetPinForm extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final pinReady =
-        pinController.text.length >= 4 &&
+        pinController.text.length >= AuthService.minPinLength &&
         pinController.text == confirmPinController.text;
 
     return Column(
@@ -460,6 +460,7 @@ class _SetPinForm extends StatelessWidget {
           style: const TextStyle(fontSize: 24, letterSpacing: 8),
           decoration: const InputDecoration(
             labelText: 'Nouveau code PIN',
+            helperText: '6 à 8 chiffres',
             border: OutlineInputBorder(),
             counterText: '',
           ),
