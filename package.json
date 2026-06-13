@@ -5,7 +5,7 @@
   "scripts": {
     "format": "prettier --write \"**/*.{js,jsx,json,md,mdx,yml,yaml,css,scss,html,svg}\"",
     "format:check": "prettier --check \"**/*.{js,jsx,json,md,mdx,yml,yaml,css,scss,html,svg}\"",
-    "prepare": "husky install",
+    "prepare": "husky",
     "deploy:worker": "cp worker/wrangler.toml.template worker/wrangler.toml && cd worker && npx wrangler deploy"
   },
   "lint-staged": {

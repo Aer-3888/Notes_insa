@@ -29,25 +29,47 @@ jobs:
       - name: Test
         run: flutter test
 
-  # 2. Build artifacts and publish a release for the version in pubspec.yaml
+  # 2. Gate: only release when the version in pubspec.yaml hasn't been released
+  #    yet. The .husky/pre-push hook bumps the build number locally, but that
+  #    hook can't run on the Codeberg->GitHub mirror, web edits, or pushes made
+  #    with --no-verify. So the authoritative "did the version increment?" check
+  #    lives here: if a release for this tag already exists, there's nothing new
+  #    to publish and we skip the expensive build.
+  gate:
+    name: Check version
+    needs: validate
+    runs-on: ubuntu-latest
+    outputs:
+      should_release: ${{ steps.check.outputs.should_release }}
+      tag: ${{ steps.check.outputs.tag }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Check whether this version is already released
+        id: check
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          CURRENT=$(grep '^version: ' pubspec.yaml | sed 's/version: //' | tr -d '[:space:]')
+          TAG="v${CURRENT}"
+          echo "tag=$TAG" >> "$GITHUB_OUTPUT"
+          if gh release view "$TAG" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            echo "Release $TAG already exists — version not incremented, skipping."
+            echo "should_release=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "Version $CURRENT is new — will build and release $TAG."
+            echo "should_release=true" >> "$GITHUB_OUTPUT"
+          fi
+
+  # 3. Build artifacts and publish a release for the version in pubspec.yaml
   build-and-release:
     name: Build & Release
-    needs: validate
+    needs: [validate, gate]
+    if: needs.gate.outputs.should_release == 'true'
     runs-on: ubuntu-latest
     permissions:
       contents: write
     steps:
       - uses: actions/checkout@v4
-
-      # The build number in pubspec.yaml is bumped locally by the .husky/pre-push
-      # hook (once per push to dev), so just read the version that's already there.
-      - name: Read version
-        id: version
-        run: |
-          CURRENT=$(grep '^version: ' pubspec.yaml | sed 's/version: //' | tr -d '[:space:]')
-          echo "version=$CURRENT" >> $GITHUB_OUTPUT
-          echo "tag=v${CURRENT}" >> $GITHUB_OUTPUT
-          echo "Releasing: ${CURRENT}"
 
       - name: Setup Java
         uses: actions/setup-java@v4
@@ -83,7 +105,7 @@ jobs:
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: ${{ steps.version.outputs.tag }}
+          tag_name: ${{ needs.gate.outputs.tag }}
           files: |
             build/app/outputs/flutter-apk/app-release.apk
           generate_release_notes: true

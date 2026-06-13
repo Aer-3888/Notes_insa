@@ -1,8 +1,18 @@
 while read -r local_ref local_sha remote_ref remote_sha
 do
   if [ "$remote_ref" = "refs/heads/dev" ]; then
-    # Already bumped for this push attempt (retry after the abort below).
-    if git log -1 --pretty=%s | grep -q "^chore(pubspec): bump build number"; then
+    # Work out which commits this push would actually add to remote dev. On a
+    # brand-new branch remote_sha is all zeros, so just inspect the tip.
+    if echo "$remote_sha" | grep -qE '^0+$'; then
+      range="-1 $local_sha"
+    else
+      range="${remote_sha}..${local_sha}"
+    fi
+
+    # Already bumped somewhere in this push (retry after the abort below, or a
+    # manual bump) — let it through. Scanning the whole range, not just HEAD,
+    # means extra commits added before re-pushing don't trigger a second bump.
+    if git log $range --pretty=%s | grep -q "^chore(pubspec): bump build number"; then
       continue
     fi
 
