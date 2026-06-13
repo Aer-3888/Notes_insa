@@ -15,14 +15,24 @@ const kStorageOtpSecret = 'otp_secret';
 const kStorageCasSession = 'cas_session';
 // Cached grades JSON — shared between GradesService and the background task.
 const kStorageGradesJson = 'stored_grades_json';
+// Epoch-ms timestamp of the last grades write, in each store. Used to reconcile
+// the foreground and background-worker snapshots on resume (newer wins).
+const kStorageGradesUpdatedAt = 'stored_grades_updated_at';
 // User PIN for secondary authentication (fallback for biometrics).
 // Stored as a salted SHA-256 hash (never plaintext).
 const kStoragePin = 'user_pin';
 // Random per-user salt for the PIN hash.
 const kStoragePinSalt = 'user_pin_salt';
-// Consecutive failed PIN attempts, and lockout expiry timestamp (ISO-8601).
+// Consecutive failed PIN attempts (current window), and lockout expiry
+// timestamp (ISO-8601).
 const kStoragePinAttempts = 'user_pin_attempts';
 const kStoragePinLockUntil = 'user_pin_lock_until';
+// Cumulative lockout count — never reset on lockout, only on a successful
+// unlock or a new PIN. Drives the escalating lockout backoff.
+const kStoragePinLockoutCount = 'user_pin_lockout_count';
+// Length of the configured PIN, used to detect legacy short (<6) PINs that
+// should be upgraded on next unlock.
+const kStoragePinLength = 'user_pin_length';
 // Cached coefficients JSON — keyed per dept_semester_year.
 const kStorageCoefficientsPrefix = 'coefficients_';
 // Last-submitted grades hash — keyed per dept_semester_year, used to skip
@@ -30,3 +40,7 @@ const kStorageCoefficientsPrefix = 'coefficients_';
 const kStorageSubmittedHashPrefix = 'submitted_hash_';
 // Cached class averages JSON — keyed per dept_semester_year.
 const kStorageAveragesPrefix = 'averages_';
+// Academic year of the most recent grades fetch (e.g. "2025-2026"). Frozen at
+// fetch time so cache keys for a given snapshot don't drift across the August
+// academic-year boundary; only a fresh fetch advances it.
+const kStorageAcademicYearBaseline = 'academic_year_baseline';
