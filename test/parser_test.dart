@@ -3,6 +3,9 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:notes_insa/data.dart';
 
 void main() {
+  Map<String, dynamic> decode(String s) =>
+      JsonCurriculumParser.tryDecode(s) ?? (throw 'invalid fixture JSON');
+
   const gradesJson = '''
   {
     "name": "DOE John (INFO)",
@@ -25,7 +28,7 @@ void main() {
 
   test('applies subject and UE coefficients from the coefficient map', () {
     final units = JsonCurriculumParser.parseSemester(
-      gradesJson,
+      decode(gradesJson),
       5,
       coefficients: {'UE1|Math': 2.0, 'UE1|Phys': 1.0, 'UE1|': 3.0},
     );
@@ -40,7 +43,7 @@ void main() {
   });
 
   test('falls back to coeff 1.0 when coefficients are absent', () {
-    final units = JsonCurriculumParser.parseSemester(gradesJson, 5);
+    final units = JsonCurriculumParser.parseSemester(decode(gradesJson), 5);
     expect(units.single.coeff, 1.0);
     // Unweighted UE average: (10 + 16) / 2 = 13.
     expect(units.single.average, closeTo(13, 1e-9));
@@ -58,7 +61,7 @@ void main() {
     }
     ''';
       expect(
-        JsonCurriculumParser.getSemesterAverage(json, 5),
+        JsonCurriculumParser.getSemesterAverage(decode(json), 5),
         closeTo(13.25, 1e-9),
       );
     },
@@ -67,7 +70,10 @@ void main() {
   test(
     'getSemesterAverage returns null when the semester node has no score',
     () {
-      expect(JsonCurriculumParser.getSemesterAverage(gradesJson, 5), isNull);
+      expect(
+        JsonCurriculumParser.getSemesterAverage(decode(gradesJson), 5),
+        isNull,
+      );
     },
   );
 

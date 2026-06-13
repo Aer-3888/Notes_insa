@@ -8,24 +8,37 @@ import 'models.dart';
 /// [TeachingUnit] objects. The expected JSON contains a top-level
 /// `details` array with semester entries (names contain "SEMESTRE").
 class JsonCurriculumParser {
-  /// Parse a semester JSON payload and return its teaching units.
+  /// Decode a raw grades payload once into a map. Returns null when the string
+  /// is empty/`{}` or fails to decode — callers treat null as "no usable data"
+  /// (distinct from a structurally valid but empty payload).
+  ///
+  /// All other parser methods take the already-decoded map so a payload is only
+  /// decoded once per state change instead of once per method call.
+  static Map<String, dynamic>? tryDecode(String jsonString) {
+    if (jsonString.isEmpty || jsonString == '{}') return null;
+    try {
+      final decoded = jsonDecode(jsonString);
+      return decoded is Map<String, dynamic> ? decoded : null;
+    } catch (_) {
+      return null;
+    }
+  }
+
+  /// Parse a semester from an already-decoded payload and return its units.
   ///
   /// Returns an empty list on parse errors or when the expected nodes
   /// are missing.
   static List<TeachingUnit> parseSemester(
-    String jsonString,
+    Map<String, dynamic> data,
     int semesterNumber, {
     Map<String, double>? coefficients,
   }) {
     try {
-      final Map<String, dynamic> rawData =
-          jsonDecode(jsonString) as Map<String, dynamic>;
-
       // Top-level details must be a list
-      if (rawData['details'] is! List) return [];
+      if (data['details'] is! List) return [];
 
       final semesterNode = _findSemesterNode(
-        rawData['details'] as List<dynamic>,
+        data['details'] as List<dynamic>,
         semesterNumber,
       );
 
@@ -125,11 +138,9 @@ class JsonCurriculumParser {
   /// 1. Parentheses in top-level name: "DOE John (INFO)" → "INFO"
   /// 2. Semester name prefix: "3INFO-SEMESTRE5" → "INFO", "1STPI-SEMESTRE1" → "STPI"
   /// 3. Top-level name as-is
-  static String getDepartmentName(String jsonString) {
+  static String getDepartmentName(Map<String, dynamic> data) {
     try {
-      final Map<String, dynamic> rawData =
-          jsonDecode(jsonString) as Map<String, dynamic>;
-      final String rawName = (rawData['name'] ?? 'Etudiant').toString();
+      final String rawName = (data['name'] ?? 'Etudiant').toString();
 
       // 1. Content inside parentheses
       final bracketMatch = RegExp(r'\((.*?)\)').firstMatch(rawName);
@@ -139,9 +150,9 @@ class JsonCurriculumParser {
       }
 
       // 2. Extract from semester names: "3INFO-SEMESTRE5" → "INFO"
-      if (rawData['details'] is List) {
+      if (data['details'] is List) {
         final dept = _extractDeptFromSemesters(
-          rawData['details'] as List<dynamic>,
+          data['details'] as List<dynamic>,
         );
         if (dept != null) return dept;
       }
@@ -183,18 +194,19 @@ class JsonCurriculumParser {
   /// Returns the year+department prefix for a specific semester number.
   /// e.g. semester 5 in "3INFO-SEMESTRE5" → "3INFO".
   /// Falls back to the global getDepartmentName if the semester isn't found.
-  static String getDepartmentForSemester(String jsonString, int semester) {
+  static String getDepartmentForSemester(
+    Map<String, dynamic> data,
+    int semester,
+  ) {
     try {
-      final Map<String, dynamic> rawData =
-          jsonDecode(jsonString) as Map<String, dynamic>;
-      if (rawData['details'] is! List) return getDepartmentName(jsonString);
+      if (data['details'] is! List) return getDepartmentName(data);
       final dept = _findDeptForSemester(
-        rawData['details'] as List<dynamic>,
+        data['details'] as List<dynamic>,
         semester,
       );
-      return dept ?? getDepartmentName(jsonString);
+      return dept ?? getDepartmentName(data);
     } catch (_) {
-      return getDepartmentName(jsonString);
+      return getDepartmentName(data);
     }
   }
 
@@ -224,15 +236,12 @@ class JsonCurriculumParser {
 
   /// Return available semester numbers found in the JSON payload.
   /// Handles both flat (semesters at top) and nested (year → semesters) structures.
-  static List<int> getAvailableSemesters(String jsonString) {
+  static List<int> getAvailableSemesters(Map<String, dynamic> data) {
     try {
-      final Map<String, dynamic> rawData =
-          jsonDecode(jsonString) as Map<String, dynamic>;
-
-      if (rawData['details'] is! List) return [];
+      if (data['details'] is! List) return [];
 
       final semesters = <int>{};
-      _collectSemesters(rawData['details'] as List<dynamic>, semesters);
+      _collectSemesters(data['details'] as List<dynamic>, semesters);
 
       final sorted = semesters.toList()..sort();
       if (kDebugMode) debugPrint('[Parser] Found semesters: $sorted');
@@ -297,13 +306,14 @@ class JsonCurriculumParser {
   /// Returns the semester-level score embedded in the JSON by the school,
   /// bypassing any manual recalculation. Returns null when the semester node
   /// is missing or carries no score field.
-  static double? getSemesterAverage(String jsonString, int semesterNumber) {
+  static double? getSemesterAverage(
+    Map<String, dynamic> data,
+    int semesterNumber,
+  ) {
     try {
-      final Map<String, dynamic> rawData =
-          jsonDecode(jsonString) as Map<String, dynamic>;
-      if (rawData['details'] is! List) return null;
+      if (data['details'] is! List) return null;
       final semesterNode = _findSemesterNode(
-        rawData['details'] as List<dynamic>,
+        data['details'] as List<dynamic>,
         semesterNumber,
       );
       if (semesterNode == null) return null;

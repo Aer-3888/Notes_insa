@@ -208,7 +208,11 @@ class Subject {
   Subject(this.name, this.coeff, this.jsonKeys, {List<GradeInstance>? grades})
     : grades = grades ?? [];
 
-  double? get average {
+  /// Computed once on first access and cached — Subjects are immutable after
+  /// parsing, so the average never changes and is read many times per build.
+  late final double? average = _computeAverage();
+
+  double? _computeAverage() {
     if (grades.isEmpty) return null;
     final hasAnyCoeff = grades.any((g) => g.coeffValue != null);
     if (hasAnyCoeff) {
@@ -237,7 +241,10 @@ class TeachingUnit {
 
   TeachingUnit(this.name, this.subjects, {this.coeff = 1.0});
 
-  double? get average {
+  /// Computed once on first access and cached (see [Subject.average]).
+  late final double? average = _computeAverage();
+
+  double? _computeAverage() {
     double totalScore = 0;
     double totalCoeff = 0;
 
@@ -253,12 +260,13 @@ class TeachingUnit {
   }
 
   /// A unit is validated when all subjects have an average and the weighted
-  /// average is at least 10 (10.00 is a pass).
-  bool get isValidated {
+  /// average is at least 10 (10.00 is a pass). Cached on first access.
+  late final bool isValidated = _computeIsValidated();
+
+  bool _computeIsValidated() {
     if (subjects.isEmpty) return false;
     final allHaveAverage = subjects.every((s) => s.average != null);
-    final avg = average;
-    return allHaveAverage && (avg != null && avg >= 10.0);
+    return allHaveAverage && (average != null && average! >= 10.0);
   }
 }
 

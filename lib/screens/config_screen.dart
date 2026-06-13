@@ -3,7 +3,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../app_colors.dart';
 import '../models.dart';
 import '../data.dart';
-import '../providers/grades_provider.dart';
 import '../providers/dashboard_providers.dart';
 import '../components/app_drawer.dart';
 
@@ -15,19 +14,19 @@ class ConfigScreen extends ConsumerWidget {
     // Use computed provider for available semesters (cached)
     final availableSemesters = ref.watch(availableSemestersProvider);
 
-    // Get JSON data for parsing individual semesters
-    final gradesState = ref.watch(gradesProvider);
-    final jsonString = gradesState.jsonData;
+    // Shared single decode of the grades payload for parsing each semester.
+    final gradesData = ref.watch(decodedGradesProvider);
 
     final profiles = <Profile>[
-      for (var semNum in availableSemesters)
-        Profile(
-          'Semestre $semNum',
-          units: JsonCurriculumParser.parseSemester(jsonString, semNum),
-          isActive:
-              availableSemesters.isNotEmpty &&
-              semNum == availableSemesters.first,
-        ),
+      if (gradesData != null)
+        for (var semNum in availableSemesters)
+          Profile(
+            'Semestre $semNum',
+            units: JsonCurriculumParser.parseSemester(gradesData, semNum),
+            isActive:
+                availableSemesters.isNotEmpty &&
+                semNum == availableSemesters.first,
+          ),
     ];
 
     const crossAxisCount = 2;
