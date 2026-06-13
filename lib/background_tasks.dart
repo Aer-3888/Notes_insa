@@ -8,10 +8,13 @@ const _channel = MethodChannel('com.aer.notes_insa/grades');
 /// Initialize or reschedule the native Android background task.
 ///
 /// Reads the configured fetch interval from SharedPreferences and passes it to
-/// the native WorkManager via MethodChannel. The native [GradesBackgroundWorker]
-/// calls Mobinsapi directly so it works even when the app process has been killed.
+/// the native scheduler via MethodChannel.
 ///
-/// On iOS this is a no-op (BGTaskScheduler would be needed separately).
+/// - Android: schedules a WorkManager [GradesBackgroundWorker] that calls
+///   Mobinsapi directly, so it runs even after the app process is killed.
+/// - iOS: schedules a BGTaskScheduler processing task (GradesBackgroundTask.swift)
+///   that runs in-process when the system grants background time. The interval
+///   is an earliest-begin hint, not a guaranteed schedule.
 Future<void> initBackgroundTasks() async {
   try {
     final prefs = await SharedPreferences.getInstance();

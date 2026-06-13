@@ -51,8 +51,14 @@
 	<!-- Background fetch capabilities -->
 	<key>UIBackgroundModes</key>
 	<array>
-		<string>background-fetch</string>
-		<string>background-processing</string>
+		<string>fetch</string>
+		<string>processing</string>
+	</array>
+
+	<!-- BGTaskScheduler task identifiers (must match GradesBackgroundTask.swift) -->
+	<key>BGTaskSchedulerPermittedIdentifiers</key>
+	<array>
+		<string>com.aer.notes_insa.grades.processing</string>
 	</array>
 
 	<!-- Notification permissions -->
