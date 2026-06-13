@@ -17,22 +17,77 @@ class AveragesService {
     return now.month >= 8 ? '$year-${year + 1}' : '${year - 1}-$year';
   }
 
-  static String academicYearForSemester(int semester, int maxSemester) {
-    final currentYear = currentAcademicYear();
+  /// Persist the current academic year as the baseline for the snapshot just
+  /// fetched. Called from the grades fetch paths where `DateTime.now()` is
+  /// genuinely current relative to the data.
+  static Future<void> persistAcademicYearBaseline() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setString(
+        kStorageAcademicYearBaseline,
+        currentAcademicYear(),
+      );
+    } catch (e) {
+      if (kDebugMode) {
+        debugPrint(
+          '[AveragesService] persist academic-year baseline failed: $e',
+        );
+      }
+    }
+  }
+
+  /// The persisted academic-year baseline, or the current wall-clock value when
+  /// none has been stored yet (first run before any fetch).
+  static Future<String> loadAcademicYearBaseline() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      return prefs.getString(kStorageAcademicYearBaseline) ??
+          currentAcademicYear();
+    } catch (_) {
+      return currentAcademicYear();
+    }
+  }
+
+  /// Academic year for a given semester, derived from [baseline] (the academic
+  /// year of [maxSemester]) rather than the wall clock, so it stays stable for a
+  /// fetched snapshot across the August boundary.
+  static String academicYearForSemester(
+    int semester,
+    int maxSemester,
+    String baseline,
+  ) {
     final maxPair = (maxSemester - 1) ~/ 2;
     final thisPair = (semester - 1) ~/ 2;
     final offset = maxPair - thisPair;
-    if (offset <= 0) return currentYear;
-    final parts = currentYear.split('-');
+    if (offset <= 0) return baseline;
+    final parts = baseline.split('-');
     final startYear = int.parse(parts[0]) - offset;
     return '$startYear-${startYear + 1}';
   }
 
   /// Submit grades for all available semesters.
   static Future<void> submitAllSemesters(String gradesJson) async {
-    final availableSems = JsonCurriculumParser.getAvailableSemesters(
-      gradesJson,
-    );
+    // Defense-in-depth: honor the opt-out regardless of caller. The key mirrors
+    // SettingsNotifier._sharingConsentKey ('sharing_consent'); an unset value
+    // means "not yet answered" and defaults to allowed (== false blocks only an
+    // explicit opt-out).
+    final consentPrefs = await SharedPreferences.getInstance();
+    if (consentPrefs.getBool('sharing_consent') == false) {
+      if (kDebugMode) {
+        debugPrint('[AveragesService] Aborting: sharing consent disabled');
+      }
+      return;
+    }
+
+    final data = JsonCurriculumParser.tryDecode(gradesJson);
+    if (data == null) {
+      if (kDebugMode) {
+        debugPrint('[AveragesService] Aborting: grades payload unreadable');
+      }
+      return;
+    }
+
+    final availableSems = JsonCurriculumParser.getAvailableSemesters(data);
 
     if (kDebugMode) {
       debugPrint('[AveragesService] Available semesters: $availableSems');
@@ -61,11 +116,12 @@ class AveragesService {
     }
 
     final maxSemester = availableSems.last;
+    final baseline = await loadAcademicYearBaseline();
 
     final List<Future<void>> futures = [];
     for (final sem in availableSems) {
       final department = JsonCurriculumParser.getDepartmentForSemester(
-        gradesJson,
+        data,
         sem,
       );
       if (department.isEmpty || department == 'Etudiant') {
@@ -76,7 +132,7 @@ class AveragesService {
         }
         continue;
       }
-      final units = JsonCurriculumParser.parseSemester(gradesJson, sem);
+      final units = JsonCurriculumParser.parseSemester(data, sem);
       if (units.isEmpty) {
         if (kDebugMode) {
           debugPrint(
@@ -85,7 +141,7 @@ class AveragesService {
         }
         continue;
       }
-      final academicYear = academicYearForSemester(sem, maxSemester);
+      final academicYear = academicYearForSemester(sem, maxSemester, baseline);
       if (kDebugMode) {
         debugPrint(
           '[AveragesService] Semester $sem → $department / $academicYear',

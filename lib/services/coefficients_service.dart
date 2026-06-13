@@ -87,23 +87,28 @@ class CoefficientsService {
       final api = await _fetchFromApi(groupCount);
       if (api == null || api.isEmpty) return;
 
+      final gradesData = JsonCurriculumParser.tryDecode(gradesJson);
+      if (gradesData == null) return;
+
       final availableSems =
           api.keys.map((k) => int.tryParse(k)).whereType<int>().toList()
             ..sort();
       if (availableSems.isEmpty) return;
       final maxSem = availableSems.last;
+      final baseline = await AveragesService.loadAcademicYearBaseline();
 
       for (final entry in api.entries) {
         final semNum = int.tryParse(entry.key);
         if (semNum == null || entry.value.isEmpty) continue;
 
         final department = JsonCurriculumParser.getDepartmentForSemester(
-          gradesJson,
+          gradesData,
           semNum,
         );
         final academicYear = AveragesService.academicYearForSemester(
           semNum,
           maxSem,
+          baseline,
         );
 
         if (kDebugMode) {
