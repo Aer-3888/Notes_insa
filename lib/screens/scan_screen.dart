@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:image_picker/image_picker.dart';
 import '../app_colors.dart';
 import 'package:mobile_scanner/mobile_scanner.dart';
 import '../utils/google_auth_migration_decoder.dart';
@@ -17,6 +18,7 @@ class _ScanScreenState extends State<ScanScreen>
   DateTime? _lastErrorAt;
   late final AnimationController _successController;
   late final Animation<double> _successFade;
+  final MobileScannerController _scannerController = MobileScannerController();
 
   @override
   void initState() {
@@ -34,6 +36,7 @@ class _ScanScreenState extends State<ScanScreen>
   @override
   void dispose() {
     _successController.dispose();
+    _scannerController.dispose();
     super.dispose();
   }
 
@@ -63,6 +66,32 @@ class _ScanScreenState extends State<ScanScreen>
         });
       }
       break;
+    }
+  }
+
+  /// Lets the user pick a screenshot/photo of a QR code from the gallery and
+  /// decodes it through the same pipeline as a live scan.
+  Future<void> _pickFromGallery() async {
+    if (_isScanned) return;
+    try {
+      final XFile? file = await ImagePicker().pickImage(
+        source: ImageSource.gallery,
+      );
+      if (file == null || !mounted) return;
+
+      final BarcodeCapture? capture = await _scannerController.analyzeImage(
+        file.path,
+      );
+      if (!mounted) return;
+
+      if (capture == null || capture.barcodes.isEmpty) {
+        _showError('Aucun QR code trouvé dans l\'image.');
+        return;
+      }
+      // Reuse the live-scan handling (extraction, multi-account, navigation).
+      _onDetect(capture);
+    } catch (_) {
+      if (mounted) _showError('Impossible de lire l\'image.');
     }
   }
 
@@ -306,7 +335,7 @@ class _ScanScreenState extends State<ScanScreen>
         fit: StackFit.expand,
         children: [
           // Camera feed
-          MobileScanner(onDetect: _onDetect),
+          MobileScanner(controller: _scannerController, onDetect: _onDetect),
 
           // Overlay
           _ScanOverlay(isScanned: _isScanned),
@@ -371,6 +400,31 @@ class _ScanScreenState extends State<ScanScreen>
                       ),
                     ),
                     const SizedBox(height: 20),
+                    SizedBox(
+                      width: double.infinity,
+                      child: OutlinedButton.icon(
+                        onPressed: _pickFromGallery,
+                        icon: const Icon(Icons.image_outlined, size: 20),
+                        label: const Text(
+                          'Importer depuis la galerie',
+                          style: TextStyle(
+                            fontSize: 15,
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                        style: OutlinedButton.styleFrom(
+                          foregroundColor: Colors.white,
+                          side: BorderSide(
+                            color: Colors.white.withValues(alpha: 0.5),
+                          ),
+                          padding: const EdgeInsets.symmetric(vertical: 14),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 12),
                     SizedBox(
                       width: double.infinity,
                       child: OutlinedButton(
