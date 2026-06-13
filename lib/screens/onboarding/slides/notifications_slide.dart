@@ -56,7 +56,7 @@ class NotificationsSlide extends StatelessWidget {
                 ),
                 const SizedBox(width: 12),
                 const Text(
-                  'Notes INSA',
+                  'Relevé',
                   style: TextStyle(fontWeight: FontWeight.bold),
                 ),
               ],

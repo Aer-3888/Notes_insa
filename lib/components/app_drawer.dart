@@ -57,7 +57,7 @@ class AppDrawer extends ConsumerWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      'Insa Notes',
+                      'Relevé',
                       style: TextStyle(
                         color: Colors.white,
                         fontSize: 18,

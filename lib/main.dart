@@ -30,7 +30,7 @@ class MyApp extends StatelessWidget {
   Widget build(BuildContext context) {
     return MaterialApp(
       debugShowCheckedModeBanner: false,
-      title: 'Insa Notes',
+      title: 'Relevé',
       theme: ThemeData(
         brightness: Brightness.light,
         primarySwatch: Colors.blue,
@@ -176,7 +176,7 @@ class _SplashScreen extends StatelessWidget {
             Icon(Icons.school, size: 72, color: AppColors.primary),
             SizedBox(height: 16),
             Text(
-              'Notes INSA',
+              'Relevé',
               style: TextStyle(
                 color: AppColors.primary,
                 fontSize: 24,
@@ -233,7 +233,7 @@ class _AuthenticatingSplashState extends ConsumerState<_AuthenticatingSplash> {
               const Icon(Icons.school, size: 72, color: AppColors.primary),
               const SizedBox(height: 16),
               const Text(
-                'Notes INSA',
+                'Relevé',
                 style: TextStyle(
                   color: AppColors.primary,
                   fontSize: 24,
@@ -439,7 +439,7 @@ class _BiometricScreenState extends ConsumerState<_BiometricScreen>
               ),
               const SizedBox(height: 16),
               Text(
-                _failed ? 'Authentification échouée' : 'Notes INSA',
+                _failed ? 'Authentification échouée' : 'Relevé',
                 style: TextStyle(
                   fontSize: _failed ? 20 : 24,
                   fontWeight: FontWeight.bold,

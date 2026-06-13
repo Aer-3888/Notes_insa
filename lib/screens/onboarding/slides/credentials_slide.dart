@@ -52,7 +52,7 @@ class _CredentialsSlideState extends State<CredentialsSlide> {
     return SlideLayout(
       stepCount: widget.stepCount,
       currentIndex: widget.currentIndex,
-      title: 'Notes INSA',
+      title: 'Relevé',
       subtitle: 'Connectez-vous à votre compte',
       isLoading: widget.isLoading,
       error: widget.error,
