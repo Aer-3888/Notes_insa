@@ -21,6 +21,7 @@ class WorkerSyncService {
   static const String keyOtpSecret = 'otp_secret';
   static const String keyCasSession = 'cas_session';
   static const String keyGradesJson = 'stored_grades_json';
+  static const String keyGradesUpdatedAt = 'stored_grades_updated_at';
 
   /// Writes the provided keys to the worker store. A null value removes a key.
   static Future<void> sync(Map<String, String?> values) async {

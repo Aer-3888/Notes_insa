@@ -135,28 +135,17 @@ class GradesService {
 
     final firstJson = await grades(0);
     final merged = jsonDecode(firstJson) as Map<String, dynamic>;
-    final seenNames = <String>{};
     final mergedDetails = <dynamic>[];
 
-    void addDetails(List<dynamic> items) {
-      for (final item in items) {
-        if (item is Map<String, dynamic>) {
-          final name = item['name'] as String?;
-          if (name != null && !seenNames.add(name)) continue;
-        }
-        mergedDetails.add(item);
-      }
-    }
-
     if (merged['details'] is List) {
-      addDetails(merged['details'] as List<dynamic>);
+      _mergeDetails(mergedDetails, merged['details'] as List<dynamic>);
     }
 
     for (int i = 1; i < groupCount; i++) {
       final extraJson = await grades(i);
       final extra = jsonDecode(extraJson) as Map<String, dynamic>;
       if (extra['details'] is List) {
-        addDetails(extra['details'] as List<dynamic>);
+        _mergeDetails(mergedDetails, extra['details'] as List<dynamic>);
       }
     }
 
@@ -166,16 +155,61 @@ class GradesService {
     return (json: result, groupCount: groupCount);
   }
 
+  /// Merge [incoming] nodes into [target], deduplicating by name. When a node
+  /// with the same name already exists and both carry child `details` lists
+  /// (e.g. two "ANNEE 3" wrappers from different cards holding different
+  /// semesters), their children are merged recursively instead of dropping the
+  /// second wrapper wholesale — otherwise distinct semesters would be lost.
+  static void _mergeDetails(List<dynamic> target, List<dynamic> incoming) {
+    for (final item in incoming) {
+      if (item is! Map<String, dynamic>) {
+        target.add(item);
+        continue;
+      }
+      final name = item['name'] as String?;
+      if (name == null) {
+        target.add(item);
+        continue;
+      }
+
+      final existing = target.firstWhere(
+        (e) => e is Map<String, dynamic> && e['name'] == name,
+        orElse: () => null,
+      );
+
+      if (existing == null) {
+        target.add(item);
+        continue;
+      }
+
+      // Same name: if both are containers, merge their children; otherwise the
+      // node is a true duplicate (same leaf) and is skipped.
+      if (existing is Map<String, dynamic> &&
+          existing['details'] is List &&
+          item['details'] is List) {
+        _mergeDetails(
+          existing['details'] as List<dynamic>,
+          item['details'] as List<dynamic>,
+        );
+      }
+    }
+  }
+
   // ---------------------------------------------------------------------------
   // Storage
   // ---------------------------------------------------------------------------
 
   static Future<void> saveGrades(String gradesJson) async {
     try {
+      final stamp = DateTime.now().millisecondsSinceEpoch.toString();
+      // Write the canonical store first, then mirror to the worker store. The
+      // mirror is best-effort (already swallowed below); a mirror failure
+      // leaves the worker copy stale but the worker re-syncs on its next run.
       await _storage.write(key: _gradesKey, value: gradesJson);
-      // Keep the worker's snapshot in sync so background diffs use fresh data.
+      await _storage.write(key: kStorageGradesUpdatedAt, value: stamp);
       await WorkerSyncService.sync({
         WorkerSyncService.keyGradesJson: gradesJson,
+        WorkerSyncService.keyGradesUpdatedAt: stamp,
       });
     } catch (e) {
       if (kDebugMode) debugPrint('[GradesService] saveGrades failed: $e');
@@ -192,5 +226,30 @@ class GradesService {
       }
     }
     return null;
+  }
+
+  /// Epoch-ms timestamp of the last local grades write, or null if unknown.
+  static Future<int?> getLastSavedUpdatedAt() async {
+    try {
+      final raw = await _storage.read(key: kStorageGradesUpdatedAt);
+      return raw == null ? null : int.tryParse(raw);
+    } catch (_) {
+      return null;
+    }
+  }
+
+  /// Adopt a snapshot the background worker produced as the canonical local
+  /// copy. Does not mirror back to the worker store — the value already lives
+  /// there — and preserves the worker's timestamp so freshness stays accurate.
+  static Future<void> adoptGrades(String gradesJson, int updatedAt) async {
+    try {
+      await _storage.write(key: _gradesKey, value: gradesJson);
+      await _storage.write(
+        key: kStorageGradesUpdatedAt,
+        value: updatedAt.toString(),
+      );
+    } catch (e) {
+      if (kDebugMode) debugPrint('[GradesService] adoptGrades failed: $e');
+    }
   }
 }

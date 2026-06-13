@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter/foundation.dart';
 import '../services/grades_service.dart';
 import '../services/coefficients_service.dart';
+import '../services/averages_service.dart';
 import '../services/auth_service.dart';
 import '../services/worker_sync_service.dart';
 import '../constants.dart';
@@ -27,6 +28,11 @@ class GradesState {
   final DateTime? lastManualRefresh;
   final AuthStatus authStatus;
 
+  /// Academic year of the current snapshot (e.g. "2025-2026"), frozen at fetch
+  /// time. Null until grades are loaded/fetched; consumers fall back to the
+  /// current wall-clock academic year.
+  final String? academicYearBaseline;
+
   const GradesState({
     this.jsonData = '{}',
     this.lastUpdated,
@@ -35,6 +41,7 @@ class GradesState {
     this.needsReauth = false,
     this.lastManualRefresh,
     this.authStatus = AuthStatus.unauthenticated,
+    this.academicYearBaseline,
   });
 
   static const _keep = Object();
@@ -47,6 +54,7 @@ class GradesState {
     bool? needsReauth,
     Object? lastManualRefresh = _keep,
     AuthStatus? authStatus,
+    String? academicYearBaseline,
   }) {
     return GradesState(
       jsonData: jsonData ?? this.jsonData,
@@ -60,6 +68,7 @@ class GradesState {
           ? this.lastManualRefresh
           : lastManualRefresh as DateTime?,
       authStatus: authStatus ?? this.authStatus,
+      academicYearBaseline: academicYearBaseline ?? this.academicYearBaseline,
     );
   }
 
@@ -103,12 +112,25 @@ class GradesNotifier extends StateNotifier<GradesState> {
   /// Load grades from local secure storage.
   Future<void> loadStoredGrades() async {
     try {
+      // The background worker writes a newer snapshot only to its own store
+      // (the Flutter→worker mirror is one-way), so adopt it here when it's
+      // newer than our local copy before reading.
+      await _adoptWorkerGradesIfNewer();
+
       final jsonString = await GradesService.getLastSavedGrades();
       if (jsonString != null) {
-        state = state.copyWith(
-          jsonData: jsonString,
-          lastUpdated: DateTime.now(),
-        );
+        final baseline = await AveragesService.loadAcademicYearBaseline();
+        // Only re-stamp lastUpdated when the snapshot actually changed, so
+        // foregrounding the app doesn't reset "updated just now" each time.
+        if (jsonString != state.jsonData) {
+          state = state.copyWith(
+            jsonData: jsonString,
+            lastUpdated: DateTime.now(),
+            academicYearBaseline: baseline,
+          );
+        } else {
+          state = state.copyWith(academicYearBaseline: baseline);
+        }
       }
     } catch (e) {
       if (kDebugMode) {
@@ -138,13 +160,12 @@ class GradesNotifier extends StateNotifier<GradesState> {
       }
 
       final fetched = await GradesService.fetchAndSaveGrades();
-      await CoefficientsService.fetchAndCacheFromApi(
-        fetched.json,
-        fetched.groupCount,
-      );
-      // Fresh coefficients were just cached — drop the (possibly empty) cached
-      // provider results so averages recompute weighted without a restart.
-      _ref.invalidate(coefficientsProvider);
+      // Freeze the academic-year baseline for this snapshot before caching
+      // coefficients, which derives per-semester years from it.
+      await AveragesService.persistAcademicYearBaseline();
+      // Show grades immediately — the loading pill hides here. Weighted averages
+      // fill in once coefficients arrive (semesterAverageProvisional bridges the
+      // gap with an unweighted value in the meantime).
       state = state.copyWith(
         jsonData: fetched.json,
         lastUpdated: DateTime.now(),
@@ -152,7 +173,9 @@ class GradesNotifier extends StateNotifier<GradesState> {
         error: null,
         authStatus: AuthStatus.authenticated,
         needsReauth: false,
+        academicYearBaseline: AveragesService.currentAcademicYear(),
       );
+      await _refreshCoefficients(fetched.json, fetched.groupCount);
     } catch (e) {
       state = state.copyWith(
         isLoading: false,
@@ -259,13 +282,12 @@ class GradesNotifier extends StateNotifier<GradesState> {
       }
 
       final fetched = await GradesService.fetchAndSaveGrades();
-      await CoefficientsService.fetchAndCacheFromApi(
-        fetched.json,
-        fetched.groupCount,
-      );
-      // Fresh coefficients were just cached — drop the (possibly empty) cached
-      // provider results so averages recompute weighted without a restart.
-      _ref.invalidate(coefficientsProvider);
+      // Freeze the academic-year baseline for this snapshot before caching
+      // coefficients, which derives per-semester years from it.
+      await AveragesService.persistAcademicYearBaseline();
+      // Show grades immediately — the loading pill hides here. Weighted averages
+      // fill in once coefficients arrive (semesterAverageProvisional bridges the
+      // gap with an unweighted value in the meantime).
       state = state.copyWith(
         jsonData: fetched.json,
         lastUpdated: DateTime.now(),
@@ -273,7 +295,9 @@ class GradesNotifier extends StateNotifier<GradesState> {
         error: null,
         needsReauth: false,
         authStatus: AuthStatus.authenticated,
+        academicYearBaseline: AveragesService.currentAcademicYear(),
       );
+      await _refreshCoefficients(fetched.json, fetched.groupCount);
     } catch (e) {
       state = state.copyWith(
         isLoading: false,
@@ -301,6 +325,53 @@ class GradesNotifier extends StateNotifier<GradesState> {
       }
     } catch (_) {
       // Fall back to whatever session we already have
+    }
+  }
+
+  /// Fetches coefficients and drops the cached provider results so weighted
+  /// averages replace the provisional unweighted ones shown right after grades
+  /// load. Runs after the grades state is already set, but is awaited by the
+  /// caller so it stays inside the single-flight section — native CAS calls
+  /// (used by the coefficients fetch) must not interleave with a concurrent
+  /// fetch. Non-fatal: on failure the averages simply stay provisional.
+  Future<void> _refreshCoefficients(String gradesJson, int groupCount) async {
+    try {
+      await CoefficientsService.fetchAndCacheFromApi(gradesJson, groupCount);
+      _ref.invalidate(coefficientsProvider);
+    } catch (e) {
+      if (kDebugMode) {
+        debugPrint('[GradesProvider] coefficient refresh failed: $e');
+      }
+    }
+  }
+
+  /// Pulls the grades snapshot from the worker store and adopts it locally when
+  /// its timestamp is newer than ours — the background worker rotates the
+  /// snapshot in its own store and has no way to mirror it back to
+  /// flutter_secure_storage. Best-effort: any failure leaves the local copy.
+  Future<void> _adoptWorkerGradesIfNewer() async {
+    try {
+      final localUpdatedAt = await GradesService.getLastSavedUpdatedAt();
+      final values = await WorkerSyncService.read([
+        WorkerSyncService.keyGradesJson,
+        WorkerSyncService.keyGradesUpdatedAt,
+      ]);
+      if (values == null) return;
+
+      final workerJson = values[WorkerSyncService.keyGradesJson];
+      if (workerJson == null || workerJson.isEmpty) return;
+      final workerUpdatedAt = int.tryParse(
+        values[WorkerSyncService.keyGradesUpdatedAt] ?? '',
+      );
+      if (workerUpdatedAt == null) return;
+
+      // Only adopt when strictly newer; equal timestamps mean the worker copy
+      // is just our own mirror.
+      if (localUpdatedAt != null && workerUpdatedAt <= localUpdatedAt) return;
+
+      await GradesService.adoptGrades(workerJson, workerUpdatedAt);
+    } catch (_) {
+      // Keep whatever we already have.
     }
   }
 
