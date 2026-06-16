@@ -1,11 +1,10 @@
-import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../app_colors.dart';
 import '../services/auth_service.dart';
 import '../services/grades_service.dart';
 import '../providers/grades_provider.dart';
-import '../screens/login_screen.dart';
+import '../providers/auth_providers.dart';
 import '../screens/raw_json_viewer_screen.dart';
 import '../screens/settings_screen.dart';
 import '../providers/package_info_provider.dart';
@@ -162,16 +161,12 @@ class AppDrawer extends ConsumerWidget {
                     // Reset native CAS session so no in-memory state leaks to the next user.
                     await GradesService.newCAS();
                     if (context.mounted) {
-                      Navigator.pop(context);
-                      unawaited(
-                        Navigator.pushAndRemoveUntil(
-                          context,
-                          MaterialPageRoute(
-                            builder: (_) => const LoginScreen(),
-                          ),
-                          (route) => false,
-                        ),
-                      );
+                      // Drop back to AuthGate which, now credential-less, shows
+                      // the onboarding connect flow — same design as first launch.
+                      ref.read(appUnlockedProvider.notifier).state = false;
+                      ref.invalidate(hasCredentialsProvider);
+                      Navigator.pop(context); // close the drawer
+                      Navigator.of(context).popUntil((route) => route.isFirst);
                     }
                   },
                 ),

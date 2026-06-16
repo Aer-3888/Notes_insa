@@ -7,7 +7,7 @@ import '../providers/auth_providers.dart';
 import '../services/auth_service.dart';
 import '../services/grades_service.dart';
 import 'scan_screen.dart';
-import 'login_screen.dart';
+import 'onboarding/onboarding_screen.dart';
 
 class TwoFactorScreen extends ConsumerStatefulWidget {
   const TwoFactorScreen({super.key});
@@ -102,8 +102,8 @@ class _TwoFactorScreenState extends ConsumerState<TwoFactorScreen> {
     if (!mounted) return;
     ref.read(gradesProvider.notifier).clearGrades();
     ref.invalidate(hasCredentialsProvider);
-    // Pop this pushed route so the rebuilt AuthGate (now showing LoginScreen)
-    // isn't left covered by a dangling 2FA screen.
+    // Pop this pushed route so the rebuilt AuthGate (now showing the onboarding
+    // connect flow) isn't left covered by a dangling 2FA screen.
     if (Navigator.canPop(context)) Navigator.pop(context);
   }
 
@@ -140,9 +140,9 @@ class _TwoFactorScreenState extends ConsumerState<TwoFactorScreen> {
             ),
             const SizedBox(height: 24),
             TextButton(
-              onPressed: () => Navigator.of(
-                context,
-              ).push(MaterialPageRoute(builder: (_) => const LoginScreen())),
+              onPressed: () => Navigator.of(context).push(
+                MaterialPageRoute(builder: (_) => const OnboardingScreen()),
+              ),
               child: const Text('Se connecter autrement'),
             ),
           ],

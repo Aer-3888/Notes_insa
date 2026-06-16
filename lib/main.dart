@@ -6,7 +6,6 @@ import 'services/auth_service.dart';
 import 'services/worker_sync_service.dart';
 import 'providers/grades_provider.dart';
 import 'providers/auth_providers.dart';
-import 'screens/login_screen.dart';
 import 'screens/onboarding/onboarding_screen.dart';
 import 'screens/dashboard_screen.dart';
 import 'screens/two_factor_screen.dart';
@@ -284,7 +283,9 @@ class _AuthenticatingSplashState extends ConsumerState<_AuthenticatingSplash> {
                   width: double.infinity,
                   child: TextButton(
                     onPressed: () => Navigator.of(context).push(
-                      MaterialPageRoute(builder: (_) => const LoginScreen()),
+                      MaterialPageRoute(
+                        builder: (_) => const OnboardingScreen(),
+                      ),
                     ),
                     child: const Text('Se connecter autrement'),
                   ),
@@ -494,7 +495,9 @@ class _BiometricScreenState extends ConsumerState<_BiometricScreen>
                   width: double.infinity,
                   child: TextButton(
                     onPressed: () => Navigator.of(context).push(
-                      MaterialPageRoute(builder: (_) => const LoginScreen()),
+                      MaterialPageRoute(
+                        builder: (_) => const OnboardingScreen(),
+                      ),
                     ),
                     child: const Text('Se connecter autrement'),
                   ),
@@ -722,7 +725,7 @@ class _PinScreenState extends ConsumerState<_PinScreen> {
                 const SizedBox(height: 12),
                 TextButton(
                   onPressed: () => Navigator.of(context).push(
-                    MaterialPageRoute(builder: (_) => const LoginScreen()),
+                    MaterialPageRoute(builder: (_) => const OnboardingScreen()),
                   ),
                   child: const Text('Se connecter autrement'),
                 ),
