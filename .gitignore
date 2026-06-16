@@ -66,3 +66,5 @@ key.properties
 
 # Cloudfare
 worker/wrangler.toml
+
+scripts/*
