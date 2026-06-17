@@ -6,12 +6,30 @@ import io.flutter.plugin.common.MethodChannel
 import android.os.Handler
 import android.os.Looper
 import android.util.Log
+import android.view.WindowManager
 import mobinsapi.Mobinsapi
 
 private const val CHANNEL = "com.aer.notes_insa/grades"
 private const val TAG = "MainActivity"
 
 class MainActivity : FlutterFragmentActivity() {
+
+    // Blank the recents/task-switcher thumbnail while backgrounded by enabling
+    // FLAG_SECURE on pause and clearing it on resume. Toggling it (rather than
+    // setting it once) keeps normal screenshots working while the app is open.
+    override fun onPause() {
+        super.onPause()
+        window.setFlags(
+            WindowManager.LayoutParams.FLAG_SECURE,
+            WindowManager.LayoutParams.FLAG_SECURE,
+        )
+    }
+
+    override fun onResume() {
+        super.onResume()
+        window.clearFlags(WindowManager.LayoutParams.FLAG_SECURE)
+    }
+
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
         super.configureFlutterEngine(flutterEngine)
 

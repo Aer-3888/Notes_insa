@@ -13,6 +13,10 @@ import 'background_tasks.dart';
 import 'constants.dart';
 import 'services/notification_service.dart';
 
+// Root navigator key so lifecycle handling can dismiss open modal routes
+// (bottom sheets, dialogs, pushed screens) when the app is backgrounded.
+final GlobalKey<NavigatorState> rootNavigatorKey = GlobalKey<NavigatorState>();
+
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   if (kAppSecret.isEmpty) {
@@ -28,6 +32,7 @@ class MyApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
+      navigatorKey: rootNavigatorKey,
       debugShowCheckedModeBanner: false,
       title: 'Relevé',
       theme: ThemeData(
@@ -36,7 +41,90 @@ class MyApp extends StatelessWidget {
         scaffoldBackgroundColor: AppColors.scaffoldBg,
         useMaterial3: true,
       ),
+      // Wrap every route in a privacy curtain so the OS task-switcher snapshot
+      // never reveals user data. Sits above the Navigator, so it also covers
+      // open bottom sheets and dialogs.
+      builder: (context, child) =>
+          _PrivacyCover(child: child ?? const SizedBox.shrink()),
       home: const AuthGate(),
+    );
+  }
+}
+
+// Full-screen cover shown whenever the app is not in the foreground, so the OS
+// task-switcher snapshot never reveals user data. Purely visual — the
+// biometric/PIN lock gate (AuthGate + appUnlockedProvider) is what actually
+// re-gates access on resume.
+class _PrivacyCover extends StatefulWidget {
+  final Widget child;
+  const _PrivacyCover({required this.child});
+
+  @override
+  State<_PrivacyCover> createState() => _PrivacyCoverState();
+}
+
+class _PrivacyCoverState extends State<_PrivacyCover>
+    with WidgetsBindingObserver {
+  bool _obscured = false;
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addObserver(this);
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    // Cover on anything that isn't a clean foreground (inactive/paused/hidden/
+    // detached) — inactive fires before the snapshot is taken, so the snapshot
+    // captures the curtain rather than the underlying screen.
+    final obscured = state != AppLifecycleState.resumed;
+    if (obscured != _obscured) setState(() => _obscured = obscured);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Stack(
+      children: [
+        widget.child,
+        if (_obscured) const Positioned.fill(child: _PrivacyCurtain()),
+      ],
+    );
+  }
+}
+
+// The opaque branded curtain itself — mirrors the splash screen.
+class _PrivacyCurtain extends StatelessWidget {
+  const _PrivacyCurtain();
+
+  @override
+  Widget build(BuildContext context) {
+    return const ColoredBox(
+      color: AppColors.scaffoldBg,
+      child: Center(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(Icons.school, size: 72, color: AppColors.primary),
+            SizedBox(height: 16),
+            Text(
+              'Relevé',
+              style: TextStyle(
+                color: AppColors.primary,
+                fontSize: 24,
+                fontWeight: FontWeight.bold,
+                letterSpacing: 1.2,
+              ),
+            ),
+          ],
+        ),
+      ),
     );
   }
 }
@@ -107,7 +195,16 @@ class _AuthGateState extends ConsumerState<AuthGate>
   void didChangeAppLifecycleState(AppLifecycleState state) {
     // Re-arm the biometric/PIN gate whenever the app leaves the foreground.
     if (state == AppLifecycleState.paused) {
+      final wasUnlocked = ref.read(appUnlockedProvider);
       ref.read(appUnlockedProvider.notifier).state = false;
+      // The lock gate is a body swap inside AuthGate, so any open bottom sheet,
+      // dialog, or pushed screen lives *above* it on the Navigator stack and
+      // would otherwise linger over the lock screen on resume (and leak into the
+      // task-switcher snapshot). Pop everything back down to the AuthGate root
+      // so the biometric/PIN screen is the only thing on screen.
+      if (wasUnlocked) {
+        rootNavigatorKey.currentState?.popUntil((route) => route.isFirst);
+      }
     }
   }
 
