@@ -1,12 +1,7 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../constants.dart';
 import '../models.dart';
 import '../services/averages_service.dart';
-
-typedef AveragesParams = ({
-  String department,
-  int semester,
-  String academicYear,
-});
 
 /// Fetches class averages for a given department + semester + academic year.
 /// Returns [] immediately when department is not yet known.
@@ -17,11 +12,11 @@ typedef AveragesParams = ({
 /// returning to the dashboard or reopening a UE sheet doesn't re-trigger a
 /// network fetch and loading flicker.
 final averagesProvider =
-    FutureProvider.family<List<SubjectAverage>, AveragesParams>((
+    FutureProvider.family<List<SubjectAverage>, SemesterParams>((
       ref,
       params,
     ) async {
-      if (params.department.isEmpty || params.department == 'Etudiant') {
+      if (!isRealDepartment(params.department)) {
         return [];
       }
       return AveragesService.fetchAverages(

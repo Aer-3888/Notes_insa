@@ -108,19 +108,7 @@ final semesterAverageProvider = Provider<double?>((ref) {
   if (fromData != null) return fromData;
 
   final curriculum = ref.watch(curriculumProvider);
-
-  double totalSemScore = 0;
-  double totalSemCoeff = 0;
-
-  for (var unit in curriculum) {
-    final ueAvg = unit.average;
-    if (ueAvg != null) {
-      totalSemScore += ueAvg * unit.coeff;
-      totalSemCoeff += unit.coeff;
-    }
-  }
-
-  return (totalSemCoeff > 0) ? totalSemScore / totalSemCoeff : null;
+  return weightedAverage(curriculum, (u) => u.average, (u) => u.coeff);
 });
 
 /// True when real coefficients are loaded for the current semester. When false,

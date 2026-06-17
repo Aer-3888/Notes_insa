@@ -1,7 +1,6 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../constants.dart';
 import '../services/coefficients_service.dart';
-
-typedef CoeffParams = ({String department, int semester, String academicYear});
 
 /// Fetches coefficients for a given department + semester + academic year
 /// using the 3-tier fallback (local → Cloudflare → API).
@@ -11,11 +10,11 @@ typedef CoeffParams = ({String department, int semester, String academicYear});
 /// cached for the app session, so switching back to a previously viewed
 /// semester doesn't re-trigger a loading flash with unweighted averages.
 final coefficientsProvider =
-    FutureProvider.family<Map<String, double>, CoeffParams>((
+    FutureProvider.family<Map<String, double>, SemesterParams>((
       ref,
       params,
     ) async {
-      if (params.department.isEmpty || params.department == 'Etudiant') {
+      if (!isRealDepartment(params.department)) {
         return {};
       }
       return CoefficientsService.fetch(

@@ -1,5 +1,6 @@
 import 'dart:convert';
 import 'package:flutter/foundation.dart';
+import 'constants.dart';
 import 'models.dart';
 
 /// JSON curriculum parser.
@@ -140,7 +141,7 @@ class JsonCurriculumParser {
   /// 3. Top-level name as-is
   static String getDepartmentName(Map<String, dynamic> data) {
     try {
-      final String rawName = (data['name'] ?? 'Etudiant').toString();
+      final String rawName = (data['name'] ?? kUnknownDepartment).toString();
 
       // 1. Content inside parentheses
       final bracketMatch = RegExp(r'\((.*?)\)').firstMatch(rawName);
@@ -160,7 +161,7 @@ class JsonCurriculumParser {
       return rawName.cleanName();
     } catch (e) {
       if (kDebugMode) debugPrint('[Parser] getDepartmentName failed: $e');
-      return 'Etudiant';
+      return kUnknownDepartment;
     }
   }
 
@@ -217,7 +218,7 @@ class JsonCurriculumParser {
       if (item is! Map<String, dynamic> || item['name'] == null) continue;
       final name = item['name'].toString();
       if (_isSemesterName(name)) {
-        final semMatch = _semesterRegex.firstMatch(name);
+        final semMatch = semesterRegex.firstMatch(name);
         if (semMatch != null &&
             int.tryParse(semMatch.group(1) ?? '') == semesterNumber) {
           final deptMatch = _deptFromSemRegex.firstMatch(name);
@@ -255,12 +256,14 @@ class JsonCurriculumParser {
     }
   }
 
-  static final RegExp _semesterRegex = RegExp(
+  /// Matches a semester label and captures its number, e.g. "SEMESTRE 5" → "5".
+  /// Public so other parsers (e.g. CoefficientsService) reuse the one pattern.
+  static final RegExp semesterRegex = RegExp(
     r'sem(?:estre)?[^a-zA-Z]*(\d+)',
     caseSensitive: false,
   );
 
-  static bool _isSemesterName(String name) => _semesterRegex.hasMatch(name);
+  static bool _isSemesterName(String name) => semesterRegex.hasMatch(name);
 
   /// Recursively walks the tree collecting semester numbers.
   /// Stops recursing into a branch once a semester is found (semesters
@@ -268,7 +271,7 @@ class JsonCurriculumParser {
   static void _collectSemesters(List<dynamic> items, Set<int> out) {
     for (final item in items) {
       if (item is! Map<String, dynamic> || item['name'] == null) continue;
-      final match = _semesterRegex.firstMatch(item['name'].toString());
+      final match = semesterRegex.firstMatch(item['name'].toString());
       if (match != null) {
         final n = int.tryParse(match.group(1) ?? '');
         if (n != null) out.add(n);
@@ -287,7 +290,7 @@ class JsonCurriculumParser {
       if (item is! Map<String, dynamic> || item['name'] == null) continue;
       final name = item['name'].toString();
       if (_isSemesterName(name)) {
-        final match = _semesterRegex.firstMatch(name);
+        final match = semesterRegex.firstMatch(name);
         if (match != null &&
             int.tryParse(match.group(1) ?? '') == semesterNumber) {
           return item;
@@ -334,3 +337,30 @@ class JsonCurriculumParser {
     return null;
   }
 }
+
+/// Decodes a `{'ts': epochMs, <payloadKey>: ...}` cache envelope and returns the
+/// payload under [payloadKey] when it is still within [ttl]. Returns null when
+/// the string is unparseable, not an envelope, or expired — callers treat null
+/// as a cache miss. The payload's own type is left to the caller to validate.
+dynamic readTtlEnvelope(String raw, String payloadKey, Duration ttl) {
+  try {
+    final decoded = jsonDecode(raw);
+    if (decoded is! Map<String, dynamic>) return null;
+    if (!decoded.containsKey(payloadKey)) return null;
+    final ts = (decoded['ts'] as num?)?.toInt() ?? 0;
+    final age = DateTime.now().difference(
+      DateTime.fromMillisecondsSinceEpoch(ts),
+    );
+    if (age > ttl) return null;
+    return decoded[payloadKey];
+  } catch (_) {
+    return null;
+  }
+}
+
+/// Wraps [payload] in a timestamped cache envelope (see [readTtlEnvelope]) and
+/// returns the JSON string to persist.
+String writeTtlEnvelope(String payloadKey, Object payload) => jsonEncode({
+  'ts': DateTime.now().millisecondsSinceEpoch,
+  payloadKey: payload,
+});

@@ -2,6 +2,32 @@
 /// No trailing slash — service methods append /submit and /averages.
 const kWorkerBaseUrl = 'https://notesinsa.theo-phan-quoc-huy.workers.dev';
 
+/// Identifies a fetched dataset by department + semester + academic year.
+/// Shared by the coefficients and averages provider families and cache keys.
+typedef SemesterParams = ({
+  String department,
+  int semester,
+  String academicYear,
+});
+
+/// Builds a per-(department, semester, academicYear) storage key from a prefix.
+/// Used for cached coefficients/averages and the last-submitted grades hash.
+String semesterCacheKey(
+  String prefix,
+  String department,
+  int semester,
+  String academicYear,
+) => '$prefix${department}_${semester}_$academicYear';
+
+/// Placeholder department used when the real code can't be resolved from the
+/// grades payload. Treated as "no department" by [isRealDepartment].
+const kUnknownDepartment = 'Etudiant';
+
+/// True when [department] is a resolved code we can fetch shared data for —
+/// i.e. non-empty and not the [kUnknownDepartment] placeholder.
+bool isRealDepartment(String department) =>
+    department.isNotEmpty && department != kUnknownDepartment;
+
 /// Secret shared with the Cloudflare Worker to authenticate submissions.
 /// Pass this at build time using: --dart-define=APP_SECRET=your_secret_here
 const kAppSecret = String.fromEnvironment('APP_SECRET');

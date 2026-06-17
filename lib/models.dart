@@ -30,6 +30,28 @@ class GradeUtils {
   }
 }
 
+/// Coefficient-weighted average of [items]. [valueOf] returns each item's value
+/// (items returning null are skipped); [weightOf] returns its weight. Returns
+/// null when no item contributes (all null, or total weight is 0), so callers
+/// get a clean "no average" signal. With every weight equal this is the plain
+/// mean.
+double? weightedAverage<T>(
+  Iterable<T> items,
+  double? Function(T) valueOf,
+  double Function(T) weightOf,
+) {
+  double totalScore = 0;
+  double totalWeight = 0;
+  for (final item in items) {
+    final value = valueOf(item);
+    if (value == null) continue;
+    final weight = weightOf(item);
+    totalScore += value * weight;
+    totalWeight += weight;
+  }
+  return totalWeight > 0 ? totalScore / totalWeight : null;
+}
+
 final RegExp _apostropheRegex = RegExp(r"['’]");
 final RegExp _whitespaceRegex = RegExp(r'\s+');
 
@@ -212,23 +234,10 @@ class Subject {
   /// parsing, so the average never changes and is read many times per build.
   late final double? average = _computeAverage();
 
-  double? _computeAverage() {
-    if (grades.isEmpty) return null;
-    final hasAnyCoeff = grades.any((g) => g.coeffValue != null);
-    if (hasAnyCoeff) {
-      double totalScore = 0;
-      double totalCoeff = 0;
-      for (final g in grades) {
-        final c = g.coeffValue ?? 1.0;
-        totalScore += g.value * c;
-        totalCoeff += c;
-      }
-      if (totalCoeff == 0) return null;
-      return totalScore / totalCoeff;
-    }
-    return grades.fold<double>(0, (prev, curr) => prev + curr.value) /
-        grades.length;
-  }
+  // Weight each grade by its own coefficient, defaulting to 1.0 when absent —
+  // so grades without coefficients collapse to a plain mean.
+  double? _computeAverage() =>
+      weightedAverage(grades, (g) => g.value, (g) => g.coeffValue ?? 1.0);
 }
 
 class TeachingUnit {
@@ -244,20 +253,8 @@ class TeachingUnit {
   /// Computed once on first access and cached (see [Subject.average]).
   late final double? average = _computeAverage();
 
-  double? _computeAverage() {
-    double totalScore = 0;
-    double totalCoeff = 0;
-
-    for (var sub in subjects) {
-      if (sub.average != null) {
-        totalScore += sub.average! * sub.coeff;
-        totalCoeff += sub.coeff;
-      }
-    }
-
-    if (totalCoeff == 0) return null;
-    return totalScore / totalCoeff;
-  }
+  double? _computeAverage() =>
+      weightedAverage(subjects, (s) => s.average, (s) => s.coeff);
 
   /// A unit is validated when all subjects have an average and the weighted
   /// average is at least 10 (10.00 is a pass). Cached on first access.

@@ -30,9 +30,12 @@ class CoefficientsService {
     String department,
     int semester,
     String academicYear,
-  ) {
-    return '$kStorageCoefficientsPrefix${department}_${semester}_$academicYear';
-  }
+  ) => semesterCacheKey(
+    kStorageCoefficientsPrefix,
+    department,
+    semester,
+    academicYear,
+  );
 
   /// Fetch coefficients for a department+semester+academicYear.
   /// Returns a map of cleaned "ue|subject" → coefficient value.
@@ -142,26 +145,23 @@ class CoefficientsService {
         key: _cacheKey(department, semester, academicYear),
       );
       if (raw == null || raw.isEmpty) return null;
-      final decoded = jsonDecode(raw);
-      if (decoded is! Map<String, dynamic>) return null;
 
       // New format: {"ts": epochMillis, "coeffs": {...}} with a TTL.
-      if (decoded['coeffs'] is Map) {
-        final ts = (decoded['ts'] as num?)?.toInt() ?? 0;
-        final age = DateTime.now().difference(
-          DateTime.fromMillisecondsSinceEpoch(ts),
+      final coeffs = readTtlEnvelope(raw, 'coeffs', _cacheTtl);
+      if (coeffs is Map) {
+        return coeffs.map(
+          (k, v) => MapEntry(k as String, (v as num).toDouble()),
         );
-        if (age > _cacheTtl) {
-          if (kDebugMode) debugPrint('[Coefficients] Local cache expired');
-          return null;
-        }
-        final coeffs = decoded['coeffs'] as Map<String, dynamic>;
-        return coeffs.map((k, v) => MapEntry(k, (v as num).toDouble()));
       }
 
-      // Legacy format: a bare {key: value} map (no timestamp) — accept once;
-      // it gets upgraded to the timestamped format on the next API cache write.
-      return decoded.map((k, v) => MapEntry(k, (v as num).toDouble()));
+      // Legacy format: a bare {key: value} map (no timestamp) — accept once; it
+      // gets upgraded to the timestamped format on the next API cache write.
+      // Guard against a present-but-expired envelope being mistaken for legacy.
+      final decoded = jsonDecode(raw);
+      if (decoded is Map<String, dynamic> && !decoded.containsKey('coeffs')) {
+        return decoded.map((k, v) => MapEntry(k, (v as num).toDouble()));
+      }
+      return null;
     } catch (e) {
       if (kDebugMode) debugPrint('[Coefficients] Local cache read failed: $e');
       return null;
@@ -177,10 +177,7 @@ class CoefficientsService {
     try {
       await _storage.write(
         key: _cacheKey(department, semester, academicYear),
-        value: jsonEncode({
-          'ts': DateTime.now().millisecondsSinceEpoch,
-          'coeffs': coefficients,
-        }),
+        value: writeTtlEnvelope('coeffs', coefficients),
       );
     } catch (e) {
       if (kDebugMode) debugPrint('[Coefficients] Local cache write failed: $e');
@@ -312,11 +309,6 @@ class CoefficientsService {
     }
   }
 
-  static final RegExp _semesterRegex = RegExp(
-    r'sem(?:estre)?[^a-zA-Z]*(\d+)',
-    caseSensitive: false,
-  );
-
   /// Parse the Coefficients() API response.
   /// Same structure as grades: Root → Semester → UE → Subject (→ Grade details).
   /// Every level has a "coeff" string field. We extract subject-level coefficients.
@@ -334,14 +326,16 @@ class CoefficientsService {
       for (final semNode in topDetails) {
         if (semNode is! Map<String, dynamic>) continue;
         final semName = (semNode['name'] ?? '').toString();
-        final semMatch = _semesterRegex.firstMatch(semName);
+        final semMatch = JsonCurriculumParser.semesterRegex.firstMatch(semName);
         if (semMatch == null) {
           // Might be a year wrapper — recurse one level
           if (semNode['details'] is List) {
             for (final inner in semNode['details'] as List) {
               if (inner is! Map<String, dynamic>) continue;
               final innerName = (inner['name'] ?? '').toString();
-              final innerMatch = _semesterRegex.firstMatch(innerName);
+              final innerMatch = JsonCurriculumParser.semesterRegex.firstMatch(
+                innerName,
+              );
               if (innerMatch != null) {
                 final semKey = innerMatch.group(1)!;
                 _extractUeCoeffs(inner, semKey, results);

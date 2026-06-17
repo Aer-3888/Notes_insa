@@ -124,7 +124,7 @@ class AveragesService {
         data,
         sem,
       );
-      if (department.isEmpty || department == 'Etudiant') {
+      if (!isRealDepartment(department)) {
         if (kDebugMode) {
           debugPrint(
             '[AveragesService] Skipping semester $sem: department is "$department"',
@@ -194,8 +194,12 @@ class AveragesService {
     }
 
     final prefs = await SharedPreferences.getInstance();
-    final hashKey =
-        '$kStorageSubmittedHashPrefix${department}_${semester}_$academicYear';
+    final hashKey = semesterCacheKey(
+      kStorageSubmittedHashPrefix,
+      department,
+      semester,
+      academicYear,
+    );
     final currentHash = sha256
         .convert(utf8.encode('$username:${jsonEncode(subjects)}'))
         .toString();
@@ -264,9 +268,12 @@ class AveragesService {
     String department,
     int semester,
     String academicYear,
-  ) {
-    return '$kStorageAveragesPrefix${department}_${semester}_$academicYear';
-  }
+  ) => semesterCacheKey(
+    kStorageAveragesPrefix,
+    department,
+    semester,
+    academicYear,
+  );
 
   /// Fetch class averages for a department + semester.
   /// Returns an empty list when the server has no data yet.
@@ -315,16 +322,8 @@ class AveragesService {
     try {
       final raw = await _storage.read(key: cacheKey);
       if (raw == null || raw.isEmpty) return null;
-      final decoded = jsonDecode(raw);
-      if (decoded is! Map<String, dynamic>) return null;
 
-      final ts = (decoded['ts'] as num?)?.toInt() ?? 0;
-      final age = DateTime.now().difference(
-        DateTime.fromMillisecondsSinceEpoch(ts),
-      );
-      if (age > _cacheTtl) return null;
-
-      final data = decoded['data'];
+      final data = readTtlEnvelope(raw, 'data', _cacheTtl);
       if (data is! List) return null;
 
       final result = <SubjectAverage>[];
@@ -350,10 +349,7 @@ class AveragesService {
     try {
       await _storage.write(
         key: cacheKey,
-        value: jsonEncode({
-          'ts': DateTime.now().millisecondsSinceEpoch,
-          'data': data,
-        }),
+        value: writeTtlEnvelope('data', data),
       );
     } catch (e) {
       if (kDebugMode) debugPrint('[Averages] Local cache write failed: $e');
