@@ -24,8 +24,10 @@ class ParticipationSlide extends StatelessWidget {
       stepCount: stepCount,
       currentIndex: currentIndex,
       onBack: onBack,
-      title: 'Comparez\nvos notes\navec la promo',
-      subtitle: 'Contribuez anonymement pour voir les moyennes de votre classe',
+      title: 'Comparez vos notes\navec la promo',
+      subtitle:
+          'En participant, vous partagez vos moyennes de façon anonyme et '
+          'voyez en retour celles de votre promo.',
       primaryLabel: 'Participer',
       onPrimary: onAccept,
       secondaryLabel: 'Non merci',
@@ -33,7 +35,7 @@ class ParticipationSlide extends StatelessWidget {
       content: const Column(
         children: [
           _DataCard(
-            label: 'CE QUI EST PARTAGÉ',
+            label: 'Partagé',
             positive: true,
             items: [
               'Moyenne par matière',
@@ -43,7 +45,7 @@ class ParticipationSlide extends StatelessWidget {
           ),
           SizedBox(height: 12),
           _DataCard(
-            label: 'NON PARTAGÉ',
+            label: 'Jamais partagé',
             positive: false,
             items: [
               'Votre nom',
@@ -84,10 +86,9 @@ class _DataCard extends StatelessWidget {
           Text(
             label,
             style: TextStyle(
-              fontSize: 11,
-              fontWeight: FontWeight.bold,
-              color: Colors.grey.shade500,
-              letterSpacing: 0.8,
+              fontSize: 13,
+              fontWeight: FontWeight.w600,
+              color: positive ? AppColors.statusPositive : Colors.grey.shade600,
             ),
           ),
           const SizedBox(height: 8),

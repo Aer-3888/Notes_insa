@@ -24,7 +24,7 @@ class NotificationsSlide extends StatelessWidget {
       stepCount: stepCount,
       currentIndex: currentIndex,
       onBack: onBack,
-      title: 'Soyez notifié\ndès qu\'une note\nest publiée',
+      title: 'Soyez notifié dès qu\'une note est publiée',
       subtitle: 'Même quand l\'application est fermée',
       primaryLabel: 'Activer les notifications',
       onPrimary: onEnable,

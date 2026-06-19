@@ -53,7 +53,7 @@ class _ManualCodeSlideState extends State<ManualCodeSlide> {
       stepCount: widget.stepCount,
       currentIndex: widget.currentIndex,
       onBack: widget.onBack,
-      title: 'Code de\nvérification',
+      title: 'Code de vérification',
       subtitle: 'Entrez le code reçu par email ou généré par votre app',
       isLoading: widget.isLoading,
       error: widget.error,

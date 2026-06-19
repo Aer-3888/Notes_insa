@@ -65,7 +65,7 @@ class _PinSetupSlideState extends State<PinSetupSlide> {
       stepCount: widget.stepCount,
       currentIndex: widget.currentIndex,
       onBack: widget.onBack,
-      title: 'Sécurisez\nl\'accès',
+      title: 'Sécurisez l\'accès',
       subtitle: 'Créez un code PIN pour protéger vos notes',
       isLoading: widget.isLoading,
       error: widget.error,

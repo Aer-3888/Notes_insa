@@ -31,7 +31,7 @@ class TwoFactorChoiceSlide extends StatelessWidget {
       stepCount: stepCount,
       currentIndex: currentIndex,
       onBack: onBack,
-      title: 'Double\nauthentification',
+      title: 'Double authentification',
       subtitle: 'Choisissez comment valider votre identité',
       isLoading: isLoading,
       error: error,
@@ -43,8 +43,7 @@ class TwoFactorChoiceSlide extends StatelessWidget {
             icon: Icons.dialpad_outlined,
             title: 'Entrer un code',
             description:
-                'Recevez un code par email ou entrez celui de votre app TOTP à chaque connexion',
-            warnings: const ['Action manuelle à chaque expiration de session'],
+                'Un code par email ou depuis votre app TOTP, à chaque connexion.',
             selected: selectedMethod == TfaMethod.manual,
             onTap: () => onSelect(TfaMethod.manual),
           ),
@@ -53,10 +52,7 @@ class TwoFactorChoiceSlide extends StatelessWidget {
             icon: Icons.qr_code_scanner,
             title: 'Scanner le QR code',
             description:
-                'Scannez le QR code INSA une seule fois pour vous authentifier',
-            positives: const [
-              'Option de mémorisation pour la reconnexion automatique',
-            ],
+                'À scanner une seule fois. Reconnexion automatique possible.',
             badge: 'Recommandé',
             selected: selectedMethod == TfaMethod.totp,
             onTap: () => onSelect(TfaMethod.totp),
@@ -71,8 +67,6 @@ class _MethodCard extends StatelessWidget {
   final IconData icon;
   final String title;
   final String description;
-  final List<String> positives;
-  final List<String> warnings;
   final String? badge;
   final bool selected;
   final VoidCallback onTap;
@@ -81,8 +75,6 @@ class _MethodCard extends StatelessWidget {
     required this.icon,
     required this.title,
     required this.description,
-    this.positives = const [],
-    this.warnings = const [],
     this.badge,
     required this.selected,
     required this.onTap,
@@ -90,11 +82,11 @@ class _MethodCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: onTap,
+    return Semantics(
+      button: true,
+      selected: selected,
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 150),
-        padding: const EdgeInsets.all(16),
         decoration: BoxDecoration(
           color: selected
               ? AppColors.primary.withValues(alpha: 0.05)
@@ -105,120 +97,91 @@ class _MethodCard extends StatelessWidget {
           ),
           borderRadius: BorderRadius.circular(12),
         ),
-        child: Row(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Padding(
-              padding: const EdgeInsets.only(top: 2),
-              child: Icon(
-                selected
-                    ? Icons.radio_button_checked
-                    : Icons.radio_button_unchecked,
-                color: selected ? AppColors.primary : Colors.grey.shade400,
-                size: 20,
-              ),
-            ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Column(
+        child: Material(
+          color: Colors.transparent,
+          child: InkWell(
+            onTap: onTap,
+            borderRadius: BorderRadius.circular(12),
+            child: Padding(
+              padding: const EdgeInsets.all(16),
+              child: Row(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Row(
-                    children: [
-                      Icon(
-                        icon,
-                        size: 18,
-                        color: selected
-                            ? AppColors.primary
-                            : Colors.grey.shade700,
-                      ),
-                      const SizedBox(width: 8),
-                      Expanded(
-                        child: Text(
-                          title,
+                  Padding(
+                    padding: const EdgeInsets.only(top: 2),
+                    child: Icon(
+                      selected
+                          ? Icons.radio_button_checked
+                          : Icons.radio_button_unchecked,
+                      color: selected
+                          ? AppColors.primary
+                          : Colors.grey.shade400,
+                      size: 20,
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          children: [
+                            Icon(
+                              icon,
+                              size: 18,
+                              color: selected
+                                  ? AppColors.primary
+                                  : Colors.grey.shade700,
+                            ),
+                            const SizedBox(width: 8),
+                            Expanded(
+                              child: Text(
+                                title,
+                                style: TextStyle(
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: 15,
+                                  color: selected
+                                      ? AppColors.primary
+                                      : AppColors.textDark,
+                                ),
+                              ),
+                            ),
+                            if (badge != null)
+                              Container(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 8,
+                                  vertical: 2,
+                                ),
+                                decoration: BoxDecoration(
+                                  color: AppColors.primary,
+                                  borderRadius: BorderRadius.circular(12),
+                                ),
+                                child: Text(
+                                  badge!,
+                                  style: const TextStyle(
+                                    color: Colors.white,
+                                    fontSize: 11,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
+                              ),
+                          ],
+                        ),
+                        const SizedBox(height: 6),
+                        Text(
+                          description,
                           style: TextStyle(
-                            fontWeight: FontWeight.bold,
-                            fontSize: 15,
-                            color: selected
-                                ? AppColors.primary
-                                : AppColors.textDark,
-                          ),
-                        ),
-                      ),
-                      if (badge != null)
-                        Container(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 8,
-                            vertical: 2,
-                          ),
-                          decoration: BoxDecoration(
-                            color: AppColors.primary,
-                            borderRadius: BorderRadius.circular(12),
-                          ),
-                          child: Text(
-                            badge!,
-                            style: const TextStyle(
-                              color: Colors.white,
-                              fontSize: 11,
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
-                        ),
-                    ],
-                  ),
-                  const SizedBox(height: 6),
-                  Text(
-                    description,
-                    style: TextStyle(fontSize: 13, color: Colors.grey.shade600),
-                  ),
-                  for (final p in positives) ...[
-                    const SizedBox(height: 4),
-                    Row(
-                      children: [
-                        const Icon(
-                          Icons.check_circle_outline,
-                          size: 14,
-                          color: AppColors.statusPositive,
-                        ),
-                        const SizedBox(width: 6),
-                        Expanded(
-                          child: Text(
-                            p,
-                            style: const TextStyle(
-                              fontSize: 12,
-                              color: AppColors.statusPositive,
-                            ),
+                            fontSize: 13,
+                            color: Colors.grey.shade600,
                           ),
                         ),
                       ],
                     ),
-                  ],
-                  for (final w in warnings) ...[
-                    const SizedBox(height: 4),
-                    Row(
-                      children: [
-                        Icon(
-                          Icons.warning_amber_outlined,
-                          size: 14,
-                          color: Colors.orange.shade700,
-                        ),
-                        const SizedBox(width: 6),
-                        Expanded(
-                          child: Text(
-                            w,
-                            style: TextStyle(
-                              fontSize: 12,
-                              color: Colors.orange.shade700,
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ],
+                  ),
                 ],
               ),
             ),
-          ],
+          ),
         ),
       ),
     );

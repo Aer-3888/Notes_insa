@@ -46,6 +46,10 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
   final _codeController = TextEditingController();
   String? _scannedSecret;
   bool _saveOtpSecret = true;
+  // Server-side 2FA validation can't be replayed: once the session is
+  // validated, re-submitting a code/secret is rejected. This tracks that we've
+  // already succeeded so revisiting the step just advances instead of failing.
+  bool _twoFactorValidated = false;
 
   @override
   void initState() {
@@ -103,6 +107,8 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
     setState(() {
       _isLoading = true;
       _error = null;
+      // A new authentication starts a new session that needs fresh 2FA.
+      _twoFactorValidated = false;
     });
     try {
       await GradesService.newCAS();
@@ -187,6 +193,11 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
   }
 
   Future<void> _handleEmailValidate() async {
+    // Already validated on a previous visit: don't replay the server call.
+    if (_twoFactorValidated) {
+      _advance();
+      return;
+    }
     final code = _codeController.text.trim();
     if (code.isEmpty) return;
     setState(() {
@@ -195,6 +206,7 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
     });
     try {
       await GradesService.validate(code);
+      _twoFactorValidated = true;
       _advance();
     } on PlatformException catch (_) {
       setState(() => _error = 'Code invalide ou expiré');
@@ -214,6 +226,11 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
 
   Future<void> _handleTotpValidate() async {
     if (_scannedSecret == null) return;
+    // Already validated on a previous visit: don't replay the server call.
+    if (_twoFactorValidated) {
+      _advance();
+      return;
+    }
     setState(() {
       _isLoading = true;
       _error = null;
@@ -221,6 +238,7 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
     try {
       await GradesService.autoValidate(_scannedSecret!);
       if (_saveOtpSecret) await _authService.storeOtpSecret(_scannedSecret!);
+      _twoFactorValidated = true;
       _advance();
     } on PlatformException catch (_) {
       setState(() => _error = 'Secret OTP invalide');

@@ -33,63 +33,88 @@ class SlideLayout extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 24),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const SizedBox(height: 8),
-          _Header(
-            stepCount: stepCount,
-            currentIndex: currentIndex,
-            onBack: onBack,
-          ),
-          const SizedBox(height: 24),
-          Text(
-            title,
-            style: const TextStyle(
-              fontSize: 28,
-              fontWeight: FontWeight.bold,
-              height: 1.2,
-              color: AppColors.textDark,
-            ),
-          ),
-          if (subtitle != null) ...[
-            const SizedBox(height: 8),
-            Text(
-              subtitle!,
-              style: TextStyle(fontSize: 14, color: Colors.grey.shade600),
-            ),
-          ],
-          const SizedBox(height: 24),
-          Expanded(child: SingleChildScrollView(child: content)),
-          if (error != null) ...[
-            const SizedBox(height: 8),
-            Text(
-              error!,
-              style: const TextStyle(color: Colors.red, fontSize: 13),
-            ),
-          ],
-          const SizedBox(height: 12),
-          _PrimaryButton(
-            label: primaryLabel,
-            onTap: onPrimary,
-            isLoading: isLoading,
-          ),
-          if (secondaryLabel != null)
-            Center(
-              child: TextButton(
-                onPressed: onSecondary,
-                child: Text(
-                  secondaryLabel!,
-                  style: TextStyle(color: Colors.grey.shade600, fontSize: 14),
+    return Center(
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(maxWidth: 480),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 24),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const SizedBox(height: 8),
+              _Header(
+                stepCount: stepCount,
+                currentIndex: currentIndex,
+                onBack: onBack,
+              ),
+              // Title + subtitle + content share one scroll region so they
+              // never overflow when vertical space is tight (keyboard up,
+              // landscape, or large accessibility text-scale). The header and
+              // primary CTA stay pinned, keeping the CTA reachable above the
+              // keyboard.
+              Expanded(
+                child: SingleChildScrollView(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const SizedBox(height: 24),
+                      Text(
+                        title,
+                        style: const TextStyle(
+                          fontSize: 28,
+                          fontWeight: FontWeight.bold,
+                          height: 1.2,
+                          color: AppColors.textDark,
+                        ),
+                      ),
+                      if (subtitle != null) ...[
+                        const SizedBox(height: 8),
+                        Text(
+                          subtitle!,
+                          style: TextStyle(
+                            fontSize: 14,
+                            color: Colors.grey.shade600,
+                          ),
+                        ),
+                      ],
+                      const SizedBox(height: 24),
+                      content,
+                    ],
+                  ),
                 ),
               ),
-            )
-          else
-            const SizedBox(height: 8),
-          const SizedBox(height: 8),
-        ],
+              if (error != null) ...[
+                const SizedBox(height: 8),
+                Text(
+                  error!,
+                  style: const TextStyle(color: Colors.red, fontSize: 13),
+                ),
+              ],
+              const SizedBox(height: 12),
+              _PrimaryButton(
+                label: primaryLabel,
+                onTap: onPrimary,
+                isLoading: isLoading,
+              ),
+              if (secondaryLabel != null)
+                Center(
+                  child: TextButton(
+                    onPressed: onSecondary,
+                    child: Text(
+                      secondaryLabel!,
+                      style: TextStyle(
+                        color: Colors.grey.shade600,
+                        fontSize: 14,
+                      ),
+                    ),
+                  ),
+                )
+              else
+                const SizedBox(height: 8),
+              const SizedBox(height: 8),
+            ],
+          ),
+        ),
       ),
     );
   }
@@ -120,12 +145,9 @@ class _Header extends StatelessWidget {
               padding: EdgeInsets.zero,
               constraints: const BoxConstraints(),
             ),
-          if (stepCount > 1)
-            Expanded(
-              child: _Dots(stepCount: stepCount, currentIndex: currentIndex),
-            )
-          else
-            const Spacer(),
+          Expanded(
+            child: _Dots(stepCount: stepCount, currentIndex: currentIndex),
+          ),
           if (onBack != null) const SizedBox(width: 40),
         ],
       ),
@@ -141,6 +163,10 @@ class _Dots extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // The full step list isn't known until after login (it depends on 2FA,
+    // biometrics/PIN, consent and notification state), so the credentials
+    // slide reports a count of 1. A lone dot is meaningless — hide it.
+    if (stepCount <= 1) return const SizedBox.shrink();
     return Center(
       child: Row(
         mainAxisSize: MainAxisSize.min,

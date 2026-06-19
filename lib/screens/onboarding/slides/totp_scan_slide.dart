@@ -34,7 +34,7 @@ class TotpScanSlide extends StatelessWidget {
       stepCount: stepCount,
       currentIndex: currentIndex,
       onBack: onBack,
-      title: 'Scanner\nle QR code',
+      title: 'Scanner le QR code',
       subtitle:
           'Si vous n\'avez pas encore configuré votre OTP, rendez-vous sur l\'intranet INSA dans l\'OTP Manager',
       isLoading: isLoading,
@@ -43,12 +43,12 @@ class TotpScanSlide extends StatelessWidget {
       onPrimary: scannedSecret != null ? onValidate : null,
       content: Column(
         children: [
-          GestureDetector(
-            onTap: isLoading ? null : onScan,
+          Semantics(
+            button: true,
+            selected: scannedSecret != null,
             child: AnimatedContainer(
               duration: const Duration(milliseconds: 150),
               width: double.infinity,
-              padding: const EdgeInsets.symmetric(vertical: 20, horizontal: 20),
               decoration: BoxDecoration(
                 color: scannedSecret != null
                     ? AppColors.statusPositive.withValues(alpha: 0.05)
@@ -60,32 +60,45 @@ class TotpScanSlide extends StatelessWidget {
                 ),
                 borderRadius: BorderRadius.circular(12),
               ),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Icon(
-                    scannedSecret != null
-                        ? Icons.check_circle_outline
-                        : Icons.qr_code_scanner,
-                    color: scannedSecret != null
-                        ? AppColors.statusPositive
-                        : AppColors.primary,
-                    size: 22,
-                  ),
-                  const SizedBox(width: 12),
-                  Text(
-                    scannedSecret != null
-                        ? 'QR code scanné ✓'
-                        : 'Scanner le QR code',
-                    style: TextStyle(
-                      fontWeight: FontWeight.bold,
-                      fontSize: 15,
-                      color: scannedSecret != null
-                          ? AppColors.statusPositive
-                          : AppColors.textDark,
+              child: Material(
+                color: Colors.transparent,
+                child: InkWell(
+                  onTap: isLoading ? null : onScan,
+                  borderRadius: BorderRadius.circular(12),
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(
+                      vertical: 40,
+                      horizontal: 20,
+                    ),
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Icon(
+                          scannedSecret != null
+                              ? Icons.check_circle_outline
+                              : Icons.qr_code_scanner,
+                          color: scannedSecret != null
+                              ? AppColors.statusPositive
+                              : AppColors.primary,
+                          size: 56,
+                        ),
+                        const SizedBox(height: 16),
+                        Text(
+                          scannedSecret != null
+                              ? 'QR code scanné ✓'
+                              : 'Scanner le QR code',
+                          style: TextStyle(
+                            fontWeight: FontWeight.bold,
+                            fontSize: 16,
+                            color: scannedSecret != null
+                                ? AppColors.statusPositive
+                                : AppColors.textDark,
+                          ),
+                        ),
+                      ],
                     ),
                   ),
-                ],
+                ),
               ),
             ),
           ),
