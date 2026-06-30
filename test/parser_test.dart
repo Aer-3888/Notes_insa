@@ -151,6 +151,64 @@ void main() {
     expect(() => jsonDecode(gradesJson), returnsNormally);
   });
 
+  test('extracts the UE validation status, falling back to "En cours"', () {
+    const json = '''
+    {
+      "name": "DOE John (INFO)",
+      "details": [
+        {
+          "name": "SEMESTRE 5",
+          "details": [
+            {
+              "name": "UE_VAL",
+              "score": ["14/20", "VAL"],
+              "details": [
+                {"name": "Math", "details": [{"name": "DS1", "score": ["14/20"]}]}
+              ]
+            },
+            {
+              "name": "UE_COMP",
+              "score": ["8.35/20", "VALCOMP"],
+              "details": [
+                {"name": "Phys", "details": [{"name": "DS1", "score": ["8.35/20"]}]}
+              ]
+            },
+            {
+              "name": "UE_STATUS_ONLY",
+              "score": ["VAL"],
+              "details": [
+                {"name": "Stage", "score": ["VAL"], "details": null}
+              ]
+            },
+            {
+              "name": "UE_PENDING",
+              "score": ["11/20"],
+              "details": [
+                {"name": "Chimie", "details": [{"name": "DS1", "score": ["11/20"]}]}
+              ]
+            }
+          ]
+        }
+      ]
+    }
+    ''';
+
+    final units = JsonCurriculumParser.parseSemester(decode(json), 5);
+    final byName = {for (final u in units) u.name: u};
+
+    expect(byName['UE_VAL']!.statusLabel, 'VAL');
+    expect(byName['UE_COMP']!.statusLabel, 'VALCOMP');
+    // Status can be the lone element of the score list (no numeric grade).
+    expect(byName['UE_STATUS_ONLY']!.statusLabel, 'VAL');
+    // No status published yet, so the unit is in progress.
+    expect(byName['UE_PENDING']!.extractedStatus, isNull);
+    expect(byName['UE_PENDING']!.statusLabel, 'En cours');
+
+    // EC (subject) level: status is extracted per subject, null when absent.
+    expect(byName['UE_STATUS_ONLY']!.subjects.single.extractedStatus, 'VAL');
+    expect(byName['UE_VAL']!.subjects.single.extractedStatus, isNull);
+  });
+
   // STPI first-cycle semesters wrap UEs in an extra "FILIERE" level (and S3/S4
   // add a further scientific sub-grouping). The parser must flatten those so the
   // real UEs disperse instead of collapsing into a single unit.

@@ -1,7 +1,38 @@
+import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:notes_insa/app_colors.dart';
 import 'package:notes_insa/models.dart';
 
 void main() {
+  group('GradeUtils.getColorForStatus', () {
+    test('uses the grade color when a numeric average exists', () {
+      expect(GradeUtils.getColorForStatus(15, null), AppColors.gradeExcellent);
+      expect(GradeUtils.getColorForStatus(11, 'VAL'), AppColors.gradePassing);
+      expect(
+        GradeUtils.getColorForStatus(8, 'VALCOMP'),
+        AppColors.gradeWarning,
+      );
+    });
+
+    test(
+      'a validated item with no grade reads as passing (blue), not grey',
+      () {
+        expect(
+          GradeUtils.getColorForStatus(null, 'VAL'),
+          AppColors.gradePassing,
+        );
+        expect(
+          GradeUtils.getColorForStatus(null, 'VALCOMP'),
+          AppColors.gradePassing,
+        );
+      },
+    );
+
+    test('grey only when in progress (no grade and no status)', () {
+      expect(GradeUtils.getColorForStatus(null, null), Colors.grey);
+    });
+  });
+
   group('GradeUtils.parseDouble', () {
     test('parses plain numbers and fractions', () {
       expect(GradeUtils.parseDouble('15'), 15);

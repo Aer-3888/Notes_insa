@@ -62,7 +62,10 @@ class UnitCardGrid extends StatelessWidget {
         itemCount: curriculum.length,
         itemBuilder: (context, index) {
           final unit = curriculum[index];
-          final color = GradeUtils.getColor(unit.average);
+          final color = GradeUtils.getColorForStatus(
+            unit.average,
+            unit.extractedStatus,
+          );
           final averagePrefix = unit.isAverageEstimated ? '≈' : '';
           final averageText = unit.average == null
               ? '-'
@@ -128,7 +131,7 @@ class UnitCardGrid extends StatelessWidget {
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             Text(
-                              unit.isValidated ? 'Validé' : 'En cours',
+                              unit.statusLabel,
                               style: TextStyle(
                                 fontSize: 12,
                                 color: Colors.grey.shade500,

@@ -28,6 +28,18 @@ class GradeUtils {
     if (grade >= 10) return AppColors.gradePassing;
     return AppColors.gradeWarning;
   }
+
+  /// Color for a unit or EC that accounts for its validation status when no
+  /// numeric grade is available. With a grade it behaves like [getColor]
+  /// (green, blue, orange by threshold). Without one, a validated item (VAL or
+  /// VALCOMP) reads as passing (blue) rather than grey, and grey is kept only
+  /// for items still in progress (no published status).
+  static Color getColorForStatus(double? grade, String? status) {
+    if (grade != null) return getColor(grade);
+    final code = status?.toUpperCase();
+    if (code == 'VAL' || code == 'VALCOMP') return AppColors.gradePassing;
+    return Colors.grey;
+  }
 }
 
 /// Coefficient-weighted average of [items]. [valueOf] returns each item's value
@@ -229,12 +241,17 @@ class Subject {
   final List<GradeInstance> grades;
   final double? extractedAverage;
 
+  /// Validation status from the grades payload, such as "VAL" or "VALCOMP".
+  /// Null when the school has not published one, in which case no tag is shown.
+  final String? extractedStatus;
+
   Subject(
     this.name,
     this.coeff,
     this.jsonKeys, {
     List<GradeInstance>? grades,
     this.extractedAverage,
+    this.extractedStatus,
   }) : grades = grades ?? [];
 
   /// Official average from the grades payload, or a weighted estimate when the
@@ -254,6 +271,11 @@ class TeachingUnit {
   final List<Subject> subjects;
   final double? extractedAverage;
 
+  /// Validation status from the grades payload, such as "VAL" (validated),
+  /// "VALCOMP" (validated by compensation), or "ADM". Null when the school has
+  /// not published one yet, in which case the unit is still in progress.
+  final String? extractedStatus;
+
   /// UE-level coefficient used to weight this unit in the semester average.
   /// Defaults to 1.0 when the coefficient is unknown.
   final double coeff;
@@ -263,7 +285,12 @@ class TeachingUnit {
     this.subjects, {
     this.coeff = 1.0,
     this.extractedAverage,
+    this.extractedStatus,
   });
+
+  /// The status shown on the unit card: the published code ("VAL", "VALCOMP",
+  /// …) when available, otherwise "En cours".
+  String get statusLabel => extractedStatus ?? 'En cours';
 
   /// Official average from the grades payload, or a weighted estimate when the
   /// school has not provided the UE average yet.

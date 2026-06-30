@@ -427,7 +427,10 @@ class _UEDetailSheetState extends ConsumerState<_UEDetailSheet> {
 
   @override
   Widget build(BuildContext context) {
-    final ueColor = GradeUtils.getColor(widget.unit.average);
+    final ueColor = GradeUtils.getColorForStatus(
+      widget.unit.average,
+      widget.unit.extractedStatus,
+    );
     final ueAveragePrefix = widget.unit.isAverageEstimated ? '≈' : '';
     final ueAverageText = widget.unit.average == null
         ? '–'
@@ -736,6 +739,12 @@ class _SubjectCard extends StatelessWidget {
                                 : Colors.grey.shade300,
                           ),
                           const SizedBox(width: 8),
+                          // Validation tag (VAL / VALCOMP). Absent when the
+                          // school has not published a status for this EC.
+                          if (subject.extractedStatus != null) ...[
+                            _StatusPill(status: subject.extractedStatus!),
+                            const SizedBox(width: 6),
+                          ],
                           _CoeffPill(coeff: subject.coeff),
                         ],
                       ),
@@ -885,6 +894,45 @@ class _CoeffPill extends StatelessWidget {
           fontWeight: FontWeight.w600,
           color: Colors.grey.shade600,
         ),
+      ),
+    );
+  }
+}
+
+/// Small colored tag showing an EC's validation status. VAL reads as a plain
+/// pass (green), VALCOMP as a pass by compensation (amber), and any other code
+/// stays neutral grey.
+class _StatusPill extends StatelessWidget {
+  final String status;
+
+  const _StatusPill({required this.status});
+
+  @override
+  Widget build(BuildContext context) {
+    final (Color fg, Color bg, Color border) = switch (status.toUpperCase()) {
+      'VAL' => (
+        Colors.green.shade700,
+        Colors.green.shade50,
+        Colors.green.shade200,
+      ),
+      'VALCOMP' => (
+        Colors.orange.shade800,
+        Colors.orange.shade50,
+        Colors.orange.shade200,
+      ),
+      _ => (Colors.grey.shade600, Colors.grey.shade100, Colors.grey.shade300),
+    };
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+      decoration: BoxDecoration(
+        color: bg,
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: border),
+      ),
+      child: Text(
+        status,
+        style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: fg),
       ),
     );
   }

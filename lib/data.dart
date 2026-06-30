@@ -47,7 +47,7 @@ class JsonCurriculumParser {
 
       final List<TeachingUnit> teachingUnits = [];
       // Some curricula (notably the STPI first cycle) wrap UEs in extra grouping
-      // levels — a "FILIERE" node, and sometimes an additional scientific
+      // levels, such as a "FILIERE" node and sometimes an additional scientific
       // sub-grouping. Flatten those containers so the real UEs land at semester
       // level instead of collapsing into a single unit.
       final ueNodes = collectUeNodes(semesterNode['details'] as List<dynamic>);
@@ -112,6 +112,7 @@ class JsonCurriculumParser {
               {},
               grades: grades,
               extractedAverage: subjectAverage,
+              extractedStatus: _extractStatus(subjectNode['score']),
             );
             subjects.add(subject);
           }
@@ -124,6 +125,7 @@ class JsonCurriculumParser {
               subjects,
               coeff: ueCoeff,
               extractedAverage: ueAverage,
+              extractedStatus: _extractStatus(ueNode['score']),
             ),
           );
         }
@@ -139,15 +141,15 @@ class JsonCurriculumParser {
     }
   }
 
-  /// A node is a leaf when it has no child details — i.e. an individual grade.
+  /// A node is a leaf when it has no child details, i.e. an individual grade.
   static bool _nodeIsLeaf(Map<String, dynamic> node) {
     final d = node['details'];
     return d is! List || d.isEmpty;
   }
 
   /// A subject directly parents individual grades, so all of its children are
-  /// leaves. (A gradeless subject — only a pass/fail status — is itself a leaf
-  /// and is handled by the UE-level detection below.)
+  /// leaves. (A gradeless subject, holding only a pass/fail status, is itself a
+  /// leaf and is handled by the UE-level detection below.)
   static bool _nodeHasGradeChildren(Map<String, dynamic> node) {
     final d = node['details'];
     if (d is! List || d.isEmpty) return false;
@@ -161,10 +163,10 @@ class JsonCurriculumParser {
     return d.any((c) => c is Map<String, dynamic> && _nodeHasGradeChildren(c));
   }
 
-  /// A container groups UEs (or further containers) rather than subjects — e.g.
-  /// the STPI "FILIERE CLASSIQUE" wrapper or an "ENSEIGNEMENTS SCIENTIFIQUES"
-  /// sub-grouping. These extra levels must be flattened so their child UEs land
-  /// at semester level.
+  /// A container groups UEs (or further containers) rather than subjects, for
+  /// example the STPI "FILIERE CLASSIQUE" wrapper or an "ENSEIGNEMENTS
+  /// SCIENTIFIQUES" sub-grouping. These extra levels must be flattened so their
+  /// child UEs land at semester level.
   static bool _nodeIsContainer(Map<String, dynamic> node) {
     final d = node['details'];
     if (d is! List) return false;
@@ -409,6 +411,24 @@ class JsonCurriculumParser {
 
   static double? _extractAverage(dynamic field) =>
       GradeUtils.parseDouble(_extractScore(field));
+
+  /// Matches a validation status code such as "VAL", "VALCOMP", "ADM", "AJAC".
+  static final RegExp _statusRegex = RegExp(r'^[A-Z]{2,}$');
+
+  /// Extracts the validation status carried alongside the grade in the score
+  /// list (e.g. ["13.818/20", "VAL"] → "VAL", ["VAL"] → "VAL"). Scans for the
+  /// status code rather than assuming a fixed position, and returns null when
+  /// none is present (the unit is still in progress).
+  static String? _extractStatus(dynamic field) {
+    if (field is! List) return null;
+    for (final element in field) {
+      if (element is String) {
+        final s = element.trim();
+        if (_statusRegex.hasMatch(s)) return s;
+      }
+    }
+    return null;
+  }
 
   static String _extractCoeff(dynamic field) {
     if (field is num) return field.toString();
