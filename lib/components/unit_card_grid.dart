@@ -63,6 +63,10 @@ class UnitCardGrid extends StatelessWidget {
         itemBuilder: (context, index) {
           final unit = curriculum[index];
           final color = GradeUtils.getColor(unit.average);
+          final averagePrefix = unit.isAverageEstimated ? '≈' : '';
+          final averageText = unit.average == null
+              ? '-'
+              : '$averagePrefix${unit.average!.toStringAsFixed(2)}';
 
           return AnimationConfiguration.staggeredGrid(
             position: index,
@@ -99,7 +103,7 @@ class UnitCardGrid extends StatelessWidget {
                               child: Icon(Icons.school, color: color, size: 20),
                             ),
                             Text(
-                              unit.average?.toStringAsFixed(2) ?? '-',
+                              averageText,
                               style: TextStyle(
                                 fontSize: 18,
                                 fontWeight: FontWeight.bold,

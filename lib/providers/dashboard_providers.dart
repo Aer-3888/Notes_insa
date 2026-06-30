@@ -129,13 +129,13 @@ final coefficientsReadyProvider = Provider<bool>((ref) {
   return coeffsAsync.maybeWhen(data: (d) => d.isNotEmpty, orElse: () => false);
 });
 
-/// True when the displayed semester average is unweighted (coefficients missing)
-/// so the UI can label it as provisional.
+/// True when the displayed semester average is locally estimated because the
+/// grades payload did not provide an official semester score.
 final semesterAverageProvisionalProvider = Provider<bool>((ref) {
   if (ref.watch(semesterAverageProvider) == null) return false;
-  // The school's own pre-computed value is authoritative — never provisional.
+  // The school's own pre-computed value is authoritative, not estimated.
   if (ref.watch(_semesterAverageFromDataProvider) != null) return false;
-  return !ref.watch(coefficientsReadyProvider);
+  return true;
 });
 
 /// Computed provider for available semesters from grades data

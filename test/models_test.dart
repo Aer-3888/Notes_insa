@@ -12,6 +12,10 @@ void main() {
       expect(GradeUtils.parseDouble('15,5/20'), 15.5);
     });
 
+    test('parses comma decimal coefficients', () {
+      expect(GradeInstance('a', 10, coeff: '1,5').coeffValue, 1.5);
+    });
+
     test('returns null for absence markers (case-insensitive) and null', () {
       expect(GradeUtils.parseDouble('ABS'), isNull);
       expect(GradeUtils.parseDouble('abs'), isNull);
@@ -55,6 +59,19 @@ void main() {
         grades: [GradeInstance('a', 10), GradeInstance('b', 14)],
       );
       expect(s.average, 12);
+      expect(s.isAverageEstimated, isTrue);
+    });
+
+    test('Subject prefers extracted average over grade estimate', () {
+      final s = Subject(
+        'S',
+        1.0,
+        {},
+        grades: [GradeInstance('a', 10), GradeInstance('b', 14)],
+        extractedAverage: 13,
+      );
+      expect(s.average, 13);
+      expect(s.isAverageEstimated, isFalse);
     });
 
     test('Subject average is null when there are no grades', () {
@@ -68,6 +85,15 @@ void main() {
       ]);
       // (10*2 + 16*1) / 3 = 12
       expect(u.average, closeTo(12, 1e-9));
+      expect(u.isAverageEstimated, isTrue);
+    });
+
+    test('TeachingUnit prefers extracted average over subject estimate', () {
+      final u = TeachingUnit('UE', [
+        Subject('A', 1.0, {}, grades: [GradeInstance('x', 10)]),
+      ], extractedAverage: 11);
+      expect(u.average, 11);
+      expect(u.isAverageEstimated, isFalse);
     });
 
     test('TeachingUnit average is null when total coeff is zero', () {

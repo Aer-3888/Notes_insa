@@ -428,6 +428,10 @@ class _UEDetailSheetState extends ConsumerState<_UEDetailSheet> {
   @override
   Widget build(BuildContext context) {
     final ueColor = GradeUtils.getColor(widget.unit.average);
+    final ueAveragePrefix = widget.unit.isAverageEstimated ? '≈' : '';
+    final ueAverageText = widget.unit.average == null
+        ? '–'
+        : '$ueAveragePrefix${widget.unit.average!.toStringAsFixed(2)}';
 
     final department = ref.watch(departmentNameProvider);
     final semester = ref.watch(effectiveSemesterProvider);
@@ -533,7 +537,7 @@ class _UEDetailSheetState extends ConsumerState<_UEDetailSheet> {
                       ),
                       alignment: Alignment.center,
                       child: Text(
-                        widget.unit.average?.toStringAsFixed(2) ?? '–',
+                        ueAverageText,
                         style: const TextStyle(
                           color: Colors.white,
                           fontSize: 16,
@@ -675,6 +679,10 @@ class _SubjectCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final subjectColor = GradeUtils.getColor(subject.average);
+    final averagePrefix = subject.isAverageEstimated ? '≈' : '';
+    final averageText = subject.average == null
+        ? '–'
+        : '$averagePrefix${subject.average!.toStringAsFixed(2)}';
 
     return GestureDetector(
       onTap: onTap,
@@ -754,7 +762,7 @@ class _SubjectCard extends StatelessWidget {
                               ),
                             ),
                             Text(
-                              subject.average?.toStringAsFixed(2) ?? '–',
+                              averageText,
                               style: TextStyle(
                                 fontSize: 15,
                                 fontWeight: FontWeight.bold,
@@ -895,6 +903,10 @@ class _SubjectStatsSheet extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final gradeColor = GradeUtils.getColor(subject.average);
+    final averagePrefix = subject.isAverageEstimated ? '≈' : '';
+    final averageText = subject.average == null
+        ? null
+        : '$averagePrefix${subject.average!.toStringAsFixed(2)}';
 
     return Container(
       decoration: const BoxDecoration(
@@ -934,9 +946,9 @@ class _SubjectStatsSheet extends StatelessWidget {
                       ),
                     ),
                     const SizedBox(height: 4),
-                    subject.average != null
+                    averageText != null
                         ? Text(
-                            'Ma note: ${subject.average!.toStringAsFixed(2)}',
+                            'Ma note: $averageText',
                             style: TextStyle(
                               fontSize: 14,
                               color: gradeColor,

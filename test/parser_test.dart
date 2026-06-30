@@ -49,6 +49,75 @@ void main() {
     expect(units.single.average, closeTo(13, 1e-9));
   });
 
+  test('prefers extracted subject and UE averages over local estimates', () {
+    const json = '''
+    {
+      "name": "DOE John (INFO)",
+      "details": [
+        {
+          "name": "SEMESTRE 5",
+          "details": [
+            {
+              "name": "UE1",
+              "score": "14/20",
+              "details": [
+                {
+                  "name": "Math",
+                  "score": "13/20",
+                  "details": [{"name": "DS1", "score": "10/20"}]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    }
+    ''';
+
+    final unit = JsonCurriculumParser.parseSemester(decode(json), 5).single;
+    final subject = unit.subjects.single;
+
+    expect(subject.average, 13);
+    expect(subject.isAverageEstimated, isFalse);
+    expect(unit.average, 14);
+    expect(unit.isAverageEstimated, isFalse);
+  });
+
+  test('uses grade coefficients for subject fallback estimates', () {
+    const json = '''
+    {
+      "name": "DOE John (INFO)",
+      "details": [
+        {
+          "name": "SEMESTRE 5",
+          "details": [
+            {
+              "name": "UE1",
+              "details": [
+                {
+                  "name": "Math",
+                  "details": [
+                    {"name": "DS1", "score": "10/20", "coeff": "2"},
+                    {"name": "DS2", "score": "16/20", "coeff": "1"}
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    }
+    ''';
+
+    final subject = JsonCurriculumParser.parseSemester(
+      decode(json),
+      5,
+    ).single.subjects.single;
+
+    expect(subject.average, closeTo(12, 1e-9));
+    expect(subject.isAverageEstimated, isTrue);
+  });
+
   test(
     'getSemesterAverage reads the pre-computed score from the semester node',
     () {

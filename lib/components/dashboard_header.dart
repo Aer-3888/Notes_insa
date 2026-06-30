@@ -20,7 +20,7 @@ class DashboardHeader extends StatelessWidget {
   final List<int> availableSemesters;
   final ValueChanged<int> onSemesterChanged;
 
-  /// When true, coefficients are unavailable and the average is unweighted.
+  /// When true, the displayed average is a local estimate.
   final bool provisional;
 
   const DashboardHeader({
@@ -68,7 +68,7 @@ class DashboardHeader extends StatelessWidget {
                       _LastUpdatedLabel(lastUpdated: lastUpdated!),
                     if (provisional && average != null)
                       Text(
-                        'Coefficients indisponibles — moyenne provisoire',
+                        'Moyenne estimée',
                         style: TextStyle(
                           fontSize: 11,
                           color: Colors.orange.shade700,

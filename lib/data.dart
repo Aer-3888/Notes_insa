@@ -57,6 +57,7 @@ class JsonCurriculumParser {
             .cleanName();
         // UE-level coefficient stored under the "ueName|" sentinel key.
         final double ueCoeff = coefficients?['$ueName|'] ?? 1.0;
+        final double? ueAverage = _extractAverage(ueNode['score']);
         final List<Subject> subjects = [];
 
         if (ueNode['details'] is List) {
@@ -71,6 +72,9 @@ class JsonCurriculumParser {
                     .cleanName();
             final double subjectCoeff =
                 coefficients?['$ueName|$subjectName'] ?? 1.0;
+            final double? subjectAverage = _extractAverage(
+              subjectNode['score'],
+            );
 
             final List<GradeInstance> grades = [];
 
@@ -87,23 +91,15 @@ class JsonCurriculumParser {
                     .cleanName();
                 final String? gradeScore = _extractScore(gradeNode['score']);
 
-                if (gradeScore != null && !gradeScore.contains('Aucun')) {
-                  final double? gradeValue = GradeUtils.parseDouble(gradeScore);
-                  if (gradeValue != null) {
-                    // coeff omitted — coefficients API not yet available.
-                    grades.add(GradeInstance(gradeName, gradeValue));
-                  }
-                }
-              }
-            }
-
-            // Fallback: use top-level score only if no detailed grades were found
-            if (grades.isEmpty) {
-              final String? subjectScore = _extractScore(subjectNode['score']);
-              if (subjectScore != null && !subjectScore.contains('Aucun')) {
-                final double? gradeValue = GradeUtils.parseDouble(subjectScore);
+                final double? gradeValue = GradeUtils.parseDouble(gradeScore);
                 if (gradeValue != null) {
-                  grades.add(GradeInstance(subjectName, gradeValue));
+                  grades.add(
+                    GradeInstance(
+                      gradeName,
+                      gradeValue,
+                      coeff: _extractCoeff(gradeNode['coeff']),
+                    ),
+                  );
                 }
               }
             }
@@ -113,13 +109,21 @@ class JsonCurriculumParser {
               subjectCoeff,
               {},
               grades: grades,
+              extractedAverage: subjectAverage,
             );
             subjects.add(subject);
           }
         }
 
-        if (subjects.isNotEmpty) {
-          teachingUnits.add(TeachingUnit(ueName, subjects, coeff: ueCoeff));
+        if (subjects.isNotEmpty || ueAverage != null) {
+          teachingUnits.add(
+            TeachingUnit(
+              ueName,
+              subjects,
+              coeff: ueCoeff,
+              extractedAverage: ueAverage,
+            ),
+          );
         }
       }
 
@@ -320,7 +324,7 @@ class JsonCurriculumParser {
         semesterNumber,
       );
       if (semesterNode == null) return null;
-      return GradeUtils.parseDouble(_extractScore(semesterNode['score']));
+      return _extractAverage(semesterNode['score']);
     } catch (_) {
       return null;
     }
@@ -335,6 +339,15 @@ class JsonCurriculumParser {
       return field.first as String;
     }
     return null;
+  }
+
+  static double? _extractAverage(dynamic field) =>
+      GradeUtils.parseDouble(_extractScore(field));
+
+  static String _extractCoeff(dynamic field) {
+    if (field is num) return field.toString();
+    if (field is String) return field.trim();
+    return '';
   }
 }
 

@@ -218,7 +218,8 @@ class GradeInstance {
 
   GradeInstance(this.label, this.value, {this.coeff = ''});
 
-  double? get coeffValue => coeff.isEmpty ? null : double.tryParse(coeff);
+  double? get coeffValue =>
+      coeff.isEmpty ? null : double.tryParse(coeff.replaceAll(',', '.'));
 }
 
 class Subject {
@@ -226,13 +227,21 @@ class Subject {
   final double coeff;
   final Map<String, String> jsonKeys;
   final List<GradeInstance> grades;
+  final double? extractedAverage;
 
-  Subject(this.name, this.coeff, this.jsonKeys, {List<GradeInstance>? grades})
-    : grades = grades ?? [];
+  Subject(
+    this.name,
+    this.coeff,
+    this.jsonKeys, {
+    List<GradeInstance>? grades,
+    this.extractedAverage,
+  }) : grades = grades ?? [];
 
-  /// Computed once on first access and cached — Subjects are immutable after
-  /// parsing, so the average never changes and is read many times per build.
-  late final double? average = _computeAverage();
+  /// Official average from the grades payload, or a weighted estimate when the
+  /// school has not provided the subject average yet.
+  late final double? average = extractedAverage ?? _computeAverage();
+
+  bool get isAverageEstimated => extractedAverage == null && average != null;
 
   // Weight each grade by its own coefficient, defaulting to 1.0 when absent —
   // so grades without coefficients collapse to a plain mean.
@@ -243,15 +252,24 @@ class Subject {
 class TeachingUnit {
   final String name;
   final List<Subject> subjects;
+  final double? extractedAverage;
 
   /// UE-level coefficient used to weight this unit in the semester average.
   /// Defaults to 1.0 when the coefficient is unknown.
   final double coeff;
 
-  TeachingUnit(this.name, this.subjects, {this.coeff = 1.0});
+  TeachingUnit(
+    this.name,
+    this.subjects, {
+    this.coeff = 1.0,
+    this.extractedAverage,
+  });
 
-  /// Computed once on first access and cached (see [Subject.average]).
-  late final double? average = _computeAverage();
+  /// Official average from the grades payload, or a weighted estimate when the
+  /// school has not provided the UE average yet.
+  late final double? average = extractedAverage ?? _computeAverage();
+
+  bool get isAverageEstimated => extractedAverage == null && average != null;
 
   double? _computeAverage() =>
       weightedAverage(subjects, (s) => s.average, (s) => s.coeff);
@@ -262,6 +280,7 @@ class TeachingUnit {
 
   bool _computeIsValidated() {
     if (subjects.isEmpty) return false;
+    if (extractedAverage != null) return extractedAverage! >= 10.0;
     final allHaveAverage = subjects.every((s) => s.average != null);
     return allHaveAverage && (average != null && average! >= 10.0);
   }
