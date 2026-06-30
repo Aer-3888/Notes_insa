@@ -368,6 +368,12 @@ class CoefficientsService {
 
   /// Extract subject coefficients from a semester node.
   /// Structure: semesterNode → UE nodes → Subject nodes (with "coeff").
+  ///
+  /// UE nodes are collected via [JsonCurriculumParser.collectUeNodes] so any
+  /// STPI wrapper levels (the "FILIERE" node and scientific sub-groupings) are
+  /// flattened the same way the grade tree is. Without this, the coefficient
+  /// keys would be built one level too high ("FILIERE|UEname") and never match
+  /// the "UEname|subjectName" keys the grade parser produces.
   static void _extractUeCoeffs(
     Map<String, dynamic> semNode,
     String semKey,
@@ -378,8 +384,7 @@ class CoefficientsService {
 
     results.putIfAbsent(semKey, () => {});
 
-    for (final ueNode in ueList) {
-      if (ueNode is! Map<String, dynamic>) continue;
+    for (final ueNode in JsonCurriculumParser.collectUeNodes(ueList)) {
       final ueName = (ueNode['name'] ?? '').toString().cleanName();
 
       // UE-level coefficient is stored under a sentinel key "ueName|" (empty

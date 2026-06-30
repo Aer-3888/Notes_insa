@@ -46,11 +46,13 @@ class JsonCurriculumParser {
       if (semesterNode == null || semesterNode['details'] is! List) return [];
 
       final List<TeachingUnit> teachingUnits = [];
-      final List<dynamic> ueList = semesterNode['details'] as List<dynamic>;
+      // Some curricula (notably the STPI first cycle) wrap UEs in extra grouping
+      // levels — a "FILIERE" node, and sometimes an additional scientific
+      // sub-grouping. Flatten those containers so the real UEs land at semester
+      // level instead of collapsing into a single unit.
+      final ueNodes = collectUeNodes(semesterNode['details'] as List<dynamic>);
 
-      for (final ueNode in ueList) {
-        if (ueNode is! Map<String, dynamic>) continue;
-
+      for (final ueNode in ueNodes) {
         // Clean names to ensure consistent key matching with the backend
         final String ueName = (ueNode['name'] ?? 'Unknown UE')
             .toString()
@@ -134,6 +136,70 @@ class JsonCurriculumParser {
         debugPrint('[Parser] Stack: $st');
       }
       return [];
+    }
+  }
+
+  /// A node is a leaf when it has no child details — i.e. an individual grade.
+  static bool _nodeIsLeaf(Map<String, dynamic> node) {
+    final d = node['details'];
+    return d is! List || d.isEmpty;
+  }
+
+  /// A subject directly parents individual grades, so all of its children are
+  /// leaves. (A gradeless subject — only a pass/fail status — is itself a leaf
+  /// and is handled by the UE-level detection below.)
+  static bool _nodeHasGradeChildren(Map<String, dynamic> node) {
+    final d = node['details'];
+    if (d is! List || d.isEmpty) return false;
+    return d.every((c) => c is Map<String, dynamic> && _nodeIsLeaf(c));
+  }
+
+  /// A UE directly parents at least one subject that has grades.
+  static bool _nodeIsUe(Map<String, dynamic> node) {
+    final d = node['details'];
+    if (d is! List) return false;
+    return d.any((c) => c is Map<String, dynamic> && _nodeHasGradeChildren(c));
+  }
+
+  /// A container groups UEs (or further containers) rather than subjects — e.g.
+  /// the STPI "FILIERE CLASSIQUE" wrapper or an "ENSEIGNEMENTS SCIENTIFIQUES"
+  /// sub-grouping. These extra levels must be flattened so their child UEs land
+  /// at semester level.
+  static bool _nodeIsContainer(Map<String, dynamic> node) {
+    final d = node['details'];
+    if (d is! List) return false;
+    return d.any(
+      (c) => c is Map<String, dynamic> && (_nodeIsUe(c) || _nodeIsContainer(c)),
+    );
+  }
+
+  /// Walk the (possibly nested) groupings beneath a semester and collect the
+  /// real UE nodes, flattening any wrapper/container levels in between. This
+  /// adapts to both the flat engineering shape (semester → UE → subject → grade)
+  /// and the deeper STPI shape (semester → filiere → [group] → UE → subject →
+  /// grade) without hard-coding a fixed depth.
+  ///
+  /// Shared with [CoefficientsService] so coefficient keys ("ue|subject") are
+  /// built from the same UE/subject boundary the grade tree uses, instead of
+  /// drifting back to a fixed-depth assumption.
+  static List<Map<String, dynamic>> collectUeNodes(List<dynamic> nodes) {
+    final out = <Map<String, dynamic>>[];
+    _collectUeNodes(nodes, out);
+    return out;
+  }
+
+  static void _collectUeNodes(
+    List<dynamic> nodes,
+    List<Map<String, dynamic>> out,
+  ) {
+    for (final node in nodes) {
+      if (node is! Map<String, dynamic>) continue;
+      if (_nodeIsContainer(node)) {
+        final children = node['details'];
+        if (children is List) _collectUeNodes(children, out);
+      } else {
+        out.add(node);
+      }
     }
   }
 
