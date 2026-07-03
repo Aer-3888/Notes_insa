@@ -18,6 +18,23 @@ enum AuthStatus {
   error,
 }
 
+/// Outcome of [GradesNotifier.prepareReauth], used by the 2FA screen to decide
+/// whether to show the code form, leave (already authenticated), or surface an
+/// error.
+enum ReauthPrep {
+  /// A fresh CAS challenge is pending; the server expects a 2FA token.
+  tokenRequired,
+
+  /// The stored credentials authenticated without needing a token.
+  authenticated,
+
+  /// No stored credentials to authenticate with.
+  noCredentials,
+
+  /// newCAS/auth failed (wrong password or network).
+  failed,
+}
+
 /// Grades state that holds the raw JSON data from the API.
 class GradesState {
   final String jsonData;
@@ -192,6 +209,47 @@ class GradesNotifier extends StateNotifier<GradesState> {
   /// If 2FA is required and no OTP secret is stored, sets an error state.
   Future<void> fetchGradesWithStoredCredentials() =>
       _runExclusive(_fetchGradesWithStoredCredentials);
+
+  /// Establishes a fresh CAS 2FA challenge for the reconnect screen so a code
+  /// entered there validates even if the previous challenge lapsed or none was
+  /// pending (e.g. the screen was reached via a notification deep-link after a
+  /// cold start). Runs newCAS + auth(stored credentials) and reports whether the
+  /// server now expects a token. Does not mutate grades state.
+  ///
+  /// Serialized against fetches through the same single-flight guard so the two
+  /// don't interleave native CAS calls: waits for any in-flight sequence, then
+  /// holds the guard for its own run.
+  Future<ReauthPrep> prepareReauth() async {
+    while (_inFlight != null) {
+      try {
+        await _inFlight;
+      } catch (_) {}
+    }
+    final gate = Completer<void>();
+    _inFlight = gate.future;
+    try {
+      return await _prepareReauth();
+    } finally {
+      if (identical(_inFlight, gate.future)) _inFlight = null;
+      gate.complete();
+    }
+  }
+
+  Future<ReauthPrep> _prepareReauth() async {
+    final credentials = await AuthService().getCredentials();
+    if (credentials == null) return ReauthPrep.noCredentials;
+    try {
+      await GradesService.newCAS();
+      await GradesService.auth(
+        credentials[kStorageUser]!,
+        credentials[kStoragePass]!,
+      );
+      final needs2fa = await GradesService.isTokenNeeded();
+      return needs2fa ? ReauthPrep.tokenRequired : ReauthPrep.authenticated;
+    } catch (_) {
+      return ReauthPrep.failed;
+    }
+  }
 
   Future<void> _fetchGradesWithStoredCredentials() async {
     state = state.copyWith(

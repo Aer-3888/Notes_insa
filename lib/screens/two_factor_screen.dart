@@ -23,12 +23,75 @@ class _TwoFactorScreenState extends ConsumerState<TwoFactorScreen> {
   String? _errorText;
   String? _scannedSecret;
 
+  @override
+  void initState() {
+    super.initState();
+    // The screen can be reached without a live native 2FA challenge (via the
+    // reconnect notification after a cold start, or after a prior challenge
+    // lapsed). Establish one up front so the first code entered validates.
+    unawaited(_prepareOnEntry());
+  }
+
+  Future<void> _prepareOnEntry() async {
+    setState(() {
+      _isLoading = true;
+      _errorText = null;
+    });
+    // If a challenge is already pending (came straight from a fetch-triggered
+    // reauth) keep it as-is rather than resetting the session.
+    if (await _isChallengePending()) {
+      if (mounted) setState(() => _isLoading = false);
+      return;
+    }
+    final result = await ref.read(gradesProvider.notifier).prepareReauth();
+    if (!mounted) return;
+    switch (result) {
+      case ReauthPrep.tokenRequired:
+        setState(() {
+          _isLoading = false;
+          _emailSent = false;
+        });
+      case ReauthPrep.authenticated:
+        // Stored credentials authenticated without a token — nothing to enter.
+        unawaited(
+          ref
+              .read(gradesProvider.notifier)
+              .fetchGradesAfterAuth()
+              .catchError((_) {}),
+        );
+        if (Navigator.canPop(context)) Navigator.pop(context);
+      case ReauthPrep.noCredentials:
+      case ReauthPrep.failed:
+        setState(() {
+          _isLoading = false;
+          _errorText = 'Reconnexion impossible, vérifiez vos identifiants';
+        });
+    }
+  }
+
+  Future<bool> _isChallengePending() async {
+    try {
+      return await GradesService.isTokenNeeded();
+    } catch (_) {
+      return false;
+    }
+  }
+
+  /// Re-establishes the CAS challenge once if it has lapsed, so a code or email
+  /// request submitted after the session died still reaches a live challenge.
+  Future<void> _ensureChallenge() async {
+    if (!await _isChallengePending()) {
+      await ref.read(gradesProvider.notifier).prepareReauth();
+    }
+  }
+
   Future<void> _validate() async {
     setState(() {
       _isLoading = true;
       _errorText = null;
     });
     try {
+      await _ensureChallenge();
       await GradesService.validate(_codeController.text.trim());
     } catch (e) {
       if (mounted) {
@@ -51,6 +114,7 @@ class _TwoFactorScreenState extends ConsumerState<TwoFactorScreen> {
   Future<void> _triggerEmail() async {
     setState(() => _isLoading = true);
     try {
+      await _ensureChallenge();
       await GradesService.triggerEmail();
       setState(() => _emailSent = true);
     } catch (e) {
@@ -75,6 +139,7 @@ class _TwoFactorScreenState extends ConsumerState<TwoFactorScreen> {
       _errorText = null;
     });
     try {
+      await _ensureChallenge();
       // Store the secret only after it is confirmed valid, so a wrong secret
       // isn't persisted.
       await GradesService.autoValidate(secret);
