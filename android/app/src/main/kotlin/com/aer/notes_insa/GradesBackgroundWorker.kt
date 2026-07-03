@@ -28,6 +28,13 @@ private const val KEY_OTP_SECRET = WorkerStore.KEY_OTP_SECRET
 private const val KEY_CAS_SESSION = WorkerStore.KEY_CAS_SESSION
 private const val KEY_GRADES_JSON = WorkerStore.KEY_GRADES_JSON
 private const val KEY_GRADES_UPDATED_AT = WorkerStore.KEY_GRADES_UPDATED_AT
+private const val KEY_LAST_TOTP_STEP = WorkerStore.KEY_LAST_TOTP_STEP
+
+// TOTP codes change once per step (RFC 6238 default period). Used to coordinate
+// autoValidate with the foreground so they don't submit the same one-time code
+// in the same step. If the real period differs the worst case is an unnecessary
+// skip (harmless retry), never a new failure.
+private const val TOTP_STEP_SECONDS = 30L
 
 // SharedPreferences key written by the Flutter shared_preferences plugin (flutter.* prefix)
 private const val PREF_FETCH_ENABLED = "flutter.background_fetch_enabled"
@@ -118,6 +125,21 @@ class GradesBackgroundWorker(
                         showReauthNotification()
                         return@withContext Result.success()
                     }
+                    // TOTP replay guard: the foreground app shares this OTP
+                    // secret, so if the current 30s step was already claimed
+                    // (here or by grades_provider.dart), submitting now would
+                    // replay the identical code and be rejected. Skip and let the
+                    // next run (a new step) handle it. Keep in sync with the Dart
+                    // and Swift implementations.
+                    val currentStep = totpStep()
+                    val claimedStep =
+                        securePrefs.getString(KEY_LAST_TOTP_STEP, null)?.toLongOrNull()
+                    if (claimedStep == currentStep) {
+                        Log.d(TAG, "TOTP step $currentStep already claimed, skipping this run")
+                        return@withContext Result.success()
+                    }
+                    securePrefs.edit()
+                        .putString(KEY_LAST_TOTP_STEP, currentStep.toString()).apply()
                     try {
                         Mobinsapi.autoValidate(otpSecret)
                     } catch (e: Exception) {
@@ -417,6 +439,10 @@ class GradesBackgroundWorker(
         }
         buildAndPost(id, title, body)
     }
+
+    // Current TOTP step: floor(epochSeconds / period). Two autoValidate calls in
+    // the same step generate the same one-time code.
+    private fun totpStep(): Long = System.currentTimeMillis() / 1000L / TOTP_STEP_SECONDS
 
     private fun showReauthNotification() {
         val prefs = appContext.getSharedPreferences(SHARED_PREFS_FILE, Context.MODE_PRIVATE)

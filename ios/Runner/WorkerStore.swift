@@ -26,6 +26,12 @@ enum WorkerStore {
     static let keyGradesJson = "stored_grades_json"
     static let keyGradesUpdatedAt = "stored_grades_updated_at"
 
+    // TOTP step (floor(epochSeconds / 30)) most recently claimed by an
+    // autoValidate caller, so the worker and the foreground don't submit the
+    // same one-time code in the same step. See GradesBackgroundTask.swift,
+    // GradesBackgroundWorker.kt, and grades_provider.dart.
+    static let keyLastTotpStep = "last_totp_step"
+
     // MARK: - Public API (mirrors WorkerStore.kt: read / write / clearAll)
 
     /// Reads the requested keys. Keys with no stored value come back as `nil`.

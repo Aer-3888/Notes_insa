@@ -23,6 +23,12 @@ class WorkerSyncService {
   static const String keyGradesJson = 'stored_grades_json';
   static const String keyGradesUpdatedAt = 'stored_grades_updated_at';
 
+  // TOTP step (floor(epochSeconds / 30)) most recently claimed by an
+  // autoValidate caller, so the worker and the foreground don't submit the same
+  // one-time code in the same step. See grades_provider.dart, WorkerStore.kt,
+  // and GradesBackgroundTask.swift.
+  static const String keyLastTotpStep = 'last_totp_step';
+
   /// Writes the provided keys to the worker store. A null value removes a key.
   static Future<void> sync(Map<String, String?> values) async {
     try {

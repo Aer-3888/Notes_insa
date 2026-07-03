@@ -29,6 +29,12 @@ object WorkerStore {
     const val KEY_GRADES_JSON = "stored_grades_json"
     const val KEY_GRADES_UPDATED_AT = "stored_grades_updated_at"
 
+    // TOTP step (floor(epochSeconds / 30)) most recently claimed by an
+    // autoValidate caller, so the worker and the foreground don't submit the
+    // same one-time code in the same step. See GradesBackgroundWorker.kt,
+    // GradesBackgroundTask.swift, and grades_provider.dart.
+    const val KEY_LAST_TOTP_STEP = "last_totp_step"
+
     /** Opens the store, or returns null if it cannot be created/decrypted. */
     fun openOrNull(context: Context): SharedPreferences? = try {
         val masterKey = MasterKey.Builder(context)

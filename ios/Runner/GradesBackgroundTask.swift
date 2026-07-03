@@ -36,6 +36,12 @@ enum GradesBackgroundTask {
     // Keep the default in sync with lib/background_tasks.dart.
     private static let defaultIntervalMinutes = 15
 
+    // TOTP codes change once per step (RFC 6238 default period). Used to
+    // coordinate autoValidate with the foreground so they don't submit the same
+    // one-time code in the same step. If the real period differs the worst case
+    // is an unnecessary skip (harmless retry), never a new failure.
+    private static let totpStepSeconds = 30.0
+
     // MARK: - Registration & scheduling
 
     /// Register the task handler. Call once from `application(_:didFinishLaunching…)`
@@ -147,6 +153,20 @@ enum GradesBackgroundTask {
                         showReauthNotification()
                         return true
                     }
+                    // TOTP replay guard: the foreground app shares this OTP
+                    // secret, so if the current 30s step was already claimed
+                    // (here or by grades_provider.dart), submitting now would
+                    // replay the identical code and be rejected. Skip and let the
+                    // next run (a new step) handle it. Keep in sync with the Dart
+                    // and Kotlin implementations.
+                    let currentStep = Self.totpStep()
+                    let claimedStep = WorkerStore.get(WorkerStore.keyLastTotpStep)
+                        .flatMap { Int64($0) }
+                    if claimedStep == currentStep {
+                        NSLog("[GradesBackgroundTask] TOTP step \(currentStep) already claimed, skipping this run")
+                        return true
+                    }
+                    WorkerStore.write(values: [WorkerStore.keyLastTotpStep: String(currentStep)])
                     do {
                         try MobinsApiClient.autoValidate(secret: otpSecret)
                     } catch {
@@ -429,6 +449,12 @@ enum GradesBackgroundTask {
             body = "\(multiPrefix) : \(head) et \(subjects.count - 3) autre(s)"
         }
         post(id: id, title: title, body: body, payload: payload)
+    }
+
+    // Current TOTP step: floor(epochSeconds / period). Two autoValidate calls in
+    // the same step generate the same one-time code.
+    private static func totpStep() -> Int64 {
+        return Int64(Date().timeIntervalSince1970 / totpStepSeconds)
     }
 
     private static func showReauthNotification() {

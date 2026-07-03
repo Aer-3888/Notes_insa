@@ -276,9 +276,10 @@ class GradesNotifier extends StateNotifier<GradesState> {
       // mirror that back to flutter_secure_storage (see WorkerSyncService).
       // Adopt its copy first so we restore the session the server currently
       // recognizes — otherwise importCAS below fails on our stale copy, which
-      // forces a redundant full re-auth + 2FA cycle (and risks the OTP server
-      // rejecting a replayed TOTP code from the same time-step the worker just
-      // used, surfacing as "2FA required" despite a valid stored secret).
+      // forces a redundant full re-auth + 2FA cycle. That cycle is where the
+      // OTP server could reject a TOTP code replayed from the same time-step the
+      // worker just used; the last_totp_step claim before autoValidate below
+      // guards the remaining window.
       await _adoptWorkerCasSession(authService);
 
       // Try to restore the previous session — avoids re-auth when still valid
@@ -317,6 +318,15 @@ class GradesNotifier extends StateNotifier<GradesState> {
             return;
           }
           try {
+            // TOTP replay guard: claim the current 30s step in the shared worker
+            // store before submitting, so a concurrent background worker run
+            // skips rather than replaying the identical one-time code and having
+            // the server reject it (see GradesBackgroundWorker.kt and
+            // GradesBackgroundTask.swift). We only claim, never wait: the
+            // worker-first ordering is already covered by _adoptWorkerCasSession.
+            await WorkerSyncService.sync({
+              WorkerSyncService.keyLastTotpStep: _totpStep().toString(),
+            });
             await GradesService.autoValidate(secret);
           } catch (_) {
             // Secret invalid or expired - trigger manual re-auth
@@ -371,6 +381,13 @@ class GradesNotifier extends StateNotifier<GradesState> {
   /// worker store, so a mismatch can only mean the worker rotated its copy
   /// behind our back — its version is the one the server currently honors.
   /// Best-effort: any failure leaves the existing session untouched.
+  // TOTP codes change once per step (RFC 6238 default period). Two autoValidate
+  // calls in the same step generate the same one-time code, so the step is
+  // claimed in the shared worker store to coordinate with the background worker.
+  static const int _totpStepSeconds = 30;
+  int _totpStep() =>
+      DateTime.now().millisecondsSinceEpoch ~/ 1000 ~/ _totpStepSeconds;
+
   Future<void> _adoptWorkerCasSession(AuthService authService) async {
     try {
       final values = await WorkerSyncService.read([
