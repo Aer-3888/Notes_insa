@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'app_colors.dart';
 import 'services/auth_service.dart';
@@ -143,6 +144,10 @@ class _AuthGateState extends ConsumerState<AuthGate>
     with WidgetsBindingObserver {
   StreamSubscription<String>? _notifSub;
 
+  // Same channel as the native method calls; used only to receive notification
+  // deep-link routes posted by MainActivity (see EXTRA_NOTIF_ROUTE there).
+  static const _routeChannel = MethodChannel('com.aer.notes_insa/grades');
+
   @override
   void initState() {
     super.initState();
@@ -162,6 +167,22 @@ class _AuthGateState extends ConsumerState<AuthGate>
     // 2FA auto-validate sets the reauth banner on the dashboard.
     NotificationService.consumePendingPayload();
     _notifSub = NotificationService.tapStream.listen(_onNotificationTap);
+
+    // Native background-worker notifications deep-link through MainActivity:
+    // warm taps arrive as "onNotificationRoute" calls, cold-start taps are
+    // pulled here. Both reuse the existing reauth tap handling (unlock-gated;
+    // the dashboard banner remains the fallback when locked).
+    _routeChannel.setMethodCallHandler(_onNativeRoute);
+    final route = await _routeChannel.invokeMethod<String>(
+      'ConsumeNotificationRoute',
+    );
+    if (route == 'reauth') _onNotificationTap('reauth_required');
+  }
+
+  Future<dynamic> _onNativeRoute(MethodCall call) async {
+    if (call.method == 'onNotificationRoute' && call.arguments == 'reauth') {
+      _onNotificationTap('reauth_required');
+    }
   }
 
   void _onNotificationTap(String payload) {
@@ -187,6 +208,7 @@ class _AuthGateState extends ConsumerState<AuthGate>
   @override
   void dispose() {
     _notifSub?.cancel();
+    _routeChannel.setMethodCallHandler(null);
     WidgetsBinding.instance.removeObserver(this);
     super.dispose();
   }

@@ -3,6 +3,8 @@ package com.aer.notes_insa
 import io.flutter.embedding.android.FlutterFragmentActivity
 import io.flutter.embedding.engine.FlutterEngine
 import io.flutter.plugin.common.MethodChannel
+import android.content.Intent
+import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
 import android.util.Log
@@ -12,7 +14,39 @@ import mobinsapi.Mobinsapi
 private const val CHANNEL = "com.aer.notes_insa/grades"
 private const val TAG = "MainActivity"
 
+// Deep-link plumbing for background notifications. GradesBackgroundWorker sets
+// EXTRA_NOTIF_ROUTE on the tap intent of its reconnect notifications; we read it
+// here and forward it to Flutter (see lib/main.dart). Keep the values in sync.
+internal const val EXTRA_NOTIF_ROUTE = "notif_route"
+internal const val ROUTE_REAUTH = "reauth"
+
 class MainActivity : FlutterFragmentActivity() {
+
+    // Set once the Flutter channel is wired, so warm-start intents (onNewIntent)
+    // can push the tapped route straight to Flutter.
+    private var channel: MethodChannel? = null
+
+    // Holds a cold-start route (read in onCreate, before the engine is ready)
+    // until Flutter pulls it via "ConsumeNotificationRoute".
+    private var pendingRoute: String? = null
+
+    override fun onCreate(savedInstanceState: Bundle?) {
+        super.onCreate(savedInstanceState)
+        // Engine/channel not ready yet on a cold start, so stash for the pull.
+        pendingRoute = intent?.getStringExtra(EXTRA_NOTIF_ROUTE)
+    }
+
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        setIntent(intent)
+        val route = intent.getStringExtra(EXTRA_NOTIF_ROUTE) ?: return
+        val ch = channel
+        if (ch != null) {
+            ch.invokeMethod("onNotificationRoute", route)
+        } else {
+            pendingRoute = route
+        }
+    }
 
     // Blank the recents/task-switcher thumbnail while backgrounded by enabling
     // FLAG_SECURE on pause and clearing it on resume. Toggling it (rather than
@@ -33,10 +67,11 @@ class MainActivity : FlutterFragmentActivity() {
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
         super.configureFlutterEngine(flutterEngine)
 
-        MethodChannel(
+        channel = MethodChannel(
             flutterEngine.dartExecutor.binaryMessenger,
             CHANNEL,
-        ).setMethodCallHandler { call, result ->
+        )
+        channel!!.setMethodCallHandler { call, result ->
             when (call.method) {
 
                 "Auth" -> {
@@ -175,6 +210,13 @@ class MainActivity : FlutterFragmentActivity() {
                 "StopBackgroundTask" -> {
                     GradesBackgroundWorker.cancel(applicationContext)
                     result.success(null)
+                }
+
+                // Cold-start deep link: Flutter pulls the route captured in
+                // onCreate once, then it is cleared.
+                "ConsumeNotificationRoute" -> {
+                    result.success(pendingRoute)
+                    pendingRoute = null
                 }
 
                 else -> result.notImplemented()

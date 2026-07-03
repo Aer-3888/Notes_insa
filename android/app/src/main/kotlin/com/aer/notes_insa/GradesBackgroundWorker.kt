@@ -431,6 +431,7 @@ class GradesBackgroundWorker(
             id = 3,
             title = "Reconnexion requise",
             body = "Une double authentification est nécessaire. Ouvrez l'application pour vous reconnecter.",
+            route = ROUTE_REAUTH,
         )
     }
 
@@ -449,13 +450,21 @@ class GradesBackgroundWorker(
             id = 4,
             title = "Reconnexion requise",
             body = "Vos identifiants semblent invalides. Ouvrez l'application pour vous reconnecter.",
+            route = ROUTE_REAUTH,
         )
     }
 
-    private fun buildAndPost(id: Int, title: String, body: String) {
+    // [route], when set, is attached as an intent extra so MainActivity can
+    // deep-link the tap to a specific Flutter screen (see EXTRA_NOTIF_ROUTE in
+    // MainActivity.kt and the handler in lib/main.dart). Grades notifications
+    // leave it null and just open the app.
+    private fun buildAndPost(id: Int, title: String, body: String, route: String? = null) {
         val launchIntent = appContext.packageManager
             .getLaunchIntentForPackage(appContext.packageName)
-            ?.apply { flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP }
+            ?.apply {
+                flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
+                if (route != null) putExtra(EXTRA_NOTIF_ROUTE, route)
+            }
         val pendingIntent = launchIntent?.let {
             PendingIntent.getActivity(
                 appContext, id, it,
