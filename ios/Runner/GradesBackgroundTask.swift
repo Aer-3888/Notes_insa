@@ -24,7 +24,14 @@ enum GradesBackgroundTask {
     // prefixes everything with "flutter." (mirrors the Android PREF_* keys).
     private static let prefFetchEnabled = "flutter.background_fetch_enabled"
     private static let prefLastReauthNotifMs = "flutter.last_reauth_notif_ms"
+    private static let prefLastCredsNotifMs = "flutter.last_creds_notif_ms"
     private static let reauthNotifCooldownMs: Double = 4 * 60 * 60 * 1000 // 4 hours
+
+    // A bad password and a transient blip both surface as an auth() error and are
+    // not reliably distinguishable, so consecutive failures are counted and the
+    // user is warned only once the streak crosses this threshold.
+    private static let prefAuthFailCount = "flutter.consecutive_auth_failures"
+    private static let authFailNotifyThreshold = 3
 
     // Keep the default in sync with lib/background_tasks.dart.
     private static let defaultIntervalMinutes = 15
@@ -123,9 +130,15 @@ enum GradesBackgroundTask {
                 do {
                     try MobinsApiClient.auth(username: username, password: password)
                 } catch {
-                    // Wrong credentials or a transient blip — skip silently
-                    // rather than retry-storming the CAS endpoint.
-                    NSLog("[GradesBackgroundTask] Auth failed — skipping this run")
+                    // Count the failure and skip this run. A transient blip rarely
+                    // repeats across runs while invalid credentials persist, so we
+                    // warn the user only after a few in a row. Reset on next success.
+                    let failCount = defaults.integer(forKey: prefAuthFailCount) + 1
+                    defaults.set(failCount, forKey: prefAuthFailCount)
+                    NSLog("[GradesBackgroundTask] Auth failed (attempt \(failCount)), skipping this run")
+                    if failCount >= authFailNotifyThreshold {
+                        showCredentialsNotification()
+                    }
                     return true
                 }
 
@@ -141,6 +154,12 @@ enum GradesBackgroundTask {
                         return true
                     }
                 }
+            }
+
+            // Authenticated now (restored session or fresh re-auth), so clear any
+            // prior auth-failure streak that may have warned the user.
+            if defaults.integer(forKey: prefAuthFailCount) != 0 {
+                defaults.set(0, forKey: prefAuthFailCount)
             }
 
             // Export the (possibly refreshed) session for next time.
@@ -296,8 +315,12 @@ enum GradesBackgroundTask {
         }
         for case let semester as [String: Any] in yearDetails {
             let semesterName = semester["name"] as? String ?? ""
-            guard let ues = semester["details"] as? [Any] else { continue }
-            for case let ue as [String: Any] in ues {
+            guard let ueContainer = semester["details"] as? [Any] else { continue }
+            // Flatten any STPI wrapper levels (the FILIERE node and the scientific
+            // sub-grouping) so the real UEs are compared, matching
+            // JsonCurriculumParser in lib/data.dart and extractSubjects in
+            // GradesBackgroundWorker.kt. Keep all three in sync.
+            for ue in collectUeNodes(ueContainer) {
                 let ueName = ue["name"] as? String ?? ""
                 guard let subjects = ue["details"] as? [Any] else { continue }
                 for case let subject as [String: Any] in subjects {
@@ -324,6 +347,55 @@ enum GradesBackgroundTask {
             }
         }
         return result
+    }
+
+    // Shape-detection helpers mirroring lib/data.dart, used to flatten the extra
+    // STPI grouping levels before reading UEs. Kept identical to the Dart parser
+    // and the Kotlin worker so change detection agrees across platforms.
+
+    private static func nodeIsLeaf(_ node: [String: Any]) -> Bool {
+        guard let d = node["details"] as? [Any] else { return true }
+        return d.isEmpty
+    }
+
+    private static func nodeHasGradeChildren(_ node: [String: Any]) -> Bool {
+        guard let d = node["details"] as? [Any], !d.isEmpty else { return false }
+        for child in d {
+            guard let c = child as? [String: Any] else { return false }
+            if !nodeIsLeaf(c) { return false }
+        }
+        return true
+    }
+
+    private static func nodeIsUe(_ node: [String: Any]) -> Bool {
+        guard let d = node["details"] as? [Any] else { return false }
+        for child in d {
+            if let c = child as? [String: Any], nodeHasGradeChildren(c) { return true }
+        }
+        return false
+    }
+
+    private static func nodeIsContainer(_ node: [String: Any]) -> Bool {
+        guard let d = node["details"] as? [Any] else { return false }
+        for child in d {
+            if let c = child as? [String: Any], nodeIsUe(c) || nodeIsContainer(c) { return true }
+        }
+        return false
+    }
+
+    private static func collectUeNodes(_ nodes: [Any]) -> [[String: Any]] {
+        var out: [[String: Any]] = []
+        for node in nodes {
+            guard let n = node as? [String: Any] else { continue }
+            if nodeIsContainer(n) {
+                if let children = n["details"] as? [Any] {
+                    out.append(contentsOf: collectUeNodes(children))
+                }
+            } else {
+                out.append(n)
+            }
+        }
+        return out
     }
 
     /// Handles both String scores (legacy) and array scores (current mobinsapi).
@@ -371,6 +443,25 @@ enum GradesBackgroundTask {
             id: "reauth_required",
             title: "Reconnexion requise",
             body: "Une double authentification est nécessaire. Ouvrez l'application pour vous reconnecter.",
+            payload: "reauth_required"
+        )
+    }
+
+    // Posted after repeated background auth failures, which usually means the
+    // INSA password changed. Has its own cooldown so it does not spam. Reuses the
+    // reauth payload so a tap routes to the reconnect screen.
+    private static func showCredentialsNotification() {
+        let defaults = UserDefaults.standard
+        let lastMs = defaults.double(forKey: prefLastCredsNotifMs)
+        let nowMs = Date().timeIntervalSince1970 * 1000
+        if nowMs - lastMs < reauthNotifCooldownMs {
+            return // cooldown active
+        }
+        defaults.set(nowMs, forKey: prefLastCredsNotifMs)
+        post(
+            id: "creds_required",
+            title: "Reconnexion requise",
+            body: "Vos identifiants semblent invalides. Ouvrez l'application pour vous reconnecter.",
             payload: "reauth_required"
         )
     }

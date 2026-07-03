@@ -32,7 +32,14 @@ private const val KEY_GRADES_UPDATED_AT = WorkerStore.KEY_GRADES_UPDATED_AT
 // SharedPreferences key written by the Flutter shared_preferences plugin (flutter.* prefix)
 private const val PREF_FETCH_ENABLED = "flutter.background_fetch_enabled"
 private const val PREF_LAST_REAUTH_NOTIF_MS = "flutter.last_reauth_notif_ms"
+private const val PREF_LAST_CREDS_NOTIF_MS = "flutter.last_creds_notif_ms"
 private const val REAUTH_NOTIF_COOLDOWN_MS = 4 * 60 * 60 * 1000L // 4 hours
+
+// A bad password and a transient blip both surface as an Auth() exception and
+// are not reliably distinguishable, so consecutive failures are counted and the
+// user is warned only once the streak crosses this threshold.
+private const val PREF_AUTH_FAIL_COUNT = "flutter.consecutive_auth_failures"
+private const val AUTH_FAIL_NOTIFY_THRESHOLD = 3
 
 internal const val TASK_UNIQUE_NAME = "grades_fetch_native"
 
@@ -92,9 +99,16 @@ class GradesBackgroundWorker(
                 try {
                     Mobinsapi.auth(username, password)
                 } catch (e: Exception) {
-                    // Wrong credentials or a transient blip — skip this run silently
-                    // rather than retry-storming the CAS endpoint with backoff.
-                    Log.w(TAG, "Auth failed — skipping this run")
+                    // Count the failure and skip this run. A transient blip rarely
+                    // repeats across runs (15+ min apart) while invalid credentials
+                    // persist, so we warn the user only after a few in a row. The
+                    // counter is reset on the next successful authentication.
+                    val failCount = prefs.getInt(PREF_AUTH_FAIL_COUNT, 0) + 1
+                    prefs.edit().putInt(PREF_AUTH_FAIL_COUNT, failCount).apply()
+                    Log.w(TAG, "Auth failed (attempt $failCount), skipping this run")
+                    if (failCount >= AUTH_FAIL_NOTIFY_THRESHOLD) {
+                        showCredentialsNotification()
+                    }
                     return@withContext Result.success()
                 }
 
@@ -113,6 +127,12 @@ class GradesBackgroundWorker(
                         return@withContext Result.success()
                     }
                 }
+            }
+
+            // Authenticated now (restored session or fresh re-auth), so clear any
+            // prior auth-failure streak that may have warned the user.
+            if (prefs.getInt(PREF_AUTH_FAIL_COUNT, 0) != 0) {
+                prefs.edit().putInt(PREF_AUTH_FAIL_COUNT, 0).apply()
             }
 
             // Export the (possibly refreshed) session for next time
@@ -276,9 +296,14 @@ class GradesBackgroundWorker(
             for (si in 0 until yearDetails.length()) {
                 val semester = yearDetails.optJSONObject(si) ?: continue
                 val semesterName = semester.optString("name", "")
-                val ues = semester.optJSONArray("details") ?: continue
-                for (ui in 0 until ues.length()) {
-                    val ue = ues.optJSONObject(ui) ?: continue
+                val ueContainer = semester.optJSONArray("details") ?: continue
+                // Flatten any STPI wrapper levels (the FILIERE node and the
+                // scientific sub-grouping) so the real UEs are compared, matching
+                // JsonCurriculumParser in lib/data.dart and extractSubjects in
+                // GradesBackgroundTask.swift. Keep all three in sync.
+                val ues = mutableListOf<JSONObject>()
+                collectUeNodes(ueContainer, ues)
+                for (ue in ues) {
                     val ueName = ue.optString("name", "")
                     val subjects = ue.optJSONArray("details") ?: continue
                     for (subi in 0 until subjects.length()) {
@@ -312,6 +337,62 @@ class GradesBackgroundWorker(
             Log.w(TAG, "JSON parsing failed")
         }
         return result
+    }
+
+    // Shape-detection helpers mirroring lib/data.dart, used to flatten the extra
+    // STPI grouping levels before reading UEs. Kept identical to the Dart parser
+    // and the Swift task so change detection agrees across platforms.
+
+    // A leaf has no child details, i.e. it is an individual grade.
+    private fun nodeIsLeaf(node: JSONObject): Boolean {
+        val d = node.optJSONArray("details")
+        return d == null || d.length() == 0
+    }
+
+    // A subject directly parents grades, so all of its children are leaves.
+    private fun nodeHasGradeChildren(node: JSONObject): Boolean {
+        val d = node.optJSONArray("details") ?: return false
+        if (d.length() == 0) return false
+        for (i in 0 until d.length()) {
+            val c = d.optJSONObject(i) ?: return false
+            if (!nodeIsLeaf(c)) return false
+        }
+        return true
+    }
+
+    // A UE directly parents at least one subject that has grades.
+    private fun nodeIsUe(node: JSONObject): Boolean {
+        val d = node.optJSONArray("details") ?: return false
+        for (i in 0 until d.length()) {
+            val c = d.optJSONObject(i) ?: continue
+            if (nodeHasGradeChildren(c)) return true
+        }
+        return false
+    }
+
+    // A container groups UEs or further containers rather than subjects (the
+    // STPI FILIERE wrapper or a scientific sub-grouping) and must be flattened.
+    private fun nodeIsContainer(node: JSONObject): Boolean {
+        val d = node.optJSONArray("details") ?: return false
+        for (i in 0 until d.length()) {
+            val c = d.optJSONObject(i) ?: continue
+            if (nodeIsUe(c) || nodeIsContainer(c)) return true
+        }
+        return false
+    }
+
+    // Walks the groupings beneath a semester and collects the real UE nodes,
+    // flattening any wrapper levels in between.
+    private fun collectUeNodes(nodes: JSONArray, out: MutableList<JSONObject>) {
+        for (i in 0 until nodes.length()) {
+            val node = nodes.optJSONObject(i) ?: continue
+            if (nodeIsContainer(node)) {
+                val children = node.optJSONArray("details")
+                if (children != null) collectUeNodes(children, out)
+            } else {
+                out.add(node)
+            }
+        }
     }
 
     // Handles both String scores (legacy format) and List scores (current mobinsapi format).
@@ -350,6 +431,24 @@ class GradesBackgroundWorker(
             id = 3,
             title = "Reconnexion requise",
             body = "Une double authentification est nécessaire. Ouvrez l'application pour vous reconnecter.",
+        )
+    }
+
+    // Posted after repeated background auth failures, which usually means the
+    // INSA password changed. Has its own cooldown so it does not spam.
+    private fun showCredentialsNotification() {
+        val prefs = appContext.getSharedPreferences(SHARED_PREFS_FILE, Context.MODE_PRIVATE)
+        val lastMs = prefs.getLong(PREF_LAST_CREDS_NOTIF_MS, 0L)
+        if (System.currentTimeMillis() - lastMs < REAUTH_NOTIF_COOLDOWN_MS) {
+            Log.d(TAG, "Credentials notification suppressed (cooldown active)")
+            return
+        }
+        prefs.edit().putLong(PREF_LAST_CREDS_NOTIF_MS, System.currentTimeMillis()).apply()
+        ensureNotificationChannel()
+        buildAndPost(
+            id = 4,
+            title = "Reconnexion requise",
+            body = "Vos identifiants semblent invalides. Ouvrez l'application pour vous reconnecter.",
         )
     }
 
