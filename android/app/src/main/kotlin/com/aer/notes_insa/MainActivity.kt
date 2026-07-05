@@ -9,6 +9,7 @@ import android.os.Handler
 import android.os.Looper
 import android.util.Log
 import android.view.WindowManager
+import kotlin.concurrent.withLock
 import mobinsapi.Mobinsapi
 
 private const val CHANNEL = "com.aer.notes_insa/grades"
@@ -225,9 +226,12 @@ class MainActivity : FlutterFragmentActivity() {
     }
 
     /**
-     * Runs [block] on a background thread and posts the result (or error) back
-     * on the main looper. [block] returns the value to pass to result.success(),
-     * or throws an Exception which is forwarded as result.error().
+     * Runs [block] on the shared single-thread native executor and posts the
+     * result (or error) back on the main looper. [block] returns the value to
+     * pass to result.success(), or throws an Exception forwarded as
+     * result.error(). Serializing here (and holding [NativeSession.lock] for the
+     * call) ensures a call that outlived its Dart timeout, or a concurrent
+     * background worker run, can't overlap and corrupt the shared CAS session.
      */
     private fun runInBackground(
         methodName: String,
@@ -235,9 +239,9 @@ class MainActivity : FlutterFragmentActivity() {
         block: () -> Any?,
     ) {
         val mainHandler = Handler(Looper.getMainLooper())
-        Thread {
+        NativeSession.executor.execute {
             try {
-                val value = block()
+                val value = NativeSession.lock.withLock { block() }
                 mainHandler.post { result.success(value) }
             } catch (e: Exception) {
                 if (BuildConfig.DEBUG) {
@@ -251,6 +255,6 @@ class MainActivity : FlutterFragmentActivity() {
                     )
                 }
             }
-        }.start()
+        }
     }
 }

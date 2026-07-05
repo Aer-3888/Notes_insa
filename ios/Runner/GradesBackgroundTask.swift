@@ -84,12 +84,16 @@ enum GradesBackgroundTask {
         schedule(intervalMinutes: interval)
 
         let queue = DispatchQueue(label: "com.aer.notes_insa.grades.work")
+        // Shared flag so doWork() can stop between Mobinsapi calls once the
+        // system asks for the task back, rather than running to completion.
+        let token = CancellationToken()
         let workItem = DispatchWorkItem {
-            let success = doWork()
+            let success = doWork(isCancelled: { token.isCancelled })
             task.setTaskCompleted(success: success)
         }
         task.expirationHandler = {
             // System is reclaiming time; abandon this run. It will retry later.
+            token.cancel()
             workItem.cancel()
         }
         queue.async(execute: workItem)
@@ -100,7 +104,7 @@ enum GradesBackgroundTask {
     /// Returns true on a clean run (including intentional skips), false on a
     /// failure that warrants a retry.
     @discardableResult
-    static func doWork() -> Bool {
+    static func doWork(isCancelled: () -> Bool = { false }) -> Bool {
         let defaults = UserDefaults.standard
         // Default true when never set (matches Android PREF_FETCH_ENABLED default).
         if defaults.object(forKey: prefFetchEnabled) != nil,
@@ -117,6 +121,12 @@ enum GradesBackgroundTask {
 
         let otpSecret = WorkerStore.get(WorkerStore.keyOtpSecret)
         let casSession = WorkerStore.get(WorkerStore.keyCasSession)
+
+        // Hold the native lock for the whole Mobinsapi sequence so a concurrent
+        // foreground call cannot interleave and corrupt the shared CAS session
+        // (mirrors GradesBackgroundWorker on Android). Released at return.
+        NativeSession.lock.lock()
+        defer { NativeSession.lock.unlock() }
 
         do {
             // Try to restore the previous CAS session to skip a full re-auth.
@@ -176,6 +186,8 @@ enum GradesBackgroundTask {
                 }
             }
 
+            if isCancelled() { return false }
+
             // Authenticated now (restored session or fresh re-auth), so clear any
             // prior auth-failure streak that may have warned the user.
             if defaults.integer(forKey: prefAuthFailCount) != 0 {
@@ -190,11 +202,13 @@ enum GradesBackgroundTask {
             // Read the previous snapshot before overwriting it.
             let previousJson = WorkerStore.get(WorkerStore.keyGradesJson)
 
+            if isCancelled() { return false }
             let groupCount = try MobinsApiClient.loadGroups()
             if groupCount <= 0 {
                 NSLog("[GradesBackgroundTask] No groups available, skipping")
                 return true
             }
+            if isCancelled() { return false }
 
             let newJson: String
             if groupCount == 1 {
@@ -204,12 +218,17 @@ enum GradesBackgroundTask {
                 var mergedDetails: [Any] = []
                 if let d = first["details"] as? [Any] { mergeDetails(&mergedDetails, d) }
                 for i in 1..<groupCount {
+                    if isCancelled() { return false }
                     let extra = try parseObject(MobinsApiClient.grades(id: i))
                     if let d = extra["details"] as? [Any] { mergeDetails(&mergedDetails, d) }
                 }
                 first["details"] = mergedDetails
                 newJson = try serialize(first)
             }
+
+            // Bail before persisting/notifying if the system reclaimed our time
+            // during the grade fetches above.
+            if isCancelled() { return false }
 
             // Stamp the write so the foreground can tell this snapshot is newer
             // than its own copy and adopt it on resume.
@@ -511,5 +530,24 @@ enum GradesBackgroundTask {
 private enum BGScheduler {
     static func submit(_ request: BGTaskRequest) throws {
         try BGTaskScheduler.shared.submit(request)
+    }
+}
+
+/// Thread-safe one-way cancellation flag. The task's expiration handler and the
+/// work item run on different threads, so the flag is guarded by a lock.
+private final class CancellationToken {
+    private let lock = NSLock()
+    private var cancelled = false
+
+    var isCancelled: Bool {
+        lock.lock()
+        defer { lock.unlock() }
+        return cancelled
+    }
+
+    func cancel() {
+        lock.lock()
+        cancelled = true
+        lock.unlock()
     }
 }

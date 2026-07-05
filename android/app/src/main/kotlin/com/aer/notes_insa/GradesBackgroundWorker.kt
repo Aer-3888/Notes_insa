@@ -92,6 +92,12 @@ class GradesBackgroundWorker(
             val otpSecret = store[KEY_OTP_SECRET]
             val casSession = store[KEY_CAS_SESSION]
 
+            // Hold the native lock for the whole Mobinsapi sequence so a
+            // concurrent foreground call cannot interleave and corrupt the
+            // shared CAS session. Released in the finally below (isHeldByCurrent
+            // Thread guards the early no-op returns above, which never acquire).
+            NativeSession.lock.lock()
+
             // Try to restore the previous CAS session to skip full re-auth
             if (casSession != null) {
                 try {
@@ -248,9 +254,20 @@ class GradesBackgroundWorker(
             }
 
             Result.success()
+        } catch (e: org.json.JSONException) {
+            // Malformed payload is a permanent error for this run; retrying on
+            // the same data would loop, so treat it as done and wait for the
+            // next scheduled run rather than backing off and retrying now.
+            Log.e(TAG, "Background fetch failed on malformed data", e)
+            Result.success()
         } catch (e: Exception) {
+            // Likely transient (network, native blip): let WorkManager retry
+            // with its backoff policy.
             Log.e(TAG, "Background fetch failed", e)
             Result.retry()
+        } finally {
+            // Guards the early no-op returns above, which never take the lock.
+            if (NativeSession.lock.isHeldByCurrentThread) NativeSession.lock.unlock()
         }
     }
 

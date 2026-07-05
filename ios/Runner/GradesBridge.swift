@@ -153,7 +153,12 @@ enum GradesBridge {
         _ result: @escaping FlutterResult,
         _ block: @escaping () throws -> Any?
     ) {
-        DispatchQueue.global(qos: .userInitiated).async {
+        // Run on the shared serial queue and hold the native lock for the call
+        // so a timed-out foreground call, or a concurrent background task run,
+        // cannot overlap and corrupt the shared CAS session (see NativeSession).
+        NativeSession.queue.async {
+            NativeSession.lock.lock()
+            defer { NativeSession.lock.unlock() }
             do {
                 let value = try block()
                 DispatchQueue.main.async { result(value) }
