@@ -16,6 +16,8 @@ import '../components/unit_card_grid.dart';
 import '../services/averages_service.dart';
 import '../services/notification_service.dart';
 
+part 'dashboard/subject_stats_sheet.dart';
+
 class DashboardScreen extends ConsumerStatefulWidget {
   /// Called when 2FA is required and no OTP secret is stored.
   /// The caller should navigate to the login screen.
@@ -748,111 +750,126 @@ class _SubjectCard extends StatelessWidget {
         ? '–'
         : '$averagePrefix${subject.average!.toStringAsFixed(2)}';
 
-    return GestureDetector(
+    // Screen readers otherwise announce the raw pills; give the whole card a
+    // single actionable label (name + average) and mark it a button.
+    final semanticLabel = subject.average == null
+        ? '${titleCase(subject.name)}, pas encore de note'
+        : '${titleCase(subject.name)}, moyenne $averageText sur 20';
+
+    return Semantics(
+      button: true,
+      label: semanticLabel,
+      // Carry the tap action on this node too: excludeSemantics drops the
+      // GestureDetector's own descendant tap semantics, so without this the card
+      // would be a labelled button that assistive tech cannot activate.
       onTap: onTap,
-      behavior: HitTestBehavior.opaque,
-      child: Container(
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(16),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withValues(alpha: 0.05),
-              blurRadius: 8,
-              offset: const Offset(0, 2),
-            ),
-          ],
-        ),
-        clipBehavior: Clip.hardEdge,
-        child: IntrinsicHeight(
-          child: Row(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              // Left color accent strip
-              Container(width: 4, color: subjectColor),
-              // Card content
-              Expanded(
-                child: Padding(
-                  padding: const EdgeInsets.all(14),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      // Subject name + coeff pill
-                      Row(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Expanded(
-                            child: Text(
-                              titleCase(subject.name),
-                              style: const TextStyle(
-                                fontWeight: FontWeight.w600,
-                                fontSize: 15,
-                                height: 1.3,
-                              ),
-                            ),
-                          ),
-                          const SizedBox(width: 4),
-                          Icon(
-                            Icons.bar_chart_outlined,
-                            size: 14,
-                            color: hasData
-                                ? AppColors.textMuted
-                                : Colors.grey.shade300,
-                          ),
-                          const SizedBox(width: 8),
-                          // Validation tag (VAL / VALCOMP). Absent when the
-                          // school has not published a status for this EC.
-                          if (subject.extractedStatus != null) ...[
-                            _StatusPill(status: subject.extractedStatus!),
-                            const SizedBox(width: 6),
-                          ],
-                          _CoeffPill(coeff: subject.coeff),
-                        ],
-                      ),
-                      const SizedBox(height: 10),
-                      // Moyenne — full-width tinted row
-                      Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 12,
-                          vertical: 8,
-                        ),
-                        decoration: BoxDecoration(
-                          color: subjectColor.withValues(alpha: 0.08),
-                          borderRadius: BorderRadius.circular(10),
-                        ),
-                        child: Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                          children: [
-                            Text(
-                              'Moyenne',
-                              style: TextStyle(
-                                fontSize: 13,
-                                fontWeight: FontWeight.w500,
-                                color: subjectColor,
-                              ),
-                            ),
-                            Text(
-                              averageText,
-                              style: TextStyle(
-                                fontSize: 15,
-                                fontWeight: FontWeight.bold,
-                                color: subjectColor,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                      if (subject.grades.isNotEmpty) ...[
-                        const SizedBox(height: 10),
-                        Divider(height: 1, color: Colors.grey.shade100),
-                        const SizedBox(height: 6),
-                        ...subject.grades.map((g) => _GradeRow(grade: g)),
-                      ],
-                    ],
-                  ),
-                ),
+      excludeSemantics: true,
+      child: GestureDetector(
+        onTap: onTap,
+        behavior: HitTestBehavior.opaque,
+        child: Container(
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(16),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withValues(alpha: 0.05),
+                blurRadius: 8,
+                offset: const Offset(0, 2),
               ),
             ],
+          ),
+          clipBehavior: Clip.hardEdge,
+          child: IntrinsicHeight(
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                // Left color accent strip
+                Container(width: 4, color: subjectColor),
+                // Card content
+                Expanded(
+                  child: Padding(
+                    padding: const EdgeInsets.all(14),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        // Subject name + coeff pill
+                        Row(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Expanded(
+                              child: Text(
+                                titleCase(subject.name),
+                                style: const TextStyle(
+                                  fontWeight: FontWeight.w600,
+                                  fontSize: 15,
+                                  height: 1.3,
+                                ),
+                              ),
+                            ),
+                            const SizedBox(width: 4),
+                            Icon(
+                              Icons.bar_chart_outlined,
+                              size: 14,
+                              color: hasData
+                                  ? AppColors.textMuted
+                                  : Colors.grey.shade300,
+                            ),
+                            const SizedBox(width: 8),
+                            // Validation tag (VAL / VALCOMP). Absent when the
+                            // school has not published a status for this EC.
+                            if (subject.extractedStatus != null) ...[
+                              _StatusPill(status: subject.extractedStatus!),
+                              const SizedBox(width: 6),
+                            ],
+                            _CoeffPill(coeff: subject.coeff),
+                          ],
+                        ),
+                        const SizedBox(height: 10),
+                        // Moyenne — full-width tinted row
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 12,
+                            vertical: 8,
+                          ),
+                          decoration: BoxDecoration(
+                            color: subjectColor.withValues(alpha: 0.08),
+                            borderRadius: BorderRadius.circular(10),
+                          ),
+                          child: Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              Text(
+                                'Moyenne',
+                                style: TextStyle(
+                                  fontSize: 13,
+                                  fontWeight: FontWeight.w500,
+                                  color: subjectColor,
+                                ),
+                              ),
+                              Text(
+                                averageText,
+                                style: TextStyle(
+                                  fontSize: 15,
+                                  fontWeight: FontWeight.bold,
+                                  color: subjectColor,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                        if (subject.grades.isNotEmpty) ...[
+                          const SizedBox(height: 10),
+                          Divider(height: 1, color: Colors.grey.shade100),
+                          const SizedBox(height: 6),
+                          ...subject.grades.map((g) => _GradeRow(grade: g)),
+                        ],
+                      ],
+                    ),
+                  ),
+                ),
+              ],
+            ),
           ),
         ),
       ),
@@ -997,304 +1014,4 @@ class _StatusPill extends StatelessWidget {
       ),
     );
   }
-}
-
-// ---------------------------------------------------------------------------
-// Subject stats bottom sheet
-// ---------------------------------------------------------------------------
-
-class _SubjectStatsSheet extends StatelessWidget {
-  final Subject subject;
-  final SubjectAverage? avg;
-
-  const _SubjectStatsSheet({required this.subject, required this.avg});
-
-  @override
-  Widget build(BuildContext context) {
-    final gradeColor = GradeUtils.getColor(subject.average);
-    final averagePrefix = subject.isAverageEstimated ? '≈' : '';
-    final averageText = subject.average == null
-        ? null
-        : '$averagePrefix${subject.average!.toStringAsFixed(2)}';
-
-    return Container(
-      decoration: const BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-      ),
-      padding: const EdgeInsets.fromLTRB(16, 12, 16, 32),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          // Drag handle
-          Center(
-            child: Container(
-              width: 36,
-              height: 4,
-              decoration: BoxDecoration(
-                color: Colors.grey.shade300,
-                borderRadius: BorderRadius.circular(2),
-              ),
-            ),
-          ),
-          const SizedBox(height: 20),
-          // Header: subject name + user grade
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      titleCase(subject.name),
-                      style: const TextStyle(
-                        fontSize: 18,
-                        fontWeight: FontWeight.bold,
-                        height: 1.2,
-                      ),
-                    ),
-                    const SizedBox(height: 4),
-                    averageText != null
-                        ? Text(
-                            'Ma note: $averageText',
-                            style: TextStyle(
-                              fontSize: 14,
-                              color: gradeColor,
-                              fontWeight: FontWeight.w600,
-                            ),
-                          )
-                        : Text(
-                            'Pas encore de note',
-                            style: TextStyle(
-                              fontSize: 14,
-                              color: Colors.grey.shade500,
-                            ),
-                          ),
-                  ],
-                ),
-              ),
-              _CoeffPill(coeff: subject.coeff),
-            ],
-          ),
-          const SizedBox(height: 20),
-          // Histogram or placeholder
-          if (avg == null)
-            Padding(
-              padding: const EdgeInsets.symmetric(vertical: 40),
-              child: Column(
-                children: [
-                  Icon(
-                    Icons.info_outline,
-                    size: 48,
-                    color: Colors.grey.shade300,
-                  ),
-                  const SizedBox(height: 16),
-                  Text(
-                    'Statistiques non disponibles',
-                    style: TextStyle(
-                      color: Colors.grey.shade600,
-                      fontWeight: FontWeight.w500,
-                    ),
-                  ),
-                  const SizedBox(height: 4),
-                  Text(
-                    'Soyez le premier à partager vos notes !',
-                    style: TextStyle(color: Colors.grey.shade400, fontSize: 12),
-                  ),
-                ],
-              ),
-            )
-          else
-            SizedBox(
-              height: 160,
-              child: _GradeHistogram(
-                buckets: avg!.buckets,
-                myGrade: subject.average,
-              ),
-            ),
-          const SizedBox(height: 20),
-          // Stats row
-          if (avg != null)
-            Row(
-              children: [
-                _StatCell(label: 'Moy', value: avg!.avg.toStringAsFixed(2)),
-                _StatDivider(),
-                _StatCell(
-                  label: 'Médiane',
-                  value: avg!.median.toStringAsFixed(1),
-                ),
-                _StatDivider(),
-                _StatCell(label: 'Min', value: avg!.min.toStringAsFixed(2)),
-                _StatDivider(),
-                _StatCell(label: 'Max', value: avg!.max.toStringAsFixed(2)),
-                _StatDivider(),
-                _StatCell(label: 'Élèves', value: avg!.count.toString()),
-              ],
-            ),
-        ],
-      ),
-    );
-  }
-}
-
-class _StatCell extends StatelessWidget {
-  final String label;
-  final String value;
-
-  const _StatCell({required this.label, required this.value});
-
-  @override
-  Widget build(BuildContext context) {
-    return Expanded(
-      child: Column(
-        children: [
-          Text(
-            value,
-            style: const TextStyle(fontSize: 15, fontWeight: FontWeight.bold),
-          ),
-          const SizedBox(height: 2),
-          Text(
-            label,
-            style: const TextStyle(fontSize: 11, color: AppColors.textMuted),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _StatDivider extends StatelessWidget {
-  @override
-  Widget build(BuildContext context) {
-    return Container(width: 1, height: 32, color: Colors.grey.shade200);
-  }
-}
-
-// ---------------------------------------------------------------------------
-// Grade histogram (CustomPainter)
-// ---------------------------------------------------------------------------
-
-class _GradeHistogram extends StatelessWidget {
-  final List<int> buckets;
-  final double? myGrade;
-
-  const _GradeHistogram({required this.buckets, this.myGrade});
-
-  static int? _bucketIndex(double grade) {
-    if (grade < 0 || grade > 20) return null;
-    return grade.floor().clamp(0, 19);
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final myBucket = myGrade != null ? _bucketIndex(myGrade!) : null;
-    final myBucketColor = GradeUtils.getColor(myGrade);
-
-    return CustomPaint(
-      painter: _HistogramPainter(
-        buckets: buckets,
-        myBucket: myBucket,
-        myBucketColor: myBucketColor,
-      ),
-      size: Size.infinite,
-    );
-  }
-}
-
-class _HistogramPainter extends CustomPainter {
-  final List<int> buckets;
-  final int? myBucket;
-  final Color myBucketColor;
-
-  _HistogramPainter({
-    required this.buckets,
-    required this.myBucket,
-    required this.myBucketColor,
-  });
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    const labelHeight = 20.0;
-    const barInset = 1.5; // gap between tick and bar edge
-
-    final maxCount = buckets.fold<int>(0, (m, b) => b > m ? b : m);
-    if (maxCount == 0) return;
-
-    final n = buckets.length; // 20
-    // Each bar occupies an equal slot; label centered under bar center
-    final slotWidth = size.width / n;
-    final barWidth = slotWidth - barInset * 2;
-
-    final barPaint = Paint()..style = PaintingStyle.fill;
-    final labelStyle = TextStyle(fontSize: 9, color: Colors.grey.shade500);
-    final markerPaint = Paint()..style = PaintingStyle.fill;
-
-    for (int i = 0; i < n; i++) {
-      final slotCenter = i * slotWidth + slotWidth / 2;
-      final barLeft = slotCenter - barWidth / 2;
-      final count = buckets[i];
-
-      // Bar
-      double barH = count == 0
-          ? 0
-          : (count / maxCount) * (size.height - labelHeight);
-      if (count > 0 && barH < 4) barH = 4;
-
-      final isMyBar = myBucket == i;
-      barPaint.color = isMyBar ? myBucketColor : Colors.grey.shade300;
-
-      if (barH > 0) {
-        final top = size.height - labelHeight - barH;
-        final rect = RRect.fromRectAndCorners(
-          Rect.fromLTWH(barLeft, top, barWidth, barH),
-          topLeft: const Radius.circular(3),
-          topRight: const Radius.circular(3),
-        );
-        canvas.drawRRect(rect, barPaint);
-
-        // Triangle marker above user's bar
-        if (isMyBar) {
-          markerPaint.color = myBucketColor;
-          const markerSize = 6.0;
-          final path = Path()
-            ..moveTo(slotCenter - markerSize / 2, top - 6)
-            ..lineTo(slotCenter + markerSize / 2, top - 6)
-            ..lineTo(slotCenter, top - 1)
-            ..close();
-          canvas.drawPath(path, markerPaint);
-        }
-      }
-
-      // Label every 2 bars: 0, 2, 4, ..., 18
-      if (i % 2 == 0 && i < n - 1) {
-        final label = i.toString();
-        final tp = TextPainter(
-          text: TextSpan(text: label, style: labelStyle),
-          textDirection: TextDirection.ltr,
-        )..layout();
-        tp.paint(
-          canvas,
-          Offset(slotCenter - tp.width / 2, size.height - labelHeight + 4),
-        );
-      }
-    }
-
-    // "20" centered under the last bar (bar 19 = [19,20])
-    final lastSlotCenter = (n - 1) * slotWidth + slotWidth / 2;
-    final tp20 = TextPainter(
-      text: TextSpan(text: '20', style: labelStyle),
-      textDirection: TextDirection.ltr,
-    )..layout();
-    tp20.paint(
-      canvas,
-      Offset(lastSlotCenter - tp20.width / 2, size.height - labelHeight + 4),
-    );
-  }
-
-  @override
-  bool shouldRepaint(_HistogramPainter old) =>
-      old.buckets != buckets ||
-      old.myBucket != myBucket ||
-      old.myBucketColor != myBucketColor;
 }

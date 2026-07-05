@@ -71,8 +71,9 @@ class ResilientHttp {
     if (retryAfter != null) {
       final trimmed = retryAfter.trim();
       final secs = int.tryParse(trimmed);
-      if (secs != null && secs >= 0)
+      if (secs != null && secs >= 0) {
         return _capRetryAfter(Duration(seconds: secs));
+      }
       try {
         final delay = HttpDate.parse(
           trimmed,
