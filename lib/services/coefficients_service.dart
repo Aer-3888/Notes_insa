@@ -1,7 +1,7 @@
 import 'dart:async';
 import 'dart:convert';
 import 'package:flutter/foundation.dart';
-import 'package:http/http.dart' as http;
+import 'resilient_http.dart';
 import 'secure_storage.dart';
 import '../constants.dart';
 import '../data.dart';
@@ -200,11 +200,12 @@ class CoefficientsService {
         },
       );
 
-      final response = await http.get(uri).timeout(const Duration(seconds: 10));
-      if (response.statusCode != 200) return null;
-
-      final List<dynamic> data = jsonDecode(response.body) as List<dynamic>;
-      if (data.isEmpty) return null;
+      final response = await ResilientHttp.get(
+        uri,
+        timeout: const Duration(seconds: 10),
+      );
+      final data = ResilientHttp.decodeJson(response);
+      if (data is! List || data.isEmpty) return null;
 
       final result = <String, double>{};
       for (final row in data) {
@@ -257,16 +258,15 @@ class CoefficientsService {
         'coefficients': entries,
       });
 
-      await http
-          .post(
-            Uri.parse('$kWorkerBaseUrl/coefficients'),
-            headers: {
-              'Content-Type': 'application/json',
-              'X-App-Secret': kAppSecret,
-            },
-            body: body,
-          )
-          .timeout(const Duration(seconds: 10));
+      await ResilientHttp.post(
+        Uri.parse('$kWorkerBaseUrl/coefficients'),
+        headers: {
+          'Content-Type': 'application/json',
+          'X-App-Secret': kAppSecret,
+        },
+        body: body,
+        timeout: const Duration(seconds: 10),
+      );
     } catch (e) {
       if (kDebugMode) debugPrint('[Coefficients] Cloudflare push failed: $e');
     }

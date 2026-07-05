@@ -2,8 +2,8 @@ import 'dart:async';
 import 'dart:convert';
 import 'package:crypto/crypto.dart';
 import 'package:flutter/foundation.dart';
-import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
+import 'resilient_http.dart';
 import 'secure_storage.dart';
 import '../constants.dart';
 import '../models.dart';
@@ -227,26 +227,22 @@ class AveragesService {
       );
     }
 
-    final response = await http
-        .post(
-          Uri.parse('$kWorkerBaseUrl/submit'),
-          headers: {
-            'Content-Type': 'application/json',
-            'X-App-Secret': kAppSecret,
-          },
-          body: body,
-        )
-        .timeout(const Duration(seconds: 10));
+    final response = await ResilientHttp.post(
+      Uri.parse('$kWorkerBaseUrl/submit'),
+      headers: {'Content-Type': 'application/json', 'X-App-Secret': kAppSecret},
+      body: body,
+      timeout: const Duration(seconds: 10),
+    );
 
-    if (response.statusCode != 200) {
+    if (response == null || response.statusCode != 200) {
       if (kDebugMode) {
         debugPrint(
-          '[AveragesService] Failed with status ${response.statusCode}',
+          '[AveragesService] Failed with status ${response?.statusCode}',
         );
-        debugPrint('[AveragesService] Response: ${response.body}');
+        debugPrint('[AveragesService] Response: ${response?.body}');
       }
       throw Exception(
-        'Server returned ${response.statusCode}: ${response.body}',
+        'Server returned ${response?.statusCode ?? 'no response'}',
       );
     } else {
       await prefs.setString(hashKey, currentHash);
@@ -297,13 +293,22 @@ class AveragesService {
       },
     );
 
-    final response = await http.get(uri).timeout(const Duration(seconds: 15));
+    final response = await ResilientHttp.get(
+      uri,
+      timeout: const Duration(seconds: 15),
+    );
 
-    if (response.statusCode != 200) {
-      throw Exception('fetchAverages: server returned ${response.statusCode}');
+    if (response == null || response.statusCode != 200) {
+      throw Exception(
+        'fetchAverages: server returned ${response?.statusCode ?? 'no response'}',
+      );
     }
 
-    final List<dynamic> data = jsonDecode(response.body) as List<dynamic>;
+    final decoded = ResilientHttp.decodeJson(response);
+    if (decoded is! List) {
+      throw Exception('fetchAverages: unexpected response shape');
+    }
+    final List<dynamic> data = decoded;
     final result = <SubjectAverage>[];
     for (final row in data) {
       if (row is! Map<String, dynamic>) continue;
