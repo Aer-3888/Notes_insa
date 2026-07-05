@@ -8,6 +8,7 @@ import '../services/auth_service.dart';
 import '../services/worker_sync_service.dart';
 import '../constants.dart';
 import 'coefficients_provider.dart';
+import 'dashboard_providers.dart';
 
 enum AuthStatus {
   unauthenticated,
@@ -464,6 +465,9 @@ class GradesNotifier extends StateNotifier<GradesState> {
   /// Clear all grades data (called on logout).
   void clearGrades() {
     state = const GradesState();
+    // Reset dashboard-scoped UI state so a previous account's selected semester
+    // does not carry into the next login.
+    _ref.invalidate(selectedSemesterProvider);
   }
 
   /// Manually trigger a PIN requirement in the UI.
