@@ -2,25 +2,40 @@ package com.aer.notes_insa
 
 import android.content.Context
 import android.content.SharedPreferences
+import android.security.keystore.KeyGenParameterSpec
+import android.security.keystore.KeyProperties
+import android.util.Base64
 import android.util.Log
-import androidx.security.crypto.EncryptedSharedPreferences
-import androidx.security.crypto.MasterKey
+import java.security.KeyStore
+import javax.crypto.Cipher
+import javax.crypto.KeyGenerator
+import javax.crypto.SecretKey
+import javax.crypto.spec.GCMParameterSpec
 
 /**
- * Dedicated AndroidX [EncryptedSharedPreferences] store shared between the Flutter
- * app (which writes through the MethodChannel) and [GradesBackgroundWorker] (which reads).
+ * Encrypted key/value store shared between the Flutter app (which writes through
+ * the MethodChannel) and [GradesBackgroundWorker] (which reads and updates it).
  *
- * flutter_secure_storage 10.x stores values under its own RSA+AES cipher with
- * prefixed keys in a plain SharedPreferences file, which the worker cannot read.
- * Rather than reimplement the plugin's internals, the app mirrors the few secrets
- * the worker needs into this store on every credential change, and the worker reads
- * (and updates its grades snapshot) here using the same AndroidX scheme.
+ * Each value is sealed with an AES-256-GCM key held in the Android Keystore
+ * (non-exportable, hardware-backed where available) and the ciphertext is kept
+ * in a regular private SharedPreferences file. This replaces the deprecated
+ * AndroidX EncryptedSharedPreferences (Jetpack Security), which flutter_secure_
+ * storage itself dropped for the same reason.
  *
- * Key names must stay in sync with WorkerSyncService in lib/services/worker_sync_service.dart.
+ * flutter_secure_storage 10.x stores values under its own cipher with prefixed
+ * keys the worker cannot read, so the app mirrors the few secrets the worker
+ * needs into this store on every credential change. Key names must stay in sync
+ * with WorkerSyncService in lib/services/worker_sync_service.dart.
  */
 object WorkerStore {
     private const val TAG = "WorkerStore"
-    private const val FILE_NAME = "NotesInsaWorkerStore"
+    private const val FILE_NAME = "NotesInsaWorkerStoreV2"
+    private const val LEGACY_FILE_NAME = "NotesInsaWorkerStore"
+    private const val KEY_ALIAS = "NotesInsaWorkerStoreKey"
+    private const val ANDROID_KEYSTORE = "AndroidKeyStore"
+    private const val TRANSFORMATION = "AES/GCM/NoPadding"
+    private const val GCM_TAG_BITS = 128
+    private const val IV_BYTES = 12
 
     const val KEY_USERNAME = "username"
     const val KEY_PASSWORD = "password"
@@ -35,52 +50,115 @@ object WorkerStore {
     // GradesBackgroundTask.swift, and grades_provider.dart.
     const val KEY_LAST_TOTP_STEP = "last_totp_step"
 
-    /** Opens the store, or returns null if it cannot be created/decrypted. */
-    fun openOrNull(context: Context): SharedPreferences? = try {
-        val masterKey = MasterKey.Builder(context)
-            .setKeyScheme(MasterKey.KeyScheme.AES256_GCM)
-            .build()
-        EncryptedSharedPreferences.create(
-            context,
-            FILE_NAME,
-            masterKey,
-            EncryptedSharedPreferences.PrefKeyEncryptionScheme.AES256_SIV,
-            EncryptedSharedPreferences.PrefValueEncryptionScheme.AES256_GCM,
+    // Deletes the abandoned pre-V2 EncryptedSharedPreferences file once per
+    // process, so upgraded users who never log out don't keep it around.
+    @Volatile
+    private var legacyCleaned = false
+
+    private fun cleanLegacyOnce(context: Context) {
+        if (legacyCleaned) return
+        legacyCleaned = true
+        try {
+            context.deleteSharedPreferences(LEGACY_FILE_NAME)
+        } catch (e: Exception) {
+            // Ignore; the legacy file is no longer read regardless.
+        }
+    }
+
+    private fun prefs(context: Context): SharedPreferences {
+        cleanLegacyOnce(context)
+        return context.getSharedPreferences(FILE_NAME, Context.MODE_PRIVATE)
+    }
+
+    /**
+     * Returns the Keystore AES key, generating it on first use. Synchronized so
+     * a concurrent worker and foreground access cannot both generate (and thus
+     * overwrite) the key on the very first use, which would leave earlier
+     * ciphertext undecryptable.
+     */
+    @Synchronized
+    private fun getOrCreateKey(): SecretKey {
+        val keyStore = KeyStore.getInstance(ANDROID_KEYSTORE).apply { load(null) }
+        (keyStore.getEntry(KEY_ALIAS, null) as? KeyStore.SecretKeyEntry)?.let {
+            return it.secretKey
+        }
+        val generator = KeyGenerator.getInstance(
+            KeyProperties.KEY_ALGORITHM_AES,
+            ANDROID_KEYSTORE,
         )
+        generator.init(
+            KeyGenParameterSpec.Builder(
+                KEY_ALIAS,
+                KeyProperties.PURPOSE_ENCRYPT or KeyProperties.PURPOSE_DECRYPT,
+            )
+                .setBlockModes(KeyProperties.BLOCK_MODE_GCM)
+                .setEncryptionPaddings(KeyProperties.ENCRYPTION_PADDING_NONE)
+                .setKeySize(256)
+                .build(),
+        )
+        return generator.generateKey()
+    }
+
+    /** Seals [plaintext] as base64(iv || ciphertext) under the Keystore key. */
+    private fun encrypt(plaintext: String): String {
+        val cipher = Cipher.getInstance(TRANSFORMATION)
+        cipher.init(Cipher.ENCRYPT_MODE, getOrCreateKey())
+        val iv = cipher.iv
+        val ciphertext = cipher.doFinal(plaintext.toByteArray(Charsets.UTF_8))
+        val combined = ByteArray(iv.size + ciphertext.size)
+        System.arraycopy(iv, 0, combined, 0, iv.size)
+        System.arraycopy(ciphertext, 0, combined, iv.size, ciphertext.size)
+        return Base64.encodeToString(combined, Base64.NO_WRAP)
+    }
+
+    /** Reverses [encrypt], returning null if the value cannot be decrypted. */
+    private fun decrypt(encoded: String): String? = try {
+        val combined = Base64.decode(encoded, Base64.NO_WRAP)
+        val iv = combined.copyOfRange(0, IV_BYTES)
+        val ciphertext = combined.copyOfRange(IV_BYTES, combined.size)
+        val cipher = Cipher.getInstance(TRANSFORMATION)
+        cipher.init(
+            Cipher.DECRYPT_MODE,
+            getOrCreateKey(),
+            GCMParameterSpec(GCM_TAG_BITS, iv),
+        )
+        String(cipher.doFinal(ciphertext), Charsets.UTF_8)
     } catch (e: Exception) {
-        Log.e(TAG, "Failed to open worker store")
+        Log.e(TAG, "Failed to decrypt a stored value")
         null
     }
 
     /**
-     * Reads the requested keys. Returns null if the store cannot be opened;
-     * keys with no stored value are returned as null entries.
-     *
-     * Used by the Flutter side to pull back values the worker updated on its
-     * own (e.g. a CAS session rotated during a background re-auth) — the
-     * Flutter → worker mirror in [write] is one-way, so this is the only path
-     * for those changes to reach flutter_secure_storage.
+     * Reads and decrypts the requested keys. Returns null if the store cannot be
+     * opened; keys with no stored value (or that fail to decrypt) come back as
+     * null entries.
      */
-    fun read(context: Context, keys: List<String>): Map<String, String?>? {
-        val prefs = openOrNull(context) ?: return null
-        return keys.associateWith { prefs.getString(it, null) }
+    fun read(context: Context, keys: List<String>): Map<String, String?>? = try {
+        val prefs = prefs(context)
+        keys.associateWith { key -> prefs.getString(key, null)?.let(::decrypt) }
+    } catch (e: Exception) {
+        Log.e(TAG, "Failed to read worker store")
+        null
     }
 
     /**
-     * Writes the provided keys. A null value removes that key. Keys absent from
-     * [values] are left untouched, so callers can sync a subset.
+     * Encrypts and writes the provided keys. A null value removes that key. Keys
+     * absent from [values] are left untouched, so callers can sync a subset.
      */
     fun write(context: Context, values: Map<String, String?>) {
-        val prefs = openOrNull(context) ?: return
-        val editor = prefs.edit()
-        for ((key, value) in values) {
-            if (value == null) editor.remove(key) else editor.putString(key, value)
+        try {
+            val editor = prefs(context).edit()
+            for ((key, value) in values) {
+                if (value == null) editor.remove(key) else editor.putString(key, encrypt(value))
+            }
+            editor.apply()
+        } catch (e: Exception) {
+            Log.e(TAG, "Failed to write worker store")
         }
-        editor.apply()
     }
 
     /** Clears all stored data (called on logout). */
     fun clearAll(context: Context) {
-        openOrNull(context)?.edit()?.clear()?.apply()
+        prefs(context).edit().clear().apply()
     }
 }

@@ -7,6 +7,14 @@ plugins {
     id("dev.flutter.flutter-gradle-plugin")
 }
 
+val keystorePropertiesFile = rootProject.file("key.properties")
+val keystoreProperties = Properties()
+if (keystorePropertiesFile.exists()) {
+    keystoreProperties.load(keystorePropertiesFile.inputStream())
+}
+val keystorePath = keystoreProperties.getProperty("storeFile") ?: System.getenv("KEYSTORE_PATH")
+val isCI = System.getenv("CI") != null
+
 android {
     namespace = "com.aer.notes_insa"
     compileSdk = flutter.compileSdkVersion
@@ -37,15 +45,6 @@ android {
         }
     }
 
-    val keystorePropertiesFile = rootProject.file("key.properties")
-    val keystoreProperties = Properties()
-    if (keystorePropertiesFile.exists()) {
-        keystoreProperties.load(keystorePropertiesFile.inputStream())
-    }
-
-    val keystorePath = keystoreProperties.getProperty("storeFile") ?: System.getenv("KEYSTORE_PATH")
-    val isCI = System.getenv("CI") != null
-
     signingConfigs {
         if (keystorePath != null) {
             create("release") {
@@ -62,25 +61,12 @@ android {
             isMinifyEnabled = true
             isShrinkResources = true
             proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
-            // Never ship a "release" artifact signed with debug keys. Use the
-            // real release config when present, hard-fail in CI when it is
-            // missing, and only fall back to debug keys for explicit local
-            // release builds (with a loud warning).
-            signingConfig = if (signingConfigs.findByName("release") != null) {
-                signingConfigs.getByName("release")
-            } else if (isCI) {
-                throw GradleException(
-                    "Release signing config missing (no key.properties or " +
-                        "KEYSTORE_PATH). Refusing to sign a CI release build " +
-                        "with debug keys.",
-                )
-            } else {
-                println(
-                    "WARNING: no release signing config found. Using debug " +
-                        "keys for this local release build only.",
-                )
-                signingConfigs.getByName("debug")
-            }
+            // Use the real release signing config when present; otherwise fall
+            // back to debug keys so local release builds still work. A missing
+            // release config is a hard error only when a release artifact is
+            // actually assembled in CI (enforced in the task graph below).
+            signingConfig = signingConfigs.findByName("release")
+                ?: signingConfigs.getByName("debug")
         }
     }
 
@@ -98,12 +84,28 @@ dependencies {
     coreLibraryDesugaring("com.android.tools:desugar_jdk_libs:2.1.4")
     // Native WorkManager — replaces the Flutter workmanager plugin
     implementation("androidx.work:work-runtime-ktx:2.9.0")
-    // EncryptedSharedPreferences — same version as flutter_secure_storage uses
-    implementation("androidx.security:security-crypto:1.1.0-alpha06")
 }
 
 tasks.withType(KotlinJvmCompile::class.java).configureEach {
     compilerOptions {
         jvmTarget.set(org.jetbrains.kotlin.gradle.dsl.JvmTarget.JVM_17)
+    }
+}
+
+// Refuse to assemble a CI release build signed with debug keys. Deferred to the
+// task graph so debug and test tasks in CI are unaffected by a missing keystore.
+if (isCI && keystorePath == null) {
+    gradle.taskGraph.whenReady {
+        val assemblingRelease = allTasks.any { task ->
+            (task.name.startsWith("assemble") || task.name.startsWith("bundle")) &&
+                task.name.contains("Release")
+        }
+        if (assemblingRelease) {
+            throw GradleException(
+                "Release signing config missing (no key.properties or " +
+                    "KEYSTORE_PATH). Refusing to assemble a CI release build " +
+                    "with debug keys.",
+            )
+        }
     }
 }

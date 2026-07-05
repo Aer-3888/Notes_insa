@@ -57,9 +57,9 @@ internal const val TASK_UNIQUE_NAME = "grades_fetch_native"
  * so MethodChannel calls fail in the headless isolate when the app process was killed.
  * This worker calls Mobinsapi directly, making background fetch reliable across process restarts.
  *
- * Reads credentials and the previous grades snapshot from [WorkerStore], a dedicated AndroidX
- * EncryptedSharedPreferences file the Flutter app mirrors on every credential change. The worker
- * cannot read flutter_secure_storage 10.x directly (custom cipher + prefixed keys).
+ * Reads credentials and the previous grades snapshot from [WorkerStore], a Keystore-encrypted
+ * store the Flutter app mirrors on every credential change. The worker cannot read
+ * flutter_secure_storage 10.x directly (custom cipher + prefixed keys).
  */
 class GradesBackgroundWorker(
     private val appContext: Context,
@@ -74,17 +74,23 @@ class GradesBackgroundWorker(
                 return@withContext Result.success()
             }
 
-            val securePrefs = WorkerStore.openOrNull(appContext) ?: return@withContext Result.success()
+            val store = WorkerStore.read(
+                appContext,
+                listOf(
+                    KEY_USERNAME, KEY_PASSWORD, KEY_OTP_SECRET, KEY_CAS_SESSION,
+                    KEY_GRADES_JSON,
+                ),
+            ) ?: return@withContext Result.success()
 
-            val username = securePrefs.getString(KEY_USERNAME, null)
-            val password = securePrefs.getString(KEY_PASSWORD, null)
+            val username = store[KEY_USERNAME]
+            val password = store[KEY_PASSWORD]
             if (username == null || password == null) {
                 Log.d(TAG, "No credentials stored, skipping")
                 return@withContext Result.success()
             }
 
-            val otpSecret = securePrefs.getString(KEY_OTP_SECRET, null)
-            val casSession = securePrefs.getString(KEY_CAS_SESSION, null)
+            val otpSecret = store[KEY_OTP_SECRET]
+            val casSession = store[KEY_CAS_SESSION]
 
             // Try to restore the previous CAS session to skip full re-auth
             if (casSession != null) {
@@ -93,7 +99,7 @@ class GradesBackgroundWorker(
                     Log.d(TAG, "CAS session restored")
                 } catch (e: Exception) {
                     Log.w(TAG, "ImportCAS failed, starting new session")
-                    securePrefs.edit().remove(KEY_CAS_SESSION).apply()
+                    WorkerStore.write(appContext, mapOf(KEY_CAS_SESSION to null))
                     Mobinsapi.newCAS()
                 }
             } else {
@@ -132,14 +138,20 @@ class GradesBackgroundWorker(
                     // next run (a new step) handle it. Keep in sync with the Dart
                     // and Swift implementations.
                     val currentStep = totpStep()
-                    val claimedStep =
-                        securePrefs.getString(KEY_LAST_TOTP_STEP, null)?.toLongOrNull()
+                    // Read the claimed step fresh rather than from the up-front
+                    // snapshot, so the race window with a concurrent foreground
+                    // claim stays as small as possible (avoids replaying the
+                    // same one-time code in the same step).
+                    val claimedStep = WorkerStore.read(appContext, listOf(KEY_LAST_TOTP_STEP))
+                        ?.get(KEY_LAST_TOTP_STEP)?.toLongOrNull()
                     if (claimedStep == currentStep) {
                         Log.d(TAG, "TOTP step $currentStep already claimed, skipping this run")
                         return@withContext Result.success()
                     }
-                    securePrefs.edit()
-                        .putString(KEY_LAST_TOTP_STEP, currentStep.toString()).apply()
+                    WorkerStore.write(
+                        appContext,
+                        mapOf(KEY_LAST_TOTP_STEP to currentStep.toString()),
+                    )
                     try {
                         Mobinsapi.autoValidate(otpSecret)
                     } catch (e: Exception) {
@@ -160,13 +172,13 @@ class GradesBackgroundWorker(
             // Export the (possibly refreshed) session for next time
             try {
                 val newSession = Mobinsapi.exportCAS()
-                securePrefs.edit().putString(KEY_CAS_SESSION, newSession).apply()
+                WorkerStore.write(appContext, mapOf(KEY_CAS_SESSION to newSession))
             } catch (e: Exception) {
                 Log.w(TAG, "ExportCAS failed (non-fatal)")
             }
 
-            // Read the previous snapshot before overwriting it
-            val previousJson = securePrefs.getString(KEY_GRADES_JSON, null)
+            // Snapshot read up front (see store read above), before overwriting.
+            val previousJson = store[KEY_GRADES_JSON]
             val groupCount = Mobinsapi.loadGroups().toInt()
             if (groupCount <= 0) {
                 Log.w(TAG, "No groups available, skipping")
@@ -189,10 +201,13 @@ class GradesBackgroundWorker(
             }
             // Stamp the write so the foreground can tell this snapshot is newer
             // than its own copy and adopt it on resume (see _adoptWorkerGradesIfNewer).
-            securePrefs.edit()
-                .putString(KEY_GRADES_JSON, newJson)
-                .putString(KEY_GRADES_UPDATED_AT, System.currentTimeMillis().toString())
-                .apply()
+            WorkerStore.write(
+                appContext,
+                mapOf(
+                    KEY_GRADES_JSON to newJson,
+                    KEY_GRADES_UPDATED_AT to System.currentTimeMillis().toString(),
+                ),
+            )
             Log.d(TAG, "Grades fetched successfully")
 
             when {

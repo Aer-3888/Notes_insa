@@ -77,17 +77,20 @@ class WorkerSyncService {
         kSecureStorage.read(key: kStoragePass),
         kSecureStorage.read(key: kStorageOtpSecret),
         kSecureStorage.read(key: kStorageCasSession),
-        kSecureStorage.read(key: kStorageGradesJson),
       ]);
       final username = results[0];
       final password = results[1];
       if (username == null || password == null) return;
+      // Deliberately does not mirror the grades snapshot: backfill runs
+      // concurrently with loadStoredGrades on launch, and writing the JSON
+      // without its timestamp could let a stale snapshot be adopted as newer
+      // (see _adoptWorkerGradesIfNewer). The foreground saveGrades mirror keeps
+      // JSON and timestamp consistent on the next fetch.
       await sync({
         keyUsername: username,
         keyPassword: password,
         keyOtpSecret: results[2],
         keyCasSession: results[3],
-        keyGradesJson: results[4],
       });
     } catch (e) {
       if (kDebugMode) debugPrint('[WorkerSync] backfill failed: $e');
