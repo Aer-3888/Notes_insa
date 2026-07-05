@@ -19,6 +19,7 @@ import java.util.concurrent.TimeUnit
 
 private const val TAG = "GradesBackgroundWorker"
 private const val CHANNEL_ID = "grades_updates"
+private const val RECONNECT_CHANNEL_ID = "reconnect_updates"
 private const val SHARED_PREFS_FILE = "FlutterSharedPreferences"
 
 // Storage keys — read from WorkerStore (see WorkerStore.kt).
@@ -469,7 +470,8 @@ class GradesBackgroundWorker(
             subjects.size <= 3 -> "$multiPrefix : ${subjects.joinToString(", ")}"
             else -> "$multiPrefix : ${subjects.take(3).joinToString(", ")} et ${subjects.size - 3} autre(s)"
         }
-        buildAndPost(id, title, body)
+        // Private visibility so subject names are hidden on a secure lock screen.
+        buildAndPost(id, title, body, privateVisibility = true)
     }
 
     // Current TOTP step: floor(epochSeconds / period). Two autoValidate calls in
@@ -490,6 +492,7 @@ class GradesBackgroundWorker(
             title = "Reconnexion requise",
             body = "Une double authentification est nécessaire. Ouvrez l'application pour vous reconnecter.",
             route = ROUTE_REAUTH,
+            channelId = RECONNECT_CHANNEL_ID,
         )
     }
 
@@ -509,6 +512,7 @@ class GradesBackgroundWorker(
             title = "Reconnexion requise",
             body = "Vos identifiants semblent invalides. Ouvrez l'application pour vous reconnecter.",
             route = ROUTE_REAUTH,
+            channelId = RECONNECT_CHANNEL_ID,
         )
     }
 
@@ -516,7 +520,14 @@ class GradesBackgroundWorker(
     // deep-link the tap to a specific Flutter screen (see EXTRA_NOTIF_ROUTE in
     // MainActivity.kt and the handler in lib/main.dart). Grades notifications
     // leave it null and just open the app.
-    private fun buildAndPost(id: Int, title: String, body: String, route: String? = null) {
+    private fun buildAndPost(
+        id: Int,
+        title: String,
+        body: String,
+        route: String? = null,
+        channelId: String = CHANNEL_ID,
+        privateVisibility: Boolean = false,
+    ) {
         val launchIntent = appContext.packageManager
             .getLaunchIntentForPackage(appContext.packageName)
             ?.apply {
@@ -529,11 +540,15 @@ class GradesBackgroundWorker(
                 PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
             )
         }
-        val notification = NotificationCompat.Builder(appContext, CHANNEL_ID)
+        val notification = NotificationCompat.Builder(appContext, channelId)
             .setSmallIcon(R.mipmap.launcher_icon)
             .setContentTitle(title)
             .setContentText(body)
             .setPriority(NotificationCompat.PRIORITY_HIGH)
+            .setVisibility(
+                if (privateVisibility) NotificationCompat.VISIBILITY_PRIVATE
+                else NotificationCompat.VISIBILITY_PUBLIC,
+            )
             .setAutoCancel(true)
             .apply { if (pendingIntent != null) setContentIntent(pendingIntent) }
             .build()
@@ -545,18 +560,34 @@ class GradesBackgroundWorker(
     }
 
     private fun ensureNotificationChannel() {
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            val channel = NotificationChannel(
-                CHANNEL_ID,
-                "Grades Updates",
-                NotificationManager.IMPORTANCE_HIGH,
-            ).apply {
-                description = "Notifications for new grade updates"
-                enableVibration(true)
-            }
-            val nm = appContext.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
-            nm.createNotificationChannel(channel)
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O) return
+        val nm = appContext.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+
+        // Grade updates: hide their content on a secure lock screen since they
+        // carry academic information.
+        val gradesChannel = NotificationChannel(
+            CHANNEL_ID,
+            "Nouvelles notes",
+            NotificationManager.IMPORTANCE_HIGH,
+        ).apply {
+            description = "Notifications lorsqu'une note est publiée"
+            enableVibration(true)
+            lockscreenVisibility = NotificationCompat.VISIBILITY_PRIVATE
         }
+
+        // Reconnect/security prompts: separate channel so the user can tune them
+        // independently from grade updates.
+        val reconnectChannel = NotificationChannel(
+            RECONNECT_CHANNEL_ID,
+            "Reconnexion",
+            NotificationManager.IMPORTANCE_HIGH,
+        ).apply {
+            description = "Invitations à se reconnecter (double authentification)"
+            enableVibration(true)
+        }
+
+        nm.createNotificationChannel(gradesChannel)
+        nm.createNotificationChannel(reconnectChannel)
     }
 
     companion object {

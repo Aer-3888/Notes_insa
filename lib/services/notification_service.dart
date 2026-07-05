@@ -53,10 +53,13 @@ class NotificationService {
       const androidSettings = AndroidInitializationSettings(
         '@mipmap/launcher_icon',
       );
+      // Do not request iOS permission at init (app start). It is requested from
+      // an explicit user action instead (onboarding notifications slide and the
+      // dashboard), matching the Android POST_NOTIFICATIONS flow.
       const iosSettings = DarwinInitializationSettings(
-        requestSoundPermission: true,
-        requestBadgePermission: true,
-        requestAlertPermission: true,
+        requestSoundPermission: false,
+        requestBadgePermission: false,
+        requestAlertPermission: false,
       );
 
       const settings = InitializationSettings(
@@ -77,21 +80,37 @@ class NotificationService {
       }
 
       if (Platform.isAndroid) {
+        final android = _notifications
+            .resolvePlatformSpecificImplementation<
+              AndroidFlutterLocalNotificationsPlugin
+            >();
+
+        // Grade updates carry academic content, so keep them off a secure lock
+        // screen (NotificationVisibility.private on each notification below).
         const AndroidNotificationChannel gradesChannel =
             AndroidNotificationChannel(
               'grades_updates',
-              'Grades Updates',
-              description: 'Notifications for new grade updates',
+              'Nouvelles notes',
+              description: 'Notifications lorsqu\'une note est publiée',
+              importance: Importance.high,
+              playSound: true,
+              enableVibration: true,
+            );
+        // Reconnect/security prompts are a different class of message and get
+        // their own channel so the user can tune them independently.
+        const AndroidNotificationChannel reconnectChannel =
+            AndroidNotificationChannel(
+              'reconnect_updates',
+              'Reconnexion',
+              description:
+                  'Invitations à se reconnecter (double authentification)',
               importance: Importance.high,
               playSound: true,
               enableVibration: true,
             );
 
-        await _notifications
-            .resolvePlatformSpecificImplementation<
-              AndroidFlutterLocalNotificationsPlugin
-            >()
-            ?.createNotificationChannel(gradesChannel);
+        await android?.createNotificationChannel(gradesChannel);
+        await android?.createNotificationChannel(reconnectChannel);
       }
 
       _isInitialized = true;
@@ -108,12 +127,14 @@ class NotificationService {
 
     const androidDetails = AndroidNotificationDetails(
       'grades_updates',
-      'Grades Updates',
-      channelDescription: 'Notifications for new grade updates',
+      'Nouvelles notes',
+      channelDescription: 'Notifications lorsqu\'une note est publiée',
       importance: Importance.high,
       priority: Priority.high,
       playSound: true,
       enableVibration: true,
+      // Hide the subject names on a secure lock screen.
+      visibility: NotificationVisibility.private,
     );
 
     const iosDetails = DarwinNotificationDetails();
@@ -155,12 +176,14 @@ class NotificationService {
 
     const androidDetails = AndroidNotificationDetails(
       'grades_updates',
-      'Grades Updates',
-      channelDescription: 'Notifications for new grade updates',
+      'Nouvelles notes',
+      channelDescription: 'Notifications lorsqu\'une note est publiée',
       importance: Importance.high,
       priority: Priority.high,
       playSound: true,
       enableVibration: true,
+      // Hide the subject names on a secure lock screen.
+      visibility: NotificationVisibility.private,
     );
 
     const iosDetails = DarwinNotificationDetails();
@@ -199,9 +222,10 @@ class NotificationService {
     if (!_isInitialized) await initialize();
 
     const androidDetails = AndroidNotificationDetails(
-      'grades_updates',
-      'Grades Updates',
-      channelDescription: 'Notifications for new grade updates',
+      'reconnect_updates',
+      'Reconnexion',
+      channelDescription:
+          'Invitations à se reconnecter (double authentification)',
       importance: Importance.high,
       priority: Priority.high,
       playSound: true,
