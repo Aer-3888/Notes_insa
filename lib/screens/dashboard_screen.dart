@@ -44,6 +44,58 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen>
     unawaited(NotificationService.requestPermission());
   }
 
+  // Existing users reach the dashboard without passing through onboarding, so
+  // the participation step never runs for them. Sharing is opt-in, so prompt
+  // once here when consent was never asked, gated on grades being visible so
+  // the dialog lands after the user sees their notes rather than over a splash.
+  bool _consentPromptShown = false;
+
+  void _maybePromptSharingConsent() {
+    if (_consentPromptShown) return;
+    final settings = ref.read(settingsProvider);
+    if (settings.isLoading || settings.sharingConsentAsked) return;
+    // Already opted in elsewhere (e.g. settings screen) with the asked flag not
+    // yet persisted: never re-prompt someone who is already sharing.
+    if (settings.sharingConsent) return;
+    if (!ref.read(gradesProvider).hasData) return;
+    _consentPromptShown = true;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) unawaited(_showSharingConsentDialog());
+    });
+  }
+
+  Future<void> _showSharingConsentDialog() async {
+    final accepted = await showDialog<bool>(
+      context: context,
+      barrierDismissible: false,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Comparez vos notes avec la promo'),
+        content: const Text(
+          'Partagez vos moyennes de façon anonyme (moyenne par matière, '
+          'département, semestre et année) et voyez en retour celles de votre '
+          'promo. Votre nom, vos notes individuelles et toute information '
+          'personnelle ne sont jamais partagés.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('Non merci'),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text('Participer'),
+          ),
+        ],
+      ),
+    );
+    if (!mounted) return;
+    final notifier = ref.read(settingsProvider.notifier);
+    await notifier.setSharingConsent(accepted ?? false);
+    await notifier.markConsentAsked();
+    // Submit the current snapshot right away if they just opted in.
+    if (accepted == true && mounted) _trySubmitGrades();
+  }
+
   @override
   void initState() {
     super.initState();
@@ -183,12 +235,21 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen>
 
   @override
   Widget build(BuildContext context) {
+    // Prompt for sharing consent once when it was never asked (existing users
+    // who never saw onboarding's participation step). Fires when settings
+    // finish loading and again when grades arrive, whichever is later.
+    ref.listen<SettingsState>(
+      settingsProvider,
+      (_, _) => _maybePromptSharingConsent(),
+    );
+
     ref.listen<GradesState>(gradesProvider, (prev, next) {
       if (prev?.isLoading == true &&
           !next.isLoading &&
           next.hasData &&
           next.error == null) {
         _trySubmitGrades();
+        _maybePromptSharingConsent();
         ref.invalidate(coefficientsProvider);
       }
 

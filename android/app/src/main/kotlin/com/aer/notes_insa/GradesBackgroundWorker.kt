@@ -530,8 +530,13 @@ class GradesBackgroundWorker(
     companion object {
         /** Schedule (or reschedule) the periodic native background task. */
         fun schedule(context: Context, intervalMinutes: Long) {
+            // WorkManager enforces a 15 minute floor for periodic work. Clamp
+            // defensively so a bad value from the method channel cannot request
+            // a shorter interval that WorkManager would silently reject, or a
+            // wastefully long one.
+            val safeInterval = intervalMinutes.coerceIn(15L, 60L)
             val request = PeriodicWorkRequestBuilder<GradesBackgroundWorker>(
-                intervalMinutes, TimeUnit.MINUTES,
+                safeInterval, TimeUnit.MINUTES,
             )
                 .setConstraints(
                     Constraints.Builder()
@@ -546,7 +551,7 @@ class GradesBackgroundWorker(
                     ExistingPeriodicWorkPolicy.UPDATE,
                     request,
                 )
-            Log.d(TAG, "Scheduled native background task: ${intervalMinutes}min")
+            Log.d(TAG, "Scheduled native background task: ${safeInterval}min")
         }
 
         /** Cancel the periodic native background task. */

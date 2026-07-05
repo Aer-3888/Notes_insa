@@ -2,8 +2,9 @@
     <!-- Existing permissions -->
     <uses-permission android:name="android.permission.USE_BIOMETRIC"/>
 
-    <!-- Background fetch and notification permissions -->
-    <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
+    <!-- Background fetch and notification permissions. RECEIVE_BOOT_COMPLETED
+         is provided by the androidx.work manifest, which reschedules periodic
+         work after reboot, so the app does not declare it itself. -->
     <uses-permission android:name="android.permission.WAKE_LOCK" />
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
     <uses-permission android:name="android.permission.INTERNET" />

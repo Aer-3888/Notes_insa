@@ -1,8 +1,8 @@
 import 'dart:async';
 import 'dart:convert';
 import 'package:flutter/services.dart';
-import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:flutter/foundation.dart';
+import 'secure_storage.dart';
 import '../constants.dart';
 import 'worker_sync_service.dart';
 
@@ -10,7 +10,7 @@ class GradesService {
   static const MethodChannel _channel = MethodChannel(
     'com.aer.notes_insa/grades',
   );
-  static const FlutterSecureStorage _storage = FlutterSecureStorage();
+  static const _storage = kSecureStorage;
   static const String _gradesKey = kStorageGradesJson;
 
   /// Native calls go through the CAS server; cap them so a hung native call

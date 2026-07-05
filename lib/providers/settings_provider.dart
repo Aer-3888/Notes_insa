@@ -54,7 +54,9 @@ class SettingsNotifier extends StateNotifier<SettingsState> {
       final prefs = await SharedPreferences.getInstance();
       final savedInterval = prefs.getInt(_fetchIntervalKey);
       final savedEnabled = prefs.getBool(_fetchEnabledKey) ?? true;
-      final sharingConsent = prefs.getBool(_sharingConsentKey) ?? true;
+      // Sharing is strictly opt-in: an unset value stays false until the user
+      // explicitly consents (re-prompted on the dashboard when never asked).
+      final sharingConsent = prefs.getBool(_sharingConsentKey) ?? false;
       final consentAsked = prefs.getBool(_consentAskedKey) ?? false;
 
       final interval = (savedInterval ?? 15).clamp(15, 60);
@@ -100,10 +102,14 @@ class SettingsNotifier extends StateNotifier<SettingsState> {
 
   /// Enable or disable anonymous grade sharing.
   Future<void> setSharingConsent(bool value) async {
-    state = state.copyWith(sharingConsent: value);
+    // Choosing a value is itself answering the question, so record that consent
+    // was asked. This keeps the dashboard re-prompt from firing for users who
+    // opt in or out from the settings screen.
+    state = state.copyWith(sharingConsent: value, sharingConsentAsked: true);
     try {
       final prefs = await SharedPreferences.getInstance();
       await prefs.setBool(_sharingConsentKey, value);
+      await prefs.setBool(_consentAskedKey, true);
     } catch (e) {
       if (kDebugMode) {
         debugPrint('[SettingsProvider] Failed to save sharingConsent: $e');

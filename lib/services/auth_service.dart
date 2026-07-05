@@ -1,8 +1,8 @@
 import 'dart:convert';
 import 'dart:math';
 import 'package:crypto/crypto.dart';
-import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:local_auth/local_auth.dart';
+import 'secure_storage.dart';
 import '../constants.dart';
 import 'worker_sync_service.dart';
 
@@ -10,7 +10,7 @@ enum AuthResult { success, failure, pinRequired }
 
 class AuthService {
   // Safe for background tasks
-  static const _storage = FlutterSecureStorage();
+  static const _storage = kSecureStorage;
   final _auth = LocalAuthentication();
 
   Future<void> storeCredentials(String username, String password) async {

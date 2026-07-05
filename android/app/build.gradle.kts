@@ -62,10 +62,25 @@ android {
             isMinifyEnabled = true
             isShrinkResources = true
             proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
-            signingConfig = if (signingConfigs.findByName("release") != null)
+            // Never ship a "release" artifact signed with debug keys. Use the
+            // real release config when present, hard-fail in CI when it is
+            // missing, and only fall back to debug keys for explicit local
+            // release builds (with a loud warning).
+            signingConfig = if (signingConfigs.findByName("release") != null) {
                 signingConfigs.getByName("release")
-            else
+            } else if (isCI) {
+                throw GradleException(
+                    "Release signing config missing (no key.properties or " +
+                        "KEYSTORE_PATH). Refusing to sign a CI release build " +
+                        "with debug keys.",
+                )
+            } else {
+                println(
+                    "WARNING: no release signing config found. Using debug " +
+                        "keys for this local release build only.",
+                )
                 signingConfigs.getByName("debug")
+            }
         }
     }
 

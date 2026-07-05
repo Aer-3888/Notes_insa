@@ -2,9 +2,9 @@ import 'dart:async';
 import 'dart:convert';
 import 'package:crypto/crypto.dart';
 import 'package:flutter/foundation.dart';
-import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
+import 'secure_storage.dart';
 import '../constants.dart';
 import '../models.dart';
 import '../data.dart';
@@ -67,12 +67,12 @@ class AveragesService {
 
   /// Submit grades for all available semesters.
   static Future<void> submitAllSemesters(String gradesJson) async {
-    // Defense-in-depth: honor the opt-out regardless of caller. The key mirrors
-    // SettingsNotifier._sharingConsentKey ('sharing_consent'); an unset value
-    // means "not yet answered" and defaults to allowed (== false blocks only an
-    // explicit opt-out).
+    // Defense-in-depth: sharing is strictly opt-in, so only an explicit true
+    // allows submission. The key mirrors SettingsNotifier._sharingConsentKey
+    // ('sharing_consent'). An unset value means "not yet answered" and blocks
+    // submission until the user makes a choice.
     final consentPrefs = await SharedPreferences.getInstance();
-    if (consentPrefs.getBool('sharing_consent') == false) {
+    if (consentPrefs.getBool('sharing_consent') != true) {
       if (kDebugMode) {
         debugPrint('[AveragesService] Aborting: sharing consent disabled');
       }
@@ -262,7 +262,7 @@ class AveragesService {
   /// local cache avoids re-fetching on every dashboard visit.
   static const Duration _cacheTtl = Duration(hours: 1);
 
-  static const FlutterSecureStorage _storage = FlutterSecureStorage();
+  static const _storage = kSecureStorage;
 
   static String _cacheKey(
     String department,

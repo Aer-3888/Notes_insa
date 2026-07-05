@@ -1,6 +1,6 @@
 import 'package:flutter/services.dart';
 import 'package:flutter/foundation.dart';
-import 'package:flutter_secure_storage/flutter_secure_storage.dart';
+import 'secure_storage.dart';
 import '../constants.dart';
 
 /// Mirrors the secrets the native background worker needs into a dedicated
@@ -72,13 +72,12 @@ class WorkerSyncService {
   /// re-authenticating. No-op when not logged in.
   static Future<void> backfill() async {
     try {
-      const storage = FlutterSecureStorage();
       final results = await Future.wait([
-        storage.read(key: kStorageUser),
-        storage.read(key: kStoragePass),
-        storage.read(key: kStorageOtpSecret),
-        storage.read(key: kStorageCasSession),
-        storage.read(key: kStorageGradesJson),
+        kSecureStorage.read(key: kStorageUser),
+        kSecureStorage.read(key: kStoragePass),
+        kSecureStorage.read(key: kStorageOtpSecret),
+        kSecureStorage.read(key: kStorageCasSession),
+        kSecureStorage.read(key: kStorageGradesJson),
       ]);
       final username = results[0];
       final password = results[1];

@@ -1,8 +1,8 @@
 import 'dart:async';
 import 'dart:convert';
 import 'package:flutter/foundation.dart';
-import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:http/http.dart' as http;
+import 'secure_storage.dart';
 import '../constants.dart';
 import '../data.dart';
 import '../models.dart';
@@ -21,7 +21,7 @@ typedef CoeffKey = ({String ue, String subject});
 /// Tier 2 results are cached locally but never re-pushed.
 /// A fallback to 1.0 is never stored anywhere.
 class CoefficientsService {
-  static const FlutterSecureStorage _storage = FlutterSecureStorage();
+  static const _storage = kSecureStorage;
 
   /// Local coefficient cache lifetime before a re-fetch is forced.
   static const Duration _cacheTtl = Duration(days: 7);
