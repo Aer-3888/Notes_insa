@@ -4,6 +4,7 @@ import 'package:crypto/crypto.dart';
 import 'package:local_auth/local_auth.dart';
 import 'secure_storage.dart';
 import '../constants.dart';
+import '../utils/pbkdf2.dart';
 import 'worker_sync_service.dart';
 
 enum AuthResult { success, failure, pinRequired }
@@ -78,20 +79,57 @@ class AuthService {
     Duration(hours: 1),
   ];
 
+  // PIN verifier hashing. New PINs use PBKDF2-HMAC-SHA256 with a per-PIN salt,
+  // stored as "pbkdf2$<iterations>$<base64url digest>" so the scheme and cost
+  // are self-describing and can be raised later with lazy re-hashing. A slow
+  // hash keeps a low-entropy PIN from being trivially brute-forced if the
+  // encrypted store is ever extracted. Older installs may still hold a bare
+  // SHA-256 hex digest or, older still, a plaintext PIN, both upgraded on the
+  // next correct entry.
+  static const int _pbkdf2Iterations = 120000;
+  static const int _pbkdf2DkLen = 32;
+  static const String _pbkdf2Prefix = 'pbkdf2';
+
   String _generateSalt() {
     final rng = Random.secure();
     final bytes = List<int>.generate(16, (_) => rng.nextInt(256));
     return base64Url.encode(bytes);
   }
 
-  String _hashPin(String pin, String salt) =>
+  String _pbkdf2Hash(String pin, String salt) {
+    final dk = pbkdf2Sha256(
+      utf8.encode(pin),
+      utf8.encode(salt),
+      _pbkdf2Iterations,
+      _pbkdf2DkLen,
+    );
+    return '$_pbkdf2Prefix\$$_pbkdf2Iterations\$${base64Url.encode(dk)}';
+  }
+
+  bool _verifyPbkdf2(String pin, String salt, String stored) {
+    final parts = stored.split('\$');
+    if (parts.length != 3) return false;
+    final iterations = int.tryParse(parts[1]);
+    if (iterations == null || iterations <= 0) return false;
+    final dk = pbkdf2Sha256(
+      utf8.encode(pin),
+      utf8.encode(salt),
+      iterations,
+      _pbkdf2DkLen,
+    );
+    return base64Url.encode(dk) == parts[2];
+  }
+
+  // Legacy salted SHA-256 verifier, kept only to check and then upgrade old
+  // PINs to PBKDF2 on the next correct entry.
+  String _legacySha256Hash(String pin, String salt) =>
       sha256.convert(utf8.encode('$salt:$pin')).toString();
 
   Future<void> setPin(String pin) async {
     final salt = _generateSalt();
     await Future.wait([
       _storage.write(key: kStoragePinSalt, value: salt),
-      _storage.write(key: kStoragePin, value: _hashPin(pin, salt)),
+      _storage.write(key: kStoragePin, value: _pbkdf2Hash(pin, salt)),
       _storage.write(key: kStoragePinLength, value: '${pin.length}'),
     ]);
     await resetPinAttempts();
@@ -117,14 +155,22 @@ class AuthService {
     if (stored == null || stored.isEmpty) return false;
     final salt = await _storage.read(key: kStoragePinSalt);
     if (salt == null) {
-      // Legacy plaintext PIN — migrate to a salted hash on first correct entry.
+      // Legacy plaintext PIN (pre-hashing). Upgrade on first correct entry.
       if (stored == pin) {
         await setPin(pin);
         return true;
       }
       return false;
     }
-    return _hashPin(pin, salt) == stored;
+    if (stored.startsWith('$_pbkdf2Prefix\$')) {
+      return _verifyPbkdf2(pin, salt, stored);
+    }
+    // Legacy salted SHA-256 verifier. Verify, then lazily re-hash with PBKDF2.
+    if (_legacySha256Hash(pin, salt) == stored) {
+      await setPin(pin);
+      return true;
+    }
+    return false;
   }
 
   /// Remaining lockout duration after too many failed attempts, or null if the
@@ -198,7 +244,8 @@ class AuthService {
   }
 
   // Returns success if biometrics pass, pinRequired when no biometrics are
-  // enrolled (skip straight to PIN), or failure so the UI can offer retry.
+  // enrolled or the prompt cannot run (skip straight to PIN), or failure on a
+  // failed scan so the UI can offer a retry.
   Future<AuthResult> authenticate() async {
     try {
       final biometrics = await _auth.getAvailableBiometrics();
@@ -220,7 +267,28 @@ class AuthService {
 
       if (success) return AuthResult.success;
       return AuthResult.failure;
+    } on LocalAuthException catch (e) {
+      // Fall back to PIN when the biometric prompt cannot currently succeed
+      // (locked out, unavailable, not enrolled, no UI, or the user asked for a
+      // fallback) as opposed to a plain cancel/timeout, which stays a failure so
+      // the UI offers a biometric retry. New enum values are not exhaustive, so
+      // anything unmapped is treated as a retryable failure.
+      const pinFallbackCodes = {
+        LocalAuthExceptionCode.uiUnavailable,
+        LocalAuthExceptionCode.noCredentialsSet,
+        LocalAuthExceptionCode.noBiometricsEnrolled,
+        LocalAuthExceptionCode.noBiometricHardware,
+        LocalAuthExceptionCode.biometricHardwareTemporarilyUnavailable,
+        LocalAuthExceptionCode.temporaryLockout,
+        LocalAuthExceptionCode.biometricLockout,
+        LocalAuthExceptionCode.userRequestedFallback,
+      };
+      if (pinFallbackCodes.contains(e.code)) {
+        return await hasPin() ? AuthResult.pinRequired : AuthResult.failure;
+      }
+      return AuthResult.failure;
     } catch (e) {
+      // Timeout (from .timeout) or any other unexpected error: offer a retry.
       return AuthResult.failure;
     }
   }

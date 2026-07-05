@@ -72,6 +72,13 @@ class GoogleAuthMigrationDecoder {
     String? name;
     String? issuer;
     Uint8List? secret;
+    // Migration enums default to the standard TOTP setup when a field is
+    // unspecified (0), which is what the app's autoValidate expects. An out of
+    // range value maps to an unknown state so it fails isSupportedTotp rather
+    // than silently importing as a standard seed.
+    var algorithm = OtpAlgorithm.sha1;
+    var digits = 6;
+    var type = OtpType.totp;
 
     int offset = 0;
     while (offset < data.length) {
@@ -108,6 +115,24 @@ class GoogleAuthMigrationDecoder {
         }
 
         offset += length;
+      } else if (wireType == 0) {
+        // Varint fields: algorithm, digits and OTP type. Reading these lets the
+        // caller reject accounts the app cannot generate valid codes for
+        // instead of importing them as a standard TOTP seed.
+        final varintResult = _readVarint(data, offset);
+        final value = varintResult['value'] as int;
+        offset = varintResult['offset'] as int;
+        switch (fieldNumber) {
+          case 4: // algorithm (ALGO_UNSPECIFIED=0, SHA1=1, SHA256=2, SHA512=3, MD5=4)
+            algorithm = _algorithmFromWire(value);
+            break;
+          case 5: // digits (DIGITS_UNSPECIFIED=0, SIX=1, EIGHT=2)
+            digits = _digitsFromWire(value);
+            break;
+          case 6: // type (OTP_UNSPECIFIED=0, HOTP=1, TOTP=2)
+            type = _typeFromWire(value);
+            break;
+        }
       } else {
         offset = _skipField(data, offset, wireType);
       }
@@ -119,10 +144,53 @@ class GoogleAuthMigrationDecoder {
         name: name ?? 'Unknown',
         issuer: issuer ?? 'Unknown',
         secret: secretBase32,
+        type: type,
+        algorithm: algorithm,
+        digits: digits,
       );
     }
 
     return null;
+  }
+
+  static OtpAlgorithm _algorithmFromWire(int value) {
+    switch (value) {
+      case 0: // unspecified defaults to SHA1
+      case 1:
+        return OtpAlgorithm.sha1;
+      case 2:
+        return OtpAlgorithm.sha256;
+      case 3:
+        return OtpAlgorithm.sha512;
+      case 4:
+        return OtpAlgorithm.md5;
+      default:
+        return OtpAlgorithm.unknown;
+    }
+  }
+
+  static int _digitsFromWire(int value) {
+    switch (value) {
+      case 0: // unspecified defaults to 6
+      case 1:
+        return 6;
+      case 2:
+        return 8;
+      default:
+        return 0; // unknown, fails isSupportedTotp
+    }
+  }
+
+  static OtpType _typeFromWire(int value) {
+    switch (value) {
+      case 0: // unspecified defaults to TOTP
+      case 2:
+        return OtpType.totp;
+      case 1:
+        return OtpType.hotp;
+      default:
+        return OtpType.unknown;
+    }
   }
 
   /// Read a protobuf field tag and return its field number and wire type.
@@ -143,6 +211,7 @@ class GoogleAuthMigrationDecoder {
   static Map<String, int> _readVarint(Uint8List data, int offset) {
     int value = 0;
     int shift = 0;
+    bool complete = false;
 
     while (offset < data.length) {
       if (shift >= 63) throw const FormatException('Varint too large');
@@ -150,9 +219,15 @@ class GoogleAuthMigrationDecoder {
       value |= (byte & 0x7F) << shift;
       offset++;
 
-      if ((byte & 0x80) == 0) break;
+      if ((byte & 0x80) == 0) {
+        complete = true;
+        break;
+      }
       shift += 7;
     }
+
+    // A continuation bit on the final byte means the payload was truncated.
+    if (!complete) throw const FormatException('Truncated varint');
 
     return {'value': value, 'offset': offset};
   }
@@ -181,13 +256,37 @@ class GoogleAuthMigrationDecoder {
   }
 }
 
+/// OTP generation algorithm from the migration payload. [unknown] marks an
+/// out-of-range value the app cannot assume anything about.
+enum OtpAlgorithm { sha1, sha256, sha512, md5, unknown }
+
+/// OTP type from the migration payload. [unknown] marks an out-of-range value.
+enum OtpType { totp, hotp, unknown }
+
 /// OTP account container with base32 secret.
 class OtpAccount {
   final String name;
   final String issuer;
   final String secret; // Base32 encoded
+  final OtpType type;
+  final OtpAlgorithm algorithm;
+  final int digits;
 
-  OtpAccount({required this.name, required this.issuer, required this.secret});
+  OtpAccount({
+    required this.name,
+    required this.issuer,
+    required this.secret,
+    this.type = OtpType.totp,
+    this.algorithm = OtpAlgorithm.sha1,
+    this.digits = 6,
+  });
+
+  /// True only for the standard TOTP setup the app can generate valid codes
+  /// for (time-based, SHA-1, 6 digits). Anything else (HOTP, SHA-256/512/MD5,
+  /// 8 digits) would produce codes the CAS server rejects, so it is refused at
+  /// import rather than stored as a broken seed.
+  bool get isSupportedTotp =>
+      type == OtpType.totp && algorithm == OtpAlgorithm.sha1 && digits == 6;
 
   @override
   String toString() {

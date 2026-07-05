@@ -106,11 +106,18 @@ class _ScanScreenState extends State<ScanScreen>
         try {
           final accounts = GoogleAuthMigrationDecoder.decode(rawValue);
           if (accounts.isEmpty) return null;
-          if (accounts.length > 1) {
-            _showAccountSelectionDialog(accounts);
+          // Keep only accounts the app can generate valid codes for. Anything
+          // else (HOTP, non-SHA1, 8 digits) would import as a broken seed.
+          final supported = accounts.where((a) => a.isSupportedTotp).toList();
+          if (supported.isEmpty) {
+            _showError('Ce compte 2FA utilise un format non pris en charge.');
+            return null;
+          }
+          if (supported.length > 1) {
+            _showAccountSelectionDialog(supported);
             return '';
           }
-          return accounts[0].secret;
+          return supported[0].secret;
         } catch (_) {
           return null;
         }
