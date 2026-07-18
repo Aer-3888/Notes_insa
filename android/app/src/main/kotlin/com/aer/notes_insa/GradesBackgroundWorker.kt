@@ -75,6 +75,12 @@ class GradesBackgroundWorker(
                 return@withContext Result.success()
             }
 
+            // Acquire the same lock used by foreground MethodChannel cleanup
+            // before reading credentials. Logout therefore either waits for this
+            // whole run and clears its final writes, or clears first and makes
+            // this run observe an empty store; it cannot resurrect an account.
+            NativeSession.lock.lock()
+
             val store = WorkerStore.read(
                 appContext,
                 listOf(
@@ -93,11 +99,8 @@ class GradesBackgroundWorker(
             val otpSecret = store[KEY_OTP_SECRET]
             val casSession = store[KEY_CAS_SESSION]
 
-            // Hold the native lock for the whole Mobinsapi sequence so a
-            // concurrent foreground call cannot interleave and corrupt the
-            // shared CAS session. Released in the finally below (isHeldByCurrent
-            // Thread guards the early no-op returns above, which never acquire).
-            NativeSession.lock.lock()
+            // The lock is held from the credential read through every native and
+            // worker-store write. It is released in the finally below.
 
             // Try to restore the previous CAS session to skip full re-auth
             if (casSession != null) {

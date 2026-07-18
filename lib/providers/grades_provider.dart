@@ -6,7 +6,9 @@ import '../services/coefficients_service.dart';
 import '../services/averages_service.dart';
 import '../services/auth_service.dart';
 import '../services/worker_sync_service.dart';
+import '../background_tasks.dart';
 import '../constants.dart';
+import 'auth_providers.dart';
 import 'coefficients_provider.dart';
 import 'dashboard_providers.dart';
 
@@ -17,6 +19,8 @@ enum AuthStatus {
   twoFactorRequired,
   authenticated,
   error,
+  loggingOut,
+  logoutFailed,
 }
 
 /// Outcome of [GradesNotifier.prepareReauth], used by the 2FA screen to decide
@@ -113,8 +117,16 @@ class GradesNotifier extends StateNotifier<GradesState> {
   /// concurrent native CAS-session calls (e.g. biometric + PIN + resume) from
   /// interleaving and corrupting the shared session.
   Future<void>? _inFlight;
+  Future<void>? _logoutFuture;
+  int _accountGeneration = 0;
+
+  bool get _isLoggingOut => _logoutFuture != null;
+
+  bool _isCurrentGeneration(int generation) =>
+      !_isLoggingOut && generation == _accountGeneration;
 
   Future<void> _runExclusive(Future<void> Function() body) {
+    if (_isLoggingOut) return Future.value();
     final existing = _inFlight;
     if (existing != null) return existing;
     // body() runs synchronously up to its first await before returning the
@@ -129,15 +141,19 @@ class GradesNotifier extends StateNotifier<GradesState> {
 
   /// Load grades from local secure storage.
   Future<void> loadStoredGrades() async {
+    final generation = _accountGeneration;
     try {
       // The background worker writes a newer snapshot only to its own store
       // (the Flutter→worker mirror is one-way), so adopt it here when it's
       // newer than our local copy before reading.
       await _adoptWorkerGradesIfNewer();
+      if (!_isCurrentGeneration(generation)) return;
 
       final jsonString = await GradesService.getLastSavedGrades();
+      if (!_isCurrentGeneration(generation)) return;
       if (jsonString != null) {
         final baseline = await AveragesService.loadAcademicYearBaseline();
+        if (!_isCurrentGeneration(generation)) return;
         // Only re-stamp lastUpdated when the snapshot actually changed, so
         // foregrounding the app doesn't reset "updated just now" each time.
         if (jsonString != state.jsonData) {
@@ -160,9 +176,13 @@ class GradesNotifier extends StateNotifier<GradesState> {
   /// Fetch grades after auth + optional 2FA are already complete.
   /// Called from the login screen once the full auth flow has succeeded.
   /// Also exports the CAS session so the next launch can skip re-auth.
-  Future<void> fetchGradesAfterAuth() => _runExclusive(_fetchGradesAfterAuth);
+  Future<void> fetchGradesAfterAuth() {
+    final generation = _accountGeneration;
+    return _runExclusive(() => _fetchGradesAfterAuth(generation));
+  }
 
-  Future<void> _fetchGradesAfterAuth() async {
+  Future<void> _fetchGradesAfterAuth(int generation) async {
+    if (!_isCurrentGeneration(generation)) return;
     state = state.copyWith(
       isLoading: true,
       error: null,
@@ -172,15 +192,18 @@ class GradesNotifier extends StateNotifier<GradesState> {
       // Export session before fetching — captures the authenticated state
       try {
         final sessionToken = await GradesService.exportCAS();
+        if (!_isCurrentGeneration(generation)) return;
         await AuthService().storeCasSession(sessionToken);
       } catch (_) {
         // Non-fatal — session just won't be restored next time
       }
 
       final fetched = await GradesService.fetchAndSaveGrades();
+      if (!_isCurrentGeneration(generation)) return;
       // Freeze the academic-year baseline for this snapshot before caching
       // coefficients, which derives per-semester years from it.
       await AveragesService.persistAcademicYearBaseline();
+      if (!_isCurrentGeneration(generation)) return;
       // Show grades immediately — the loading pill hides here. Weighted averages
       // fill in once coefficients arrive (semesterAverageProvisional bridges the
       // gap with an unweighted value in the meantime).
@@ -195,6 +218,7 @@ class GradesNotifier extends StateNotifier<GradesState> {
       );
       await _refreshCoefficients(fetched.json, fetched.groupCount);
     } catch (e) {
+      if (!_isCurrentGeneration(generation)) return;
       state = state.copyWith(
         isLoading: false,
         error: e.toString(),
@@ -208,8 +232,10 @@ class GradesNotifier extends StateNotifier<GradesState> {
   /// Tries to restore the previous CAS session first — if still authenticated,
   /// skips re-auth entirely. Falls back to full auth if the session expired.
   /// If 2FA is required and no OTP secret is stored, sets an error state.
-  Future<void> fetchGradesWithStoredCredentials() =>
-      _runExclusive(_fetchGradesWithStoredCredentials);
+  Future<void> fetchGradesWithStoredCredentials() {
+    final generation = _accountGeneration;
+    return _runExclusive(() => _fetchGradesWithStoredCredentials(generation));
+  }
 
   /// Establishes a fresh CAS 2FA challenge for the reconnect screen so a code
   /// entered there validates even if the previous challenge lapsed or none was
@@ -221,6 +247,7 @@ class GradesNotifier extends StateNotifier<GradesState> {
   /// don't interleave native CAS calls: waits for any in-flight sequence, then
   /// holds the guard for its own run.
   Future<ReauthPrep> prepareReauth() async {
+    if (_isLoggingOut) return ReauthPrep.noCredentials;
     while (_inFlight != null) {
       try {
         await _inFlight;
@@ -228,8 +255,12 @@ class GradesNotifier extends StateNotifier<GradesState> {
     }
     final gate = Completer<void>();
     _inFlight = gate.future;
+    final generation = _accountGeneration;
     try {
-      return await _prepareReauth();
+      final result = await _prepareReauth();
+      return _isCurrentGeneration(generation)
+          ? result
+          : ReauthPrep.noCredentials;
     } finally {
       if (identical(_inFlight, gate.future)) _inFlight = null;
       gate.complete();
@@ -252,7 +283,8 @@ class GradesNotifier extends StateNotifier<GradesState> {
     }
   }
 
-  Future<void> _fetchGradesWithStoredCredentials() async {
+  Future<void> _fetchGradesWithStoredCredentials(int generation) async {
+    if (!_isCurrentGeneration(generation)) return;
     state = state.copyWith(
       isLoading: true,
       error: null,
@@ -261,6 +293,7 @@ class GradesNotifier extends StateNotifier<GradesState> {
 
     final authService = AuthService();
     final credentials = await authService.getCredentials();
+    if (!_isCurrentGeneration(generation)) return;
 
     if (credentials == null) {
       state = state.copyWith(
@@ -309,6 +342,7 @@ class GradesNotifier extends StateNotifier<GradesState> {
         final needs2fa = await GradesService.isTokenNeeded();
         if (needs2fa) {
           final secret = await authService.getOtpSecret();
+          if (!_isCurrentGeneration(generation)) return;
           if (secret == null) {
             state = state.copyWith(
               isLoading: false,
@@ -351,9 +385,11 @@ class GradesNotifier extends StateNotifier<GradesState> {
       }
 
       final fetched = await GradesService.fetchAndSaveGrades();
+      if (!_isCurrentGeneration(generation)) return;
       // Freeze the academic-year baseline for this snapshot before caching
       // coefficients, which derives per-semester years from it.
       await AveragesService.persistAcademicYearBaseline();
+      if (!_isCurrentGeneration(generation)) return;
       // Show grades immediately — the loading pill hides here. Weighted averages
       // fill in once coefficients arrive (semesterAverageProvisional bridges the
       // gap with an unweighted value in the meantime).
@@ -368,6 +404,7 @@ class GradesNotifier extends StateNotifier<GradesState> {
       );
       await _refreshCoefficients(fetched.json, fetched.groupCount);
     } catch (e) {
+      if (!_isCurrentGeneration(generation)) return;
       state = state.copyWith(
         isLoading: false,
         error: e.toString(),
@@ -455,6 +492,7 @@ class GradesNotifier extends StateNotifier<GradesState> {
   /// while a fetch is already in progress.
   /// Returns true if the refresh was started, false otherwise.
   Future<bool> manualRefresh() async {
+    if (_isLoggingOut) return false;
     if (state.isLoading) return false;
     if (state.manualRefreshCooldown != null) return false;
     state = state.copyWith(lastManualRefresh: DateTime.now(), error: null);
@@ -468,6 +506,66 @@ class GradesNotifier extends StateNotifier<GradesState> {
     // Reset dashboard-scoped UI state so a previous account's selected semester
     // does not carry into the next login.
     _ref.invalidate(selectedSemesterProvider);
+  }
+
+  /// Securely removes the current account. Repeated requests share one cleanup
+  /// operation; the UI remains locked until every store and the native session
+  /// confirm cleanup, then exposes a retry-only failure state if needed.
+  Future<void> logout() {
+    final running = _logoutFuture;
+    if (running != null) return running;
+
+    final completer = Completer<void>();
+    _logoutFuture = completer.future;
+    _accountGeneration++;
+    clearGrades();
+    state = state.copyWith(authStatus: AuthStatus.loggingOut, error: null);
+    _ref.read(appUnlockedProvider.notifier).state = false;
+    unawaited(_performLogout(completer));
+    return completer.future;
+  }
+
+  Future<void> _performLogout(Completer<void> completer) async {
+    final failures = <Object>[];
+
+    Future<void> attempt(Future<void> Function() action) async {
+      try {
+        await action();
+      } catch (error) {
+        failures.add(error);
+      }
+    }
+
+    // Prevent a queued worker from starting first. An already-running worker
+    // drains through the shared native-session lock before its store is cleared.
+    await attempt(() => stopBackgroundTasks(rethrowOnError: true));
+
+    // A pre-logout foreground fetch may already own native calls and persistence.
+    // Let it finish while its generation is stale, then clear its writes.
+    while (_inFlight != null) {
+      try {
+        await _inFlight;
+      } catch (_) {}
+    }
+
+    // These are deliberately independent: failure in one must not skip cleanup
+    // of the other sensitive store or the in-memory native CAS session.
+    await attempt(() => AuthService().clear());
+    await attempt(() => WorkerSyncService.clear(rethrowOnError: true));
+    await attempt(GradesService.newCAS);
+
+    if (failures.isEmpty) {
+      state = const GradesState();
+      _ref.invalidate(hasCredentialsProvider);
+    } else {
+      state = const GradesState(
+        authStatus: AuthStatus.logoutFailed,
+        error: 'Impossible de supprimer toutes les données locales.',
+      );
+    }
+
+    _logoutFuture = null;
+    completer.complete();
   }
 
   /// Manually trigger a PIN requirement in the UI.

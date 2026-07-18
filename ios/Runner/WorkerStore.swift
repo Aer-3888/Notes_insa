@@ -58,13 +58,21 @@ enum WorkerStore {
         }
     }
 
-    /// Clears every stored value (called on logout).
-    static func clearAll() {
+    /// Clears every stored value (called on logout), reporting Keychain errors
+    /// so Dart can keep the app locked and offer a retry.
+    static func clearAll() throws {
         let query: [String: Any] = [
             kSecClass as String: kSecClassGenericPassword,
             kSecAttrService as String: service,
         ]
-        SecItemDelete(query as CFDictionary)
+        let status = SecItemDelete(query as CFDictionary)
+        guard status == errSecSuccess || status == errSecItemNotFound else {
+            throw NSError(
+                domain: "NotesInsaWorkerStore",
+                code: Int(status),
+                userInfo: [NSLocalizedDescriptionKey: "Failed to clear worker store"],
+            )
+        }
     }
 
     // MARK: - Single-item helpers

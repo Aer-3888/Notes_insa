@@ -11,6 +11,7 @@ import '../../providers/settings_provider.dart';
 import '../../services/auth_service.dart';
 import '../../services/grades_service.dart';
 import '../../services/notification_service.dart';
+import '../../background_tasks.dart';
 import '../scan_screen.dart';
 import 'onboarding_enums.dart';
 import 'slides/credentials_slide.dart';
@@ -276,6 +277,9 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
       _userController.text.trim(),
       _passController.text,
     );
+    // Logout cancels account work. Recreate it only after credentials are safely
+    // stored, and only when the persisted user setting allows background fetch.
+    unawaited(initBackgroundTasks());
     ref.read(appUnlockedProvider.notifier).state = true;
     ref.invalidate(hasCredentialsProvider);
     unawaited(

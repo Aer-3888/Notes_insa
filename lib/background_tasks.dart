@@ -1,6 +1,7 @@
 import 'package:flutter/services.dart';
 import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'services/auth_service.dart';
 
 // The custom MethodChannel used for all Mobinsapi calls.
 const _channel = MethodChannel('com.aer.notes_insa/grades');
@@ -18,6 +19,10 @@ const _channel = MethodChannel('com.aer.notes_insa/grades');
 Future<void> initBackgroundTasks() async {
   try {
     final prefs = await SharedPreferences.getInstance();
+    final fetchEnabled = prefs.getBool('background_fetch_enabled') ?? true;
+    // Do not recreate account work after logout. A successful sign-in invokes
+    // this helper again, preserving the user's saved background-fetch setting.
+    if (!fetchEnabled || !await AuthService().isLoggedIn()) return;
     final fetchInterval = prefs.getInt('background_fetch_interval') ?? 15;
     await _channel.invokeMethod<void>('InitBackgroundTask', {
       'intervalMinutes': fetchInterval,
@@ -35,11 +40,12 @@ Future<void> initBackgroundTasks() async {
 }
 
 /// Cancel the native Android background task.
-Future<void> stopBackgroundTasks() async {
+Future<void> stopBackgroundTasks({bool rethrowOnError = false}) async {
   try {
     await _channel.invokeMethod<void>('StopBackgroundTask');
     if (kDebugMode) debugPrint('[BackgroundTask] Native worker cancelled');
   } catch (e) {
     if (kDebugMode) debugPrint('[BackgroundTask] Failed to stop native worker');
+    if (rethrowOnError) rethrow;
   }
 }

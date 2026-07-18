@@ -232,10 +232,13 @@ class AuthService {
     return results[0] != null && results[1] != null;
   }
 
-  // Logout: clear all stored data including optional OTP secret.
+  /// Clears the Flutter-secure-storage copy of all account data.
+  ///
+  /// The worker store is intentionally cleared separately by the logout
+  /// coordinator. Keeping the operations independent means a Keystore failure
+  /// here cannot prevent the native worker credentials from being removed.
   Future<void> clear() async {
     await _storage.deleteAll();
-    await WorkerSyncService.clear();
   }
 
   Future<bool> hasBiometrics() async {

@@ -240,6 +240,15 @@ class _AuthGateState extends ConsumerState<AuthGate>
   Widget build(BuildContext context) {
     final gradesState = ref.watch(gradesProvider);
 
+    if (gradesState.authStatus == AuthStatus.loggingOut) {
+      return const _LogoutProgressScreen();
+    }
+    if (gradesState.authStatus == AuthStatus.logoutFailed) {
+      return _LogoutFailedScreen(
+        onRetry: () => unawaited(ref.read(gradesProvider.notifier).logout()),
+      );
+    }
+
     return ref
         .watch(hasCredentialsProvider)
         .when(
@@ -270,11 +279,75 @@ class _AuthGateState extends ConsumerState<AuthGate>
               case AuthStatus.error:
               case AuthStatus.twoFactorRequired:
               case AuthStatus.authenticated:
+              case AuthStatus.loggingOut:
+              case AuthStatus.logoutFailed:
                 // The Dashboard handles cached data and any necessary banners.
                 return _dashboard(context);
             }
           },
         );
+  }
+}
+
+class _LogoutProgressScreen extends StatelessWidget {
+  const _LogoutProgressScreen();
+
+  @override
+  Widget build(BuildContext context) {
+    return const Scaffold(
+      backgroundColor: AppColors.scaffoldBg,
+      body: Center(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            CircularProgressIndicator(),
+            SizedBox(height: 20),
+            Text('Déconnexion sécurisée en cours…'),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _LogoutFailedScreen extends StatelessWidget {
+  const _LogoutFailedScreen({required this.onRetry});
+
+  final VoidCallback onRetry;
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: AppColors.scaffoldBg,
+      body: Center(
+        child: Padding(
+          padding: const EdgeInsets.all(24),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Icon(
+                Icons.lock_outline,
+                size: 56,
+                color: AppColors.primary,
+              ),
+              const SizedBox(height: 20),
+              const Text(
+                'La déconnexion n’a pas pu être terminée.',
+                textAlign: TextAlign.center,
+                style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+              ),
+              const SizedBox(height: 10),
+              const Text(
+                'Réessayez pour supprimer toutes les données locales avant de vous reconnecter.',
+                textAlign: TextAlign.center,
+              ),
+              const SizedBox(height: 24),
+              FilledButton(onPressed: onRetry, child: const Text('Réessayer')),
+            ],
+          ),
+        ),
+      ),
+    );
   }
 }
 

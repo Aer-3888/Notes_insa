@@ -157,8 +157,10 @@ object WorkerStore {
         }
     }
 
-    /** Clears all stored data (called on logout). */
+    /** Clears all stored data (called on logout), durably reporting failure. */
     fun clearAll(context: Context) {
-        prefs(context).edit().clear().apply()
+        if (!prefs(context).edit().clear().commit()) {
+            throw IllegalStateException("Failed to clear worker store")
+        }
     }
 }

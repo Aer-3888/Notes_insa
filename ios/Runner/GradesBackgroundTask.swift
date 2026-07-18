@@ -113,6 +113,12 @@ enum GradesBackgroundTask {
             return true
         }
 
+        // Acquire the same session lock used by foreground calls and worker-store
+        // cleanup before reading credentials. A logout therefore serializes with
+        // this entire run and cannot be followed by a stale background write.
+        NativeSession.lock.lock()
+        defer { NativeSession.lock.unlock() }
+
         guard let username = WorkerStore.get(WorkerStore.keyUsername),
               let password = WorkerStore.get(WorkerStore.keyPassword) else {
             NSLog("[GradesBackgroundTask] No credentials stored, skipping")
@@ -121,12 +127,6 @@ enum GradesBackgroundTask {
 
         let otpSecret = WorkerStore.get(WorkerStore.keyOtpSecret)
         let casSession = WorkerStore.get(WorkerStore.keyCasSession)
-
-        // Hold the native lock for the whole Mobinsapi sequence so a concurrent
-        // foreground call cannot interleave and corrupt the shared CAS session
-        // (mirrors GradesBackgroundWorker on Android). Released at return.
-        NativeSession.lock.lock()
-        defer { NativeSession.lock.unlock() }
 
         do {
             // Try to restore the previous CAS session to skip a full re-auth.

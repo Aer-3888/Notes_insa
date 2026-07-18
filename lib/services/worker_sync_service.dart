@@ -59,11 +59,16 @@ class WorkerSyncService {
   }
 
   /// Clears all worker-store data (called on logout).
-  static Future<void> clear() async {
+  ///
+  /// Normal application flows keep this best-effort. The logout coordinator
+  /// passes [rethrowOnError] so it can keep the app locked until native cleanup
+  /// is confirmed.
+  static Future<void> clear({bool rethrowOnError = false}) async {
     try {
       await _channel.invokeMethod<void>('ClearWorkerStore');
     } catch (e) {
       if (kDebugMode) debugPrint('[WorkerSync] clear failed: $e');
+      if (rethrowOnError) rethrow;
     }
   }
 

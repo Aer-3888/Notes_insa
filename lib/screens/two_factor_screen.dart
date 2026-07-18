@@ -3,7 +3,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../components/two_factor_form.dart';
 import '../providers/grades_provider.dart';
-import '../providers/auth_providers.dart';
 import '../services/auth_service.dart';
 import '../services/grades_service.dart';
 import 'scan_screen.dart';
@@ -163,13 +162,10 @@ class _TwoFactorScreenState extends ConsumerState<TwoFactorScreen> {
   }
 
   Future<void> _logout() async {
-    await AuthService().clear();
-    if (!mounted) return;
-    ref.read(gradesProvider.notifier).clearGrades();
-    ref.invalidate(hasCredentialsProvider);
     // Pop this pushed route so the rebuilt AuthGate (now showing the onboarding
-    // connect flow) isn't left covered by a dangling 2FA screen.
+    // secure logout state) isn't left covered by a dangling 2FA screen.
     if (Navigator.canPop(context)) Navigator.pop(context);
+    unawaited(ref.read(gradesProvider.notifier).logout());
   }
 
   @override

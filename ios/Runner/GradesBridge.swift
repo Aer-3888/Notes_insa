@@ -121,7 +121,7 @@ enum GradesBridge {
 
         case "ClearWorkerStore":
             runInBackground("ClearWorkerStore", result) {
-                WorkerStore.clearAll()
+                try WorkerStore.clearAll()
                 return nil
             }
 

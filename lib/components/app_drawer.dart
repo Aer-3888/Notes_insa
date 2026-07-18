@@ -1,10 +1,9 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../app_colors.dart';
-import '../services/auth_service.dart';
-import '../services/grades_service.dart';
 import '../providers/grades_provider.dart';
-import '../providers/auth_providers.dart';
 import '../screens/raw_json_viewer_screen.dart';
 import '../screens/settings_screen.dart';
 import '../providers/package_info_provider.dart';
@@ -152,22 +151,14 @@ class AppDrawer extends ConsumerWidget {
                       fontWeight: FontWeight.w500,
                     ),
                   ),
-                  onTap: () async {
+                  onTap: () {
+                    ScaffoldMessenger.of(context).clearMaterialBanners();
+                    // Close the drawer before the root auth gate switches to its
+                    // non-dismissible secure-logout screen.
                     if (context.mounted) {
-                      ScaffoldMessenger.of(context).clearMaterialBanners();
+                      Navigator.pop(context);
                     }
-                    ref.read(gradesProvider.notifier).clearGrades();
-                    await AuthService().clear();
-                    // Reset native CAS session so no in-memory state leaks to the next user.
-                    await GradesService.newCAS();
-                    if (context.mounted) {
-                      // Drop back to AuthGate which, now credential-less, shows
-                      // the onboarding connect flow — same design as first launch.
-                      ref.read(appUnlockedProvider.notifier).state = false;
-                      ref.invalidate(hasCredentialsProvider);
-                      Navigator.pop(context); // close the drawer
-                      Navigator.of(context).popUntil((route) => route.isFirst);
-                    }
+                    unawaited(ref.read(gradesProvider.notifier).logout());
                   },
                 ),
               ],
