@@ -4,6 +4,17 @@
 
 Android app for INSA students to view grades, track averages, and receive notifications on grade updates.
 
+## Screenshots
+
+<p align="center">
+  <img src="screenshots/dashboard.png" width="220" alt="Semester dashboard" />
+  <img src="screenshots/ue_detail.png" width="220" alt="Teaching unit detail" />
+  <img src="screenshots/cohort_stats.png" width="220" alt="Anonymous cohort comparison" />
+  <img src="screenshots/connection.png" width="220" alt="Sign in" />
+</p>
+
+<p align="center"><sub>Semester dashboard, teaching unit detail, anonymous cohort comparison, and sign in. All grades shown are fictional sample data.</sub></p>
+
 ## Features
 
 - Fetch grades via secure native library (inscore)
