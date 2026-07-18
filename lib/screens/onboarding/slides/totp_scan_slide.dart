@@ -34,15 +34,25 @@ class TotpScanSlide extends StatelessWidget {
       stepCount: stepCount,
       currentIndex: currentIndex,
       onBack: onBack,
-      title: 'Scanner le QR code',
-      subtitle:
-          'Si vous n\'avez pas encore configuré votre OTP, rendez-vous sur l\'intranet INSA dans l\'OTP Manager',
+      title: 'Scannez votre QR code',
+      subtitle: 'Le QR code est disponible dans l’OTP Manager du portail INSA.',
       isLoading: isLoading,
       error: error,
       primaryLabel: 'Valider',
       onPrimary: scannedSecret != null ? onValidate : null,
       content: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
+          const _Instruction(
+            number: '1',
+            text: 'Ouvrez l’OTP Manager sur le portail INSA.',
+          ),
+          const SizedBox(height: 12),
+          const _Instruction(
+            number: '2',
+            text: 'Affichez votre QR code, puis scannez-le ici.',
+          ),
+          const SizedBox(height: 24),
           Semantics(
             button: true,
             selected: scannedSecret != null,
@@ -67,11 +77,10 @@ class TotpScanSlide extends StatelessWidget {
                   borderRadius: BorderRadius.circular(12),
                   child: Padding(
                     padding: const EdgeInsets.symmetric(
-                      vertical: 40,
-                      horizontal: 20,
+                      vertical: 18,
+                      horizontal: 18,
                     ),
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
+                    child: Row(
                       children: [
                         Icon(
                           scannedSecret != null
@@ -80,20 +89,31 @@ class TotpScanSlide extends StatelessWidget {
                           color: scannedSecret != null
                               ? AppColors.statusPositive
                               : AppColors.primary,
-                          size: 56,
+                          size: 28,
                         ),
-                        const SizedBox(height: 16),
-                        Text(
-                          scannedSecret != null
-                              ? 'QR code scanné ✓'
-                              : 'Scanner le QR code',
-                          style: TextStyle(
-                            fontWeight: FontWeight.bold,
-                            fontSize: 16,
-                            color: scannedSecret != null
-                                ? AppColors.statusPositive
-                                : AppColors.textDark,
+                        const SizedBox(width: 14),
+                        Expanded(
+                          child: Text(
+                            scannedSecret != null
+                                ? 'QR code reconnu'
+                                : 'Ouvrir le scanner',
+                            style: TextStyle(
+                              fontWeight: FontWeight.w600,
+                              fontSize: 15,
+                              color: scannedSecret != null
+                                  ? AppColors.statusPositive
+                                  : AppColors.textDark,
+                            ),
                           ),
+                        ),
+                        Icon(
+                          scannedSecret != null
+                              ? Icons.check_rounded
+                              : Icons.arrow_forward_rounded,
+                          color: scannedSecret != null
+                              ? AppColors.statusPositive
+                              : AppColors.textSecondary,
+                          size: 20,
                         ),
                       ],
                     ),
@@ -103,33 +123,30 @@ class TotpScanSlide extends StatelessWidget {
             ),
           ),
           if (scannedSecret != null) ...[
-            const SizedBox(height: 12),
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-              decoration: BoxDecoration(
-                color: Colors.grey.shade50,
-                border: Border.all(color: Colors.grey.shade200),
-                borderRadius: BorderRadius.circular(12),
-              ),
+            const SizedBox(height: 16),
+            const Divider(color: AppColors.border),
+            Padding(
+              padding: const EdgeInsets.symmetric(vertical: 8),
               child: Row(
                 children: [
-                  Expanded(
+                  const Expanded(
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        const Text(
+                        Text(
                           'Mémoriser le secret',
                           style: TextStyle(
                             fontWeight: FontWeight.w600,
                             fontSize: 14,
                           ),
                         ),
-                        const SizedBox(height: 3),
+                        SizedBox(height: 3),
                         Text(
                           'Permet la reconnexion automatique en arrière-plan',
                           style: TextStyle(
                             fontSize: 12,
-                            color: Colors.grey.shade600,
+                            height: 1.35,
+                            color: AppColors.textSecondary,
                           ),
                         ),
                       ],
@@ -147,6 +164,42 @@ class TotpScanSlide extends StatelessWidget {
           ],
         ],
       ),
+    );
+  }
+}
+
+class _Instruction extends StatelessWidget {
+  const _Instruction({required this.number, required this.text});
+
+  final String number;
+  final String text;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        SizedBox(
+          width: 24,
+          child: Text(
+            '$number.',
+            style: const TextStyle(
+              color: AppColors.primary,
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+        ),
+        Expanded(
+          child: Text(
+            text,
+            style: const TextStyle(
+              color: AppColors.textSecondary,
+              fontSize: 14,
+              height: 1.4,
+            ),
+          ),
+        ),
+      ],
     );
   }
 }

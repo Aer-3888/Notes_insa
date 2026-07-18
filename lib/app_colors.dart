@@ -17,6 +17,13 @@ abstract final class AppColors {
   ); // Slate 50 — barely off-white, calm
   // (card/surface uses Colors.white)
 
+  // Onboarding surfaces. These are intentionally quiet and slightly warm:
+  // the connection flow should feel like a dependable academic tool, not a
+  // marketing page.
+  static const Color onboardingBg = Color(0xFFF5F6F3);
+  static const Color fieldFill = Color(0xFFFFFFFF);
+  static const Color border = Color(0xFFCBD3DF);
+
   // Text
   static const Color textDark = Color(
     0xFF1E293B,
@@ -24,6 +31,11 @@ abstract final class AppColors {
   static const Color textMuted = Color(
     0xFF94A3B8,
   ); // Slate 400 — placeholders, secondary
+  static const Color textSecondary = Color(0xFF5B6574);
+
+  // Form feedback
+  static const Color error = Color(0xFFB42318);
+  static const Color errorSurface = Color(0xFFFFF0EE);
 
   // Grade semantic colors
   static const Color gradeExcellent = Color(0xFF059669); // Emerald 600 — ≥ 14

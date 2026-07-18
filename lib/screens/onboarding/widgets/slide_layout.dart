@@ -41,7 +41,7 @@ class SlideLayout extends StatelessWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const SizedBox(height: 8),
+              const SizedBox(height: 4),
               _Header(
                 stepCount: stepCount,
                 currentIndex: currentIndex,
@@ -57,40 +57,40 @@ class SlideLayout extends StatelessWidget {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      const SizedBox(height: 24),
+                      const SizedBox(height: 32),
                       Text(
                         title,
                         style: const TextStyle(
-                          fontSize: 28,
-                          fontWeight: FontWeight.bold,
-                          height: 1.2,
+                          fontSize: 32,
+                          fontWeight: FontWeight.w700,
+                          letterSpacing: -0.7,
+                          height: 1.12,
                           color: AppColors.textDark,
                         ),
                       ),
                       if (subtitle != null) ...[
-                        const SizedBox(height: 8),
+                        const SizedBox(height: 12),
                         Text(
                           subtitle!,
-                          style: TextStyle(
-                            fontSize: 14,
-                            color: Colors.grey.shade600,
+                          style: const TextStyle(
+                            fontSize: 16,
+                            height: 1.45,
+                            color: AppColors.textSecondary,
                           ),
                         ),
                       ],
-                      const SizedBox(height: 24),
+                      const SizedBox(height: 32),
                       content,
+                      if (error != null) ...[
+                        const SizedBox(height: 20),
+                        _ErrorMessage(error!),
+                      ],
+                      const SizedBox(height: 20),
                     ],
                   ),
                 ),
               ),
-              if (error != null) ...[
-                const SizedBox(height: 8),
-                Text(
-                  error!,
-                  style: const TextStyle(color: Colors.red, fontSize: 13),
-                ),
-              ],
-              const SizedBox(height: 12),
+              const SizedBox(height: 8),
               _PrimaryButton(
                 label: primaryLabel,
                 onTap: onPrimary,
@@ -102,9 +102,10 @@ class SlideLayout extends StatelessWidget {
                     onPressed: onSecondary,
                     child: Text(
                       secondaryLabel!,
-                      style: TextStyle(
-                        color: Colors.grey.shade600,
+                      style: const TextStyle(
+                        color: AppColors.textSecondary,
                         fontSize: 14,
+                        fontWeight: FontWeight.w500,
                       ),
                     ),
                   ),
@@ -133,58 +134,95 @@ class _Header extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return SizedBox(
-      height: 40,
-      child: Row(
-        children: [
-          if (onBack != null)
-            IconButton(
-              icon: const Icon(Icons.arrow_back),
-              onPressed: onBack,
-              color: AppColors.textDark,
-              padding: EdgeInsets.zero,
-              constraints: const BoxConstraints(),
-            ),
-          Expanded(
-            child: _Dots(stepCount: stepCount, currentIndex: currentIndex),
+    if (stepCount <= 1 && onBack == null) {
+      return const SizedBox(height: 20);
+    }
+
+    return Column(
+      children: [
+        SizedBox(
+          height: 52,
+          child: Row(
+            children: [
+              if (onBack != null) ...[
+                IconButton(
+                  icon: const Icon(Icons.arrow_back_rounded),
+                  onPressed: onBack,
+                  color: AppColors.textDark,
+                  tooltip: 'Retour',
+                ),
+              ],
+              const Spacer(),
+              if (stepCount > 1)
+                Text(
+                  '${currentIndex + 1} / $stepCount',
+                  semanticsLabel: 'Étape ${currentIndex + 1} sur $stepCount',
+                  style: const TextStyle(
+                    color: AppColors.textSecondary,
+                    fontSize: 13,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+            ],
           ),
-          if (onBack != null) const SizedBox(width: 40),
-        ],
-      ),
+        ),
+        if (stepCount > 1)
+          Semantics(
+            label: 'Progression de la configuration',
+            value: '${currentIndex + 1} sur $stepCount',
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(1),
+              child: LinearProgressIndicator(
+                value: (currentIndex + 1) / stepCount,
+                minHeight: 2,
+                backgroundColor: AppColors.border,
+                color: AppColors.primary,
+              ),
+            ),
+          ),
+      ],
     );
   }
 }
 
-class _Dots extends StatelessWidget {
-  final int stepCount;
-  final int currentIndex;
+class _ErrorMessage extends StatelessWidget {
+  const _ErrorMessage(this.message);
 
-  const _Dots({required this.stepCount, required this.currentIndex});
+  final String message;
 
   @override
   Widget build(BuildContext context) {
-    // The full step list isn't known until after login (it depends on 2FA,
-    // biometrics/PIN, consent and notification state), so the credentials
-    // slide reports a count of 1. A lone dot is meaningless — hide it.
-    if (stepCount <= 1) return const SizedBox.shrink();
-    return Center(
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          for (int i = 0; i < stepCount; i++)
-            AnimatedContainer(
-              duration: const Duration(milliseconds: 200),
-              margin: const EdgeInsets.symmetric(horizontal: 3),
-              width: i == currentIndex ? 20 : 8,
-              height: 8,
-              decoration: BoxDecoration(
-                color: i == currentIndex
-                    ? AppColors.primary
-                    : Colors.grey.shade300,
-                borderRadius: BorderRadius.circular(4),
+    return Semantics(
+      liveRegion: true,
+      child: Container(
+        width: double.infinity,
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+        decoration: BoxDecoration(
+          color: AppColors.errorSurface,
+          borderRadius: BorderRadius.circular(8),
+        ),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Icon(
+              Icons.error_outline_rounded,
+              size: 19,
+              color: AppColors.error,
+            ),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Text(
+                message,
+                style: const TextStyle(
+                  color: AppColors.error,
+                  fontSize: 13,
+                  height: 1.35,
+                  fontWeight: FontWeight.w500,
+                ),
               ),
             ),
-        ],
+          ],
+        ),
       ),
     );
   }
@@ -205,15 +243,15 @@ class _PrimaryButton extends StatelessWidget {
   Widget build(BuildContext context) {
     return SizedBox(
       width: double.infinity,
-      child: ElevatedButton(
+      height: 54,
+      child: FilledButton(
         onPressed: isLoading ? null : onTap,
-        style: ElevatedButton.styleFrom(
+        style: FilledButton.styleFrom(
           backgroundColor: AppColors.primary,
           disabledBackgroundColor: AppColors.primary.withValues(alpha: 0.4),
           foregroundColor: Colors.white,
-          padding: const EdgeInsets.symmetric(vertical: 16),
           shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(12),
+            borderRadius: BorderRadius.circular(10),
           ),
         ),
         child: isLoading
@@ -225,7 +263,13 @@ class _PrimaryButton extends StatelessWidget {
                   strokeWidth: 2,
                 ),
               )
-            : Text(label, style: const TextStyle(fontSize: 16)),
+            : Text(
+                label,
+                style: const TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
       ),
     );
   }

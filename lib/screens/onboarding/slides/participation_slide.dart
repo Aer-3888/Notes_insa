@@ -24,9 +24,9 @@ class ParticipationSlide extends StatelessWidget {
       stepCount: stepCount,
       currentIndex: currentIndex,
       onBack: onBack,
-      title: 'Comparez vos notes\navec la promo',
+      title: 'Situez-vous dans votre promo',
       subtitle:
-          'En participant, vous partagez vos moyennes de façon anonyme et '
+          'Facultatif. Vous partagez vos moyennes de façon anonyme et '
           'voyez en retour celles de votre promo.',
       primaryLabel: 'Participer',
       onPrimary: onAccept,
@@ -34,7 +34,7 @@ class ParticipationSlide extends StatelessWidget {
       onSecondary: onDecline,
       content: const Column(
         children: [
-          _DataCard(
+          _DataSection(
             label: 'Partagé',
             positive: true,
             items: [
@@ -43,8 +43,8 @@ class ParticipationSlide extends StatelessWidget {
               'Semestre et année académique',
             ],
           ),
-          SizedBox(height: 12),
-          _DataCard(
+          Divider(height: 32, color: AppColors.border),
+          _DataSection(
             label: 'Jamais partagé',
             positive: false,
             items: [
@@ -59,12 +59,12 @@ class ParticipationSlide extends StatelessWidget {
   }
 }
 
-class _DataCard extends StatelessWidget {
+class _DataSection extends StatelessWidget {
   final String label;
   final bool positive;
   final List<String> items;
 
-  const _DataCard({
+  const _DataSection({
     required this.label,
     required this.positive,
     required this.items,
@@ -72,14 +72,8 @@ class _DataCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
+    return SizedBox(
       width: double.infinity,
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: Colors.grey.shade50,
-        border: Border.all(color: Colors.grey.shade200),
-        borderRadius: BorderRadius.circular(12),
-      ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -88,12 +82,14 @@ class _DataCard extends StatelessWidget {
             style: TextStyle(
               fontSize: 13,
               fontWeight: FontWeight.w600,
-              color: positive ? AppColors.statusPositive : Colors.grey.shade600,
+              color: positive
+                  ? AppColors.statusPositive
+                  : AppColors.textSecondary,
             ),
           ),
-          const SizedBox(height: 8),
+          const SizedBox(height: 10),
           for (final item in items) ...[
-            const SizedBox(height: 6),
+            const SizedBox(height: 8),
             Row(
               children: [
                 Icon(
@@ -101,7 +97,7 @@ class _DataCard extends StatelessWidget {
                   size: 16,
                   color: positive
                       ? AppColors.statusPositive
-                      : Colors.grey.shade400,
+                      : AppColors.textSecondary,
                 ),
                 const SizedBox(width: 8),
                 Expanded(

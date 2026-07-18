@@ -39,7 +39,7 @@ class TwoFactorChoiceSlide extends StatelessWidget {
       onPrimary: onContinue,
       content: Column(
         children: [
-          _MethodCard(
+          _MethodOption(
             icon: Icons.dialpad_outlined,
             title: 'Entrer un code',
             description:
@@ -47,13 +47,13 @@ class TwoFactorChoiceSlide extends StatelessWidget {
             selected: selectedMethod == TfaMethod.manual,
             onTap: () => onSelect(TfaMethod.manual),
           ),
-          const SizedBox(height: 12),
-          _MethodCard(
+          const SizedBox(height: 8),
+          _MethodOption(
             icon: Icons.qr_code_scanner,
             title: 'Scanner le QR code',
             description:
                 'À scanner une seule fois. Reconnexion automatique possible.',
-            badge: 'Recommandé',
+            recommendation: 'Recommandé',
             selected: selectedMethod == TfaMethod.totp,
             onTap: () => onSelect(TfaMethod.totp),
           ),
@@ -63,19 +63,19 @@ class TwoFactorChoiceSlide extends StatelessWidget {
   }
 }
 
-class _MethodCard extends StatelessWidget {
+class _MethodOption extends StatelessWidget {
   final IconData icon;
   final String title;
   final String description;
-  final String? badge;
+  final String? recommendation;
   final bool selected;
   final VoidCallback onTap;
 
-  const _MethodCard({
+  const _MethodOption({
     required this.icon,
     required this.title,
     required this.description,
-    this.badge,
+    this.recommendation,
     required this.selected,
     required this.onTap,
   });
@@ -89,37 +89,30 @@ class _MethodCard extends StatelessWidget {
         duration: const Duration(milliseconds: 150),
         decoration: BoxDecoration(
           color: selected
-              ? AppColors.primary.withValues(alpha: 0.05)
-              : Colors.grey.shade50,
-          border: Border.all(
-            color: selected ? AppColors.primary : Colors.grey.shade200,
-            width: selected ? 2 : 1,
-          ),
-          borderRadius: BorderRadius.circular(12),
+              ? AppColors.primary.withValues(alpha: 0.08)
+              : Colors.transparent,
+          borderRadius: BorderRadius.circular(10),
         ),
         child: Material(
           color: Colors.transparent,
           child: InkWell(
             onTap: onTap,
-            borderRadius: BorderRadius.circular(12),
+            borderRadius: BorderRadius.circular(10),
             child: Padding(
-              padding: const EdgeInsets.all(16),
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 16),
               child: Row(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Padding(
-                    padding: const EdgeInsets.only(top: 2),
-                    child: Icon(
-                      selected
-                          ? Icons.radio_button_checked
-                          : Icons.radio_button_unchecked,
-                      color: selected
-                          ? AppColors.primary
-                          : Colors.grey.shade400,
-                      size: 20,
-                    ),
+                  Icon(
+                    selected
+                        ? Icons.radio_button_checked
+                        : Icons.radio_button_unchecked,
+                    color: selected
+                        ? AppColors.primary
+                        : AppColors.textSecondary,
+                    size: 21,
                   ),
-                  const SizedBox(width: 12),
+                  const SizedBox(width: 14),
                   Expanded(
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
@@ -131,7 +124,7 @@ class _MethodCard extends StatelessWidget {
                               size: 18,
                               color: selected
                                   ? AppColors.primary
-                                  : Colors.grey.shade700,
+                                  : AppColors.textSecondary,
                             ),
                             const SizedBox(width: 8),
                             Expanded(
@@ -146,23 +139,13 @@ class _MethodCard extends StatelessWidget {
                                 ),
                               ),
                             ),
-                            if (badge != null)
-                              Container(
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: 8,
-                                  vertical: 2,
-                                ),
-                                decoration: BoxDecoration(
+                            if (recommendation != null)
+                              Text(
+                                recommendation!,
+                                style: const TextStyle(
                                   color: AppColors.primary,
-                                  borderRadius: BorderRadius.circular(12),
-                                ),
-                                child: Text(
-                                  badge!,
-                                  style: const TextStyle(
-                                    color: Colors.white,
-                                    fontSize: 11,
-                                    fontWeight: FontWeight.bold,
-                                  ),
+                                  fontSize: 11,
+                                  fontWeight: FontWeight.w600,
                                 ),
                               ),
                           ],
@@ -170,9 +153,10 @@ class _MethodCard extends StatelessWidget {
                         const SizedBox(height: 6),
                         Text(
                           description,
-                          style: TextStyle(
+                          style: const TextStyle(
                             fontSize: 13,
-                            color: Colors.grey.shade600,
+                            height: 1.4,
+                            color: AppColors.textSecondary,
                           ),
                         ),
                       ],

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../../app_colors.dart';
 import '../../../components/credentials_fields.dart';
 import '../widgets/slide_layout.dart';
 
@@ -51,16 +52,43 @@ class _CredentialsSlideState extends State<CredentialsSlide> {
     return SlideLayout(
       stepCount: widget.stepCount,
       currentIndex: widget.currentIndex,
-      title: 'Relevé',
-      subtitle: 'Connectez-vous à votre compte',
+      title: 'Connexion',
+      subtitle: 'Utilisez vos identifiants du portail INSA.',
       isLoading: widget.isLoading,
       error: widget.error,
       primaryLabel: 'Se connecter',
       onPrimary: canSubmit ? widget.onConnect : null,
-      content: CredentialsFields(
-        userController: widget.userController,
-        passController: widget.passController,
-        onSubmit: canSubmit ? widget.onConnect : null,
+      content: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          CredentialsFields(
+            userController: widget.userController,
+            passController: widget.passController,
+            onSubmit: canSubmit ? widget.onConnect : null,
+          ),
+          const SizedBox(height: 28),
+          const Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Icon(
+                Icons.lock_outline_rounded,
+                size: 18,
+                color: AppColors.textSecondary,
+              ),
+              SizedBox(width: 10),
+              Expanded(
+                child: Text(
+                  'Vos identifiants sont enregistrés dans le stockage sécurisé de l’appareil.',
+                  style: TextStyle(
+                    color: AppColors.textSecondary,
+                    fontSize: 13,
+                    height: 1.4,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ],
       ),
     );
   }

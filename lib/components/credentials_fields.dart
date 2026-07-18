@@ -35,29 +35,37 @@ class _CredentialsFieldsState extends State<CredentialsFields> {
   Widget build(BuildContext context) {
     return AutofillGroup(
       child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
+          _FieldLabel(widget.usernameLabel),
+          const SizedBox(height: 8),
           TextField(
             controller: widget.userController,
             autofillHints: const [AutofillHints.username],
-            keyboardType: TextInputType.emailAddress,
+            keyboardType: TextInputType.text,
             textInputAction: TextInputAction.next,
-            decoration: InputDecoration(
-              labelText: widget.usernameLabel,
-              border: const OutlineInputBorder(),
-              prefixIcon: const Icon(Icons.person_outline),
-            ),
+            autocorrect: false,
+            enableSuggestions: false,
+            decoration: const InputDecoration(hintText: 'prenom.nom'),
           ),
-          const SizedBox(height: 16),
+          const SizedBox(height: 6),
+          Text(
+            'Le même identifiant que sur le portail INSA',
+            style: Theme.of(context).textTheme.bodySmall,
+          ),
+          const SizedBox(height: 20),
+          const _FieldLabel('Mot de passe'),
+          const SizedBox(height: 8),
           TextField(
             controller: widget.passController,
             autofillHints: const [AutofillHints.password],
             obscureText: _obscure,
             textInputAction: TextInputAction.done,
+            autocorrect: false,
+            enableSuggestions: false,
             onSubmitted: (_) => widget.onSubmit?.call(),
             decoration: InputDecoration(
-              labelText: 'Mot de passe',
-              border: const OutlineInputBorder(),
-              prefixIcon: const Icon(Icons.lock_outline),
+              hintText: 'Votre mot de passe INSA',
               suffixIcon: IconButton(
                 icon: Icon(
                   _obscure
@@ -73,6 +81,22 @@ class _CredentialsFieldsState extends State<CredentialsFields> {
           ),
         ],
       ),
+    );
+  }
+}
+
+class _FieldLabel extends StatelessWidget {
+  const _FieldLabel(this.label);
+
+  final String label;
+
+  @override
+  Widget build(BuildContext context) {
+    return Text(
+      label,
+      style: Theme.of(
+        context,
+      ).textTheme.labelLarge?.copyWith(fontWeight: FontWeight.w600),
     );
   }
 }
