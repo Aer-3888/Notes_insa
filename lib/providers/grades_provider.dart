@@ -539,6 +539,7 @@ class GradesNotifier extends StateNotifier<GradesState> {
     // Prevent a queued worker from starting first. An already-running worker
     // drains through the shared native-session lock before its store is cleared.
     await attempt(() => stopBackgroundTasks(rethrowOnError: true));
+    await resetBackgroundTaskState();
 
     // A pre-logout foreground fetch may already own native calls and persistence.
     // Let it finish while its generation is stale, then clear its writes.

@@ -26,12 +26,14 @@ enum GradesBackgroundTask {
     private static let prefLastReauthNotifMs = "flutter.last_reauth_notif_ms"
     private static let prefLastCredsNotifMs = "flutter.last_creds_notif_ms"
     private static let reauthNotifCooldownMs: Double = 4 * 60 * 60 * 1000 // 4 hours
+    private static let prefFailureStartedAtMs = "flutter.background_failure_started_at_ms"
+    private static let prefLastFailureAlertMs = "flutter.last_background_failure_alert_ms"
+    private static let failureAlertAfterMs: Double = 4 * 60 * 60 * 1000
+    private static let failureAlertCooldownMs: Double = 24 * 60 * 60 * 1000
 
-    // A bad password and a transient blip both surface as an auth() error and are
-    // not reliably distinguishable, so consecutive failures are counted and the
-    // user is warned only once the streak crosses this threshold.
+    // Legacy preference retained only so a successful/disabled run cleans up
+    // state written by older app versions.
     private static let prefAuthFailCount = "flutter.consecutive_auth_failures"
-    private static let authFailNotifyThreshold = 3
 
     // Keep the default in sync with lib/background_tasks.dart.
     private static let defaultIntervalMinutes = 15
@@ -57,16 +59,14 @@ enum GradesBackgroundTask {
 
     /// Schedule (or reschedule) the periodic fetch. `intervalMinutes` is used as
     /// the earliest-begin hint.
-    static func schedule(intervalMinutes: Int) {
+    static func schedule(intervalMinutes: Int) throws {
+        let safeInterval = min(60, max(15, intervalMinutes))
+        BGTaskScheduler.shared.cancel(taskRequestWithIdentifier: processingIdentifier)
         let request = BGProcessingTaskRequest(identifier: processingIdentifier)
         request.requiresNetworkConnectivity = true
         request.requiresExternalPower = false
-        request.earliestBeginDate = Date(timeIntervalSinceNow: Double(intervalMinutes) * 60)
-        do {
-            try BGScheduler.submit(request)
-        } catch {
-            NSLog("[GradesBackgroundTask] Failed to schedule: \(error)")
-        }
+        request.earliestBeginDate = Date(timeIntervalSinceNow: Double(safeInterval) * 60)
+        try BGScheduler.submit(request)
     }
 
     /// Cancel any pending fetch (called from StopBackgroundTask).
@@ -77,24 +77,40 @@ enum GradesBackgroundTask {
     // MARK: - Handler
 
     private static func handle(task: BGProcessingTask) {
-        // Always reschedule the next run first, so a crash mid-work doesn't
-        // permanently stop background fetch.
+        let defaults = UserDefaults.standard
+        if defaults.object(forKey: prefFetchEnabled) != nil,
+           defaults.bool(forKey: prefFetchEnabled) == false {
+            resetFailureWindow(defaults: defaults)
+            task.setTaskCompleted(success: true)
+            return
+        }
+
+        // Reschedule before work starts so a crash cannot permanently stop the
+        // periodic chain. Disabled tasks exit above and do not resurrect it.
         let interval = (UserDefaults.standard.object(forKey: "flutter.background_fetch_interval") as? Int)
             ?? defaultIntervalMinutes
-        schedule(intervalMinutes: interval)
+        do {
+            try schedule(intervalMinutes: interval)
+        } catch {
+            NSLog("[GradesBackgroundTask] Failed to schedule next run: \(error)")
+        }
 
         let queue = DispatchQueue(label: "com.aer.notes_insa.grades.work")
         // Shared flag so doWork() can stop between Mobinsapi calls once the
         // system asks for the task back, rather than running to completion.
         let token = CancellationToken()
+        let completion = TaskCompletionGate(task: task)
         let workItem = DispatchWorkItem {
             let success = doWork(isCancelled: { token.isCancelled })
-            task.setTaskCompleted(success: success)
+            completion.complete(success: success)
         }
         task.expirationHandler = {
-            // System is reclaiming time; abandon this run. It will retry later.
+            // Complete immediately; the native call may return later, but the
+            // gate prevents a second completion and cancellation checks prevent
+            // subsequent persistence or notifications.
             token.cancel()
             workItem.cancel()
+            completion.complete(success: false)
         }
         queue.async(execute: workItem)
     }
@@ -110,6 +126,7 @@ enum GradesBackgroundTask {
         if defaults.object(forKey: prefFetchEnabled) != nil,
            defaults.bool(forKey: prefFetchEnabled) == false {
             NSLog("[GradesBackgroundTask] Background fetch disabled, skipping")
+            resetFailureWindow(defaults: defaults)
             return true
         }
 
@@ -119,47 +136,48 @@ enum GradesBackgroundTask {
         NativeSession.lock.lock()
         defer { NativeSession.lock.unlock() }
 
-        guard let username = WorkerStore.get(WorkerStore.keyUsername),
-              let password = WorkerStore.get(WorkerStore.keyPassword) else {
-            NSLog("[GradesBackgroundTask] No credentials stored, skipping")
-            return true
-        }
-
-        let otpSecret = WorkerStore.get(WorkerStore.keyOtpSecret)
-        let casSession = WorkerStore.get(WorkerStore.keyCasSession)
-
         do {
+            guard let username = try WorkerStore.get(WorkerStore.keyUsername),
+                  let password = try WorkerStore.get(WorkerStore.keyPassword) else {
+                NSLog("[GradesBackgroundTask] No credentials stored, skipping")
+                resetFailureWindow(defaults: defaults)
+                return true
+            }
+
+            let otpSecret = try WorkerStore.get(WorkerStore.keyOtpSecret)
+            let casSession = try WorkerStore.get(WorkerStore.keyCasSession)
+
             // Try to restore the previous CAS session to skip a full re-auth.
             if let casSession = casSession {
                 do {
                     try MobinsApiClient.importCAS(token: casSession)
                 } catch {
-                    WorkerStore.write(values: [WorkerStore.keyCasSession: nil])
+                    if isCancelled() { return false }
+                    try WorkerStore.write(values: [WorkerStore.keyCasSession: nil])
                     try MobinsApiClient.newCAS()
                 }
             } else {
                 try MobinsApiClient.newCAS()
             }
+            if isCancelled() { return false }
 
             // Re-auth only if the restored session is no longer valid.
-            if try !MobinsApiClient.isAuthenticated() {
+            let authenticated = try MobinsApiClient.isAuthenticated()
+            if isCancelled() { return false }
+            if !authenticated {
                 do {
                     try MobinsApiClient.auth(username: username, password: password)
                 } catch {
-                    // Count the failure and skip this run. A transient blip rarely
-                    // repeats across runs while invalid credentials persist, so we
-                    // warn the user only after a few in a row. Reset on next success.
-                    let failCount = defaults.integer(forKey: prefAuthFailCount) + 1
-                    defaults.set(failCount, forKey: prefAuthFailCount)
-                    NSLog("[GradesBackgroundTask] Auth failed (attempt \(failCount)), skipping this run")
-                    if failCount >= authFailNotifyThreshold {
-                        showCredentialsNotification()
-                    }
-                    return true
+                    if isCancelled() { return false }
+                    NSLog("[GradesBackgroundTask] Authentication attempt failed")
+                    recordRetryableFailure(defaults: defaults)
+                    return false
                 }
+                if isCancelled() { return false }
 
                 if MobinsApiClient.isTokenNeeded() {
                     guard let otpSecret = otpSecret else {
+                        resetFailureWindow(defaults: defaults)
                         showReauthNotification()
                         return true
                     }
@@ -170,43 +188,43 @@ enum GradesBackgroundTask {
                     // next run (a new step) handle it. Keep in sync with the Dart
                     // and Kotlin implementations.
                     let currentStep = Self.totpStep()
-                    let claimedStep = WorkerStore.get(WorkerStore.keyLastTotpStep)
-                        .flatMap { Int64($0) }
+                    let claimedValue = try WorkerStore.get(WorkerStore.keyLastTotpStep)
+                    let claimedStep = claimedValue.flatMap { Int64($0) }
                     if claimedStep == currentStep {
                         NSLog("[GradesBackgroundTask] TOTP step \(currentStep) already claimed, skipping this run")
                         return true
                     }
-                    WorkerStore.write(values: [WorkerStore.keyLastTotpStep: String(currentStep)])
+                    if isCancelled() { return false }
+                    try WorkerStore.write(values: [WorkerStore.keyLastTotpStep: String(currentStep)])
                     do {
                         try MobinsApiClient.autoValidate(secret: otpSecret)
                     } catch {
-                        showReauthNotification()
-                        return true
+                        if isCancelled() { return false }
+                        NSLog("[GradesBackgroundTask] Auto-validate attempt failed")
+                        recordRetryableFailure(defaults: defaults)
+                        return false
                     }
+                    if isCancelled() { return false }
                 }
             }
 
             if isCancelled() { return false }
 
-            // Authenticated now (restored session or fresh re-auth), so clear any
-            // prior auth-failure streak that may have warned the user.
-            if defaults.integer(forKey: prefAuthFailCount) != 0 {
-                defaults.set(0, forKey: prefAuthFailCount)
-            }
-
             // Export the (possibly refreshed) session for next time.
             if let newSession = try? MobinsApiClient.exportCAS() {
-                WorkerStore.write(values: [WorkerStore.keyCasSession: newSession])
+                if isCancelled() { return false }
+                try WorkerStore.write(values: [WorkerStore.keyCasSession: newSession])
             }
 
             // Read the previous snapshot before overwriting it.
-            let previousJson = WorkerStore.get(WorkerStore.keyGradesJson)
+            let previousJson = try WorkerStore.get(WorkerStore.keyGradesJson)
 
             if isCancelled() { return false }
             let groupCount = try MobinsApiClient.loadGroups()
             if groupCount <= 0 {
-                NSLog("[GradesBackgroundTask] No groups available, skipping")
-                return true
+                NSLog("[GradesBackgroundTask] No groups available")
+                recordRetryableFailure(defaults: defaults)
+                return false
             }
             if isCancelled() { return false }
 
@@ -225,6 +243,7 @@ enum GradesBackgroundTask {
                 first["details"] = mergedDetails
                 newJson = try serialize(first)
             }
+            _ = try parseObject(newJson)
 
             // Bail before persisting/notifying if the system reclaimed our time
             // during the grade fetches above.
@@ -233,10 +252,10 @@ enum GradesBackgroundTask {
             // Stamp the write so the foreground can tell this snapshot is newer
             // than its own copy and adopt it on resume.
             let stamp = String(Int64(Date().timeIntervalSince1970 * 1000))
-            WorkerStore.write(values: [
-                WorkerStore.keyGradesJson: newJson,
-                WorkerStore.keyGradesUpdatedAt: stamp,
-            ])
+            try WorkerStore.write(values: [WorkerStore.keyGradesJson: newJson])
+            if isCancelled() { return false }
+            try WorkerStore.write(values: [WorkerStore.keyGradesUpdatedAt: stamp])
+            resetFailureWindow(defaults: defaults)
 
             if previousJson == nil {
                 return true // First fetch — store only, no notification.
@@ -272,8 +291,10 @@ enum GradesBackgroundTask {
             }
             return true
         } catch {
+            if isCancelled() { return false }
             NSLog("[GradesBackgroundTask] Background fetch failed: \(error)")
-            return false // Triggers a system retry.
+            recordRetryableFailure(defaults: defaults)
+            return false
         }
     }
 
@@ -281,7 +302,15 @@ enum GradesBackgroundTask {
 
     private static func parseObject(_ json: String) throws -> [String: Any] {
         let data = Data(json.utf8)
-        return (try JSONSerialization.jsonObject(with: data) as? [String: Any]) ?? [:]
+        let value = try JSONSerialization.jsonObject(with: data)
+        guard let object = value as? [String: Any] else {
+            throw NSError(
+                domain: "NotesInsaGradesBackgroundTask",
+                code: -1,
+                userInfo: [NSLocalizedDescriptionKey: "Grades response is not a JSON object"]
+            )
+        }
+        return object
     }
 
     private static func serialize(_ object: [String: Any]) throws -> String {
@@ -323,25 +352,64 @@ enum GradesBackgroundTask {
 
     private struct SubjectGrades {
         let displayName: String
-        let grades: [String]
+        let assessments: [String: [String]]
     }
 
-    /// Returns (newGrades, updatedGrades) subject display-name lists.
-    private static func detectChanges(_ oldJson: String, _ newJson: String) -> ([String], [String]) {
+    /// Returns assessment-level additions and corrections/removals by subject.
+    static func detectChanges(_ oldJson: String, _ newJson: String) -> ([String], [String]) {
         let oldSubjects = extractSubjects(oldJson)
         let newSubjects = extractSubjects(newJson)
-        var newGrades: [String] = []
-        var updatedGrades: [String] = []
+        var newGrades = Set<String>()
+        var updatedGrades = Set<String>()
         for (key, newEntry) in newSubjects {
-            if newEntry.grades.isEmpty { continue }
             let oldEntry = oldSubjects[key]
-            if oldEntry == nil || oldEntry!.grades.isEmpty {
-                newGrades.append(newEntry.displayName)
-            } else if oldEntry!.grades != newEntry.grades {
-                updatedGrades.append(newEntry.displayName)
+            if newEntry.assessments.isEmpty {
+                if let oldEntry = oldEntry, !oldEntry.assessments.isEmpty {
+                    updatedGrades.insert(newEntry.displayName)
+                }
+                continue
+            }
+            guard let oldEntry = oldEntry, !oldEntry.assessments.isEmpty else {
+                newGrades.insert(newEntry.displayName)
+                continue
+            }
+
+            var hasAddition = false
+            var hasUpdate = false
+            let names = Set(oldEntry.assessments.keys).union(newEntry.assessments.keys)
+            for name in names {
+                let oldScores = oldEntry.assessments[name]
+                let newScores = newEntry.assessments[name]
+                if oldScores == nil, let newScores = newScores, !newScores.isEmpty {
+                    hasAddition = true
+                } else if newScores == nil {
+                    hasUpdate = true
+                } else if let oldScores = oldScores, let newScores = newScores,
+                          oldScores != newScores {
+                    if isStrictSuperset(oldScores, newScores) {
+                        hasAddition = true
+                    } else {
+                        hasUpdate = true
+                    }
+                }
+            }
+            if hasAddition {
+                newGrades.insert(newEntry.displayName)
+            } else if hasUpdate {
+                updatedGrades.insert(newEntry.displayName)
             }
         }
-        return (newGrades, updatedGrades)
+        return (newGrades.sorted(), updatedGrades.sorted())
+    }
+
+    private static func isStrictSuperset(_ oldScores: [String], _ newScores: [String]) -> Bool {
+        if newScores.count <= oldScores.count { return false }
+        var remaining = newScores
+        for score in oldScores {
+            guard let index = remaining.firstIndex(of: score) else { return false }
+            remaining.remove(at: index)
+        }
+        return true
     }
 
     /// "semester|ue|subject" composite key → subject grades. Mirrors
@@ -353,39 +421,51 @@ enum GradesBackgroundTask {
             return result
         }
         for case let semester as [String: Any] in yearDetails {
-            let semesterName = semester["name"] as? String ?? ""
+            let semesterName = normalized(semester["name"] as? String ?? "")
             guard let ueContainer = semester["details"] as? [Any] else { continue }
             // Flatten any STPI wrapper levels (the FILIERE node and the scientific
             // sub-grouping) so the real UEs are compared, matching
             // JsonCurriculumParser in lib/data.dart and extractSubjects in
             // GradesBackgroundWorker.kt. Keep all three in sync.
             for ue in collectUeNodes(ueContainer) {
-                let ueName = ue["name"] as? String ?? ""
+                let ueName = normalized(ue["name"] as? String ?? "")
                 guard let subjects = ue["details"] as? [Any] else { continue }
                 for case let subject as [String: Any] in subjects {
-                    let name = subject["name"] as? String ?? ""
+                    let name = normalized(subject["name"] as? String ?? "")
                     if name.isEmpty { continue }
-                    var gradeList: [String] = []
+                    var assessments: [String: [String]] = [:]
                     if let gradeDetails = subject["details"] as? [Any] {
-                        for case let grade as [String: Any] in gradeDetails {
-                            guard let score = extractScore(grade["score"]) else { continue }
-                            if !score.contains("Aucun") {
-                                let gradeName = grade["name"] as? String ?? ""
-                                gradeList.append("\(gradeName):\(score)")
+                        for (index, item) in gradeDetails.enumerated() {
+                            guard let grade = item as? [String: Any],
+                                  let rawScore = extractScore(grade["score"]) else { continue }
+                            let score = normalized(rawScore)
+                            if score.localizedCaseInsensitiveContains("aucun") { continue }
+                            let gradeName = normalized(grade["name"] as? String ?? "")
+                            let key = gradeName.isEmpty ? "assessment_\(index)" : gradeName
+                            assessments[key, default: []].append(score)
+                        }
+                    }
+                    if assessments.isEmpty {
+                        if let rawScore = extractScore(subject["score"]) {
+                            let score = normalized(rawScore)
+                            if !score.localizedCaseInsensitiveContains("aucun") {
+                                assessments["__subject_score__"] = [score]
                             }
                         }
                     }
-                    if gradeList.isEmpty {
-                        if let score = extractScore(subject["score"]), !score.contains("Aucun") {
-                            gradeList.append("\(name):\(score)")
-                        }
+                    for key in assessments.keys {
+                        assessments[key]?.sort()
                     }
                     result["\(semesterName)|\(ueName)|\(name)"] =
-                        SubjectGrades(displayName: name, grades: gradeList)
+                        SubjectGrades(displayName: name, assessments: assessments)
                 }
             }
         }
         return result
+    }
+
+    private static func normalized(_ value: String) -> String {
+        value.split(whereSeparator: { $0.isWhitespace }).joined(separator: " ")
     }
 
     // Shape-detection helpers mirroring lib/data.dart, used to flatten the extra
@@ -448,6 +528,44 @@ enum GradesBackgroundTask {
         return nil
     }
 
+    private static func recordRetryableFailure(defaults: UserDefaults) {
+        let nowMs = Date().timeIntervalSince1970 * 1000
+        let startedAt = (defaults.object(forKey: prefFailureStartedAtMs) as? NSNumber)?.doubleValue
+            ?? nowMs
+        let lastAlertAt = (defaults.object(forKey: prefLastFailureAlertMs) as? NSNumber)?.doubleValue
+        defaults.set(startedAt, forKey: prefFailureStartedAtMs)
+        defaults.removeObject(forKey: prefAuthFailCount)
+
+        if shouldAlertForFailure(
+            nowMs: nowMs,
+            startedAtMs: startedAt,
+            lastAlertAtMs: lastAlertAt
+        ) {
+            showBackgroundFailureNotification { posted in
+                if posted {
+                    defaults.set(nowMs, forKey: prefLastFailureAlertMs)
+                }
+            }
+        }
+    }
+
+    static func shouldAlertForFailure(
+        nowMs: Double,
+        startedAtMs: Double,
+        lastAlertAtMs: Double?
+    ) -> Bool {
+        let oldEnough = nowMs - startedAtMs >= failureAlertAfterMs
+        let cooldownElapsed = lastAlertAtMs == nil ||
+            nowMs - lastAlertAtMs! >= failureAlertCooldownMs
+        return oldEnough && cooldownElapsed
+    }
+
+    private static func resetFailureWindow(defaults: UserDefaults) {
+        defaults.removeObject(forKey: prefFailureStartedAtMs)
+        defaults.removeObject(forKey: prefAuthFailCount)
+        defaults.removeObject(forKey: prefLastCredsNotifMs)
+    }
+
     // MARK: - Notifications
 
     private static func showGradesNotification(
@@ -467,7 +585,7 @@ enum GradesBackgroundTask {
             let head = subjects.prefix(3).joined(separator: ", ")
             body = "\(multiPrefix) : \(head) et \(subjects.count - 3) autre(s)"
         }
-        post(id: id, title: title, body: body, payload: payload)
+        post(id: id, title: title, body: body, payload: payload, route: "refresh")
     }
 
     // Current TOTP step: floor(epochSeconds / period). Two autoValidate calls in
@@ -483,44 +601,70 @@ enum GradesBackgroundTask {
         if nowMs - lastMs < reauthNotifCooldownMs {
             return // cooldown active
         }
-        defaults.set(nowMs, forKey: prefLastReauthNotifMs)
         post(
             id: "reauth_required",
             title: "Reconnexion requise",
             body: "Une double authentification est nécessaire. Ouvrez l'application pour vous reconnecter.",
-            payload: "reauth_required"
-        )
-    }
-
-    // Posted after repeated background auth failures, which usually means the
-    // INSA password changed. Has its own cooldown so it does not spam. Reuses the
-    // reauth payload so a tap routes to the reconnect screen.
-    private static func showCredentialsNotification() {
-        let defaults = UserDefaults.standard
-        let lastMs = defaults.double(forKey: prefLastCredsNotifMs)
-        let nowMs = Date().timeIntervalSince1970 * 1000
-        if nowMs - lastMs < reauthNotifCooldownMs {
-            return // cooldown active
+            payload: "reauth_required",
+            route: "reauth"
+        ) { posted in
+            if posted {
+                defaults.set(nowMs, forKey: prefLastReauthNotifMs)
+            }
         }
-        defaults.set(nowMs, forKey: prefLastCredsNotifMs)
+    }
+
+    private static func showBackgroundFailureNotification(
+        completion: @escaping (Bool) -> Void
+    ) {
         post(
-            id: "creds_required",
-            title: "Reconnexion requise",
-            body: "Vos identifiants semblent invalides. Ouvrez l'application pour vous reconnecter.",
-            payload: "reauth_required"
+            id: "background_refresh_failed",
+            title: "Actualisation interrompue",
+            body: "Les notes n'ont pas pu être actualisées depuis plusieurs heures. Ouvrez l'application pour réessayer.",
+            payload: "background_refresh_failed",
+            route: "refresh",
+            completion: completion
         )
     }
 
-    private static func post(id: String, title: String, body: String, payload: String) {
+    private static func post(
+        id: String,
+        title: String,
+        body: String,
+        payload: String,
+        route: String? = nil,
+        completion: ((Bool) -> Void)? = nil
+    ) {
         let content = UNMutableNotificationContent()
         content.title = title
         content.body = body
         content.sound = .default
-        // Mirror the flutter_local_notifications payload so a tap can be routed
-        // by NotificationService.tapStream once the app is foregrounded.
-        content.userInfo = ["payload": payload]
+        // Keep the payload for diagnostics and attach an app-owned native route
+        // consumed by AppDelegate/GradesBridge on notification taps.
+        var userInfo: [String: Any] = ["payload": payload]
+        if let route = route {
+            userInfo[GradesBridge.notificationRouteKey] = route
+        }
+        content.userInfo = userInfo
         let request = UNNotificationRequest(identifier: id, content: content, trigger: nil)
-        UNUserNotificationCenter.current().add(request)
+        let center = UNUserNotificationCenter.current()
+        center.getNotificationSettings { settings in
+            var allowed = settings.authorizationStatus == .authorized ||
+                settings.authorizationStatus == .provisional
+            if #available(iOS 14.0, *), settings.authorizationStatus == .ephemeral {
+                allowed = true
+            }
+            guard allowed else {
+                completion?(false)
+                return
+            }
+            center.add(request) { error in
+                if let error = error {
+                    NSLog("[GradesBackgroundTask] Notification post failed: \(error)")
+                }
+                completion?(error == nil)
+            }
+        }
     }
 }
 
@@ -530,6 +674,30 @@ enum GradesBackgroundTask {
 private enum BGScheduler {
     static func submit(_ request: BGTaskRequest) throws {
         try BGTaskScheduler.shared.submit(request)
+    }
+}
+
+/// Ensures normal completion and expiration can race without completing a
+/// BGTask twice.
+@available(iOS 13.0, *)
+private final class TaskCompletionGate {
+    private let lock = NSLock()
+    private let task: BGTask
+    private var completed = false
+
+    init(task: BGTask) {
+        self.task = task
+    }
+
+    func complete(success: Bool) {
+        lock.lock()
+        guard !completed else {
+            lock.unlock()
+            return
+        }
+        completed = true
+        lock.unlock()
+        task.setTaskCompleted(success: success)
     }
 }
 

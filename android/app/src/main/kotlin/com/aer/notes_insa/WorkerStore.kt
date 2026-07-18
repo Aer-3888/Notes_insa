@@ -111,34 +111,34 @@ object WorkerStore {
         return Base64.encodeToString(combined, Base64.NO_WRAP)
     }
 
-    /** Reverses [encrypt], returning null if the value cannot be decrypted. */
-    private fun decrypt(encoded: String): String? = try {
-        val combined = Base64.decode(encoded, Base64.NO_WRAP)
-        val iv = combined.copyOfRange(0, IV_BYTES)
-        val ciphertext = combined.copyOfRange(IV_BYTES, combined.size)
-        val cipher = Cipher.getInstance(TRANSFORMATION)
-        cipher.init(
-            Cipher.DECRYPT_MODE,
-            getOrCreateKey(),
-            GCMParameterSpec(GCM_TAG_BITS, iv),
-        )
-        String(cipher.doFinal(ciphertext), Charsets.UTF_8)
-    } catch (e: Exception) {
-        Log.e(TAG, "Failed to decrypt a stored value")
-        null
+    /** Reverses [encrypt], reporting corruption instead of masking it as absent. */
+    private fun decrypt(encoded: String): String {
+        try {
+            val combined = Base64.decode(encoded, Base64.NO_WRAP)
+            require(combined.size > IV_BYTES) { "Encrypted value is truncated" }
+            val iv = combined.copyOfRange(0, IV_BYTES)
+            val ciphertext = combined.copyOfRange(IV_BYTES, combined.size)
+            val cipher = Cipher.getInstance(TRANSFORMATION)
+            cipher.init(
+                Cipher.DECRYPT_MODE,
+                getOrCreateKey(),
+                GCMParameterSpec(GCM_TAG_BITS, iv),
+            )
+            return String(cipher.doFinal(ciphertext), Charsets.UTF_8)
+        } catch (e: Exception) {
+            Log.e(TAG, "Failed to decrypt a stored value")
+            throw IllegalStateException("Worker store value cannot be decrypted", e)
+        }
     }
 
     /**
-     * Reads and decrypts the requested keys. Returns null if the store cannot be
-     * opened; keys with no stored value (or that fail to decrypt) come back as
-     * null entries.
+     * Reads and decrypts the requested keys. Missing values come back as null;
+     * storage and decryption failures are reported to the caller so they cannot
+     * be mistaken for a logged-out account.
      */
-    fun read(context: Context, keys: List<String>): Map<String, String?>? = try {
+    fun read(context: Context, keys: List<String>): Map<String, String?> {
         val prefs = prefs(context)
-        keys.associateWith { key -> prefs.getString(key, null)?.let(::decrypt) }
-    } catch (e: Exception) {
-        Log.e(TAG, "Failed to read worker store")
-        null
+        return keys.associateWith { key -> prefs.getString(key, null)?.let(::decrypt) }
     }
 
     /**
@@ -146,14 +146,12 @@ object WorkerStore {
      * absent from [values] are left untouched, so callers can sync a subset.
      */
     fun write(context: Context, values: Map<String, String?>) {
-        try {
-            val editor = prefs(context).edit()
-            for ((key, value) in values) {
-                if (value == null) editor.remove(key) else editor.putString(key, encrypt(value))
-            }
-            editor.apply()
-        } catch (e: Exception) {
-            Log.e(TAG, "Failed to write worker store")
+        val editor = prefs(context).edit()
+        for ((key, value) in values) {
+            if (value == null) editor.remove(key) else editor.putString(key, encrypt(value))
+        }
+        if (!editor.commit()) {
+            throw IllegalStateException("Failed to persist worker store")
         }
     }
 

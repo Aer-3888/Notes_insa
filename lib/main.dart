@@ -143,6 +143,8 @@ class AuthGate extends ConsumerStatefulWidget {
 class _AuthGateState extends ConsumerState<AuthGate>
     with WidgetsBindingObserver {
   StreamSubscription<String>? _notifSub;
+  ProviderSubscription<bool>? _unlockSub;
+  String? _pendingNotificationPayload;
 
   // Same channel as the native method calls; used only to receive notification
   // deep-link routes posted by MainActivity (see EXTRA_NOTIF_ROUTE there).
@@ -158,15 +160,16 @@ class _AuthGateState extends ConsumerState<AuthGate>
     // already-logged-in users enable background fetch without re-authenticating.
     unawaited(WorkerSyncService.backfill());
     unawaited(_setupNotifications());
+    _unlockSub = ref.listenManual<bool>(appUnlockedProvider, (_, unlocked) {
+      if (unlocked) _consumePendingNotification();
+    });
   }
 
   Future<void> _setupNotifications() async {
     await NotificationService.initialize();
-    // Discard any cold-start payload — the normal startup flow already handles
-    // everything: grades are re-fetched after biometric unlock, and a failed
-    // 2FA auto-validate sets the reauth banner on the dashboard.
-    NotificationService.consumePendingPayload();
     _notifSub = NotificationService.tapStream.listen(_onNotificationTap);
+    final pendingPayload = NotificationService.consumePendingPayload();
+    if (pendingPayload != null) _onNotificationTap(pendingPayload);
 
     // Native background-worker notifications deep-link through MainActivity:
     // warm taps arrive as "onNotificationRoute" calls, cold-start taps are
@@ -176,19 +179,31 @@ class _AuthGateState extends ConsumerState<AuthGate>
     final route = await _routeChannel.invokeMethod<String>(
       'ConsumeNotificationRoute',
     );
-    if (route == 'reauth') _onNotificationTap('reauth_required');
+    _handleNativeRoute(route);
   }
 
   Future<dynamic> _onNativeRoute(MethodCall call) async {
-    if (call.method == 'onNotificationRoute' && call.arguments == 'reauth') {
-      _onNotificationTap('reauth_required');
+    if (call.method == 'onNotificationRoute') {
+      _handleNativeRoute(call.arguments as String?);
+    }
+  }
+
+  void _handleNativeRoute(String? route) {
+    switch (route) {
+      case 'reauth':
+        _onNotificationTap('reauth_required');
+      case 'refresh':
+        _onNotificationTap('background_refresh_failed');
     }
   }
 
   void _onNotificationTap(String payload) {
     if (!mounted) return;
-    // Do nothing while the user hasn't passed the biometric/PIN gate yet.
-    if (!ref.read(appUnlockedProvider)) return;
+    // Preserve the tap until the user passes the biometric/PIN gate.
+    if (!ref.read(appUnlockedProvider)) {
+      _pendingNotificationPayload = payload;
+      return;
+    }
     switch (payload) {
       case 'reauth_required':
         Navigator.of(
@@ -196,6 +211,7 @@ class _AuthGateState extends ConsumerState<AuthGate>
         ).push(MaterialPageRoute(builder: (_) => const TwoFactorScreen()));
       case 'new_grades':
       case 'updated_grades':
+      case 'background_refresh_failed':
         unawaited(
           ref
               .read(gradesProvider.notifier)
@@ -205,9 +221,17 @@ class _AuthGateState extends ConsumerState<AuthGate>
     }
   }
 
+  void _consumePendingNotification() {
+    final payload = _pendingNotificationPayload;
+    if (payload == null) return;
+    _pendingNotificationPayload = null;
+    _onNotificationTap(payload);
+  }
+
   @override
   void dispose() {
     _notifSub?.cancel();
+    _unlockSub?.close();
     _routeChannel.setMethodCallHandler(null);
     WidgetsBinding.instance.removeObserver(this);
     super.dispose();

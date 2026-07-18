@@ -77,14 +77,15 @@ class SettingsNotifier extends StateNotifier<SettingsState> {
   /// Update fetch interval and restart background tasks
   Future<void> setFetchInterval(int interval) async {
     final previous = state.fetchInterval;
-    state = state.copyWith(fetchInterval: interval);
+    final safeInterval = interval.clamp(15, 60);
+    state = state.copyWith(fetchInterval: safeInterval);
+    final prefs = await SharedPreferences.getInstance();
     try {
-      final prefs = await SharedPreferences.getInstance();
-      await prefs.setInt(_fetchIntervalKey, interval);
+      await prefs.setInt(_fetchIntervalKey, safeInterval);
 
       // Restart background tasks with new interval
-      await stopBackgroundTasks();
-      await initBackgroundTasks();
+      await stopBackgroundTasks(rethrowOnError: true);
+      await initBackgroundTasks(rethrowOnError: true);
 
       if (kDebugMode) {
         debugPrint(
@@ -95,8 +96,14 @@ class SettingsNotifier extends StateNotifier<SettingsState> {
       if (kDebugMode) {
         debugPrint('[SettingsProvider] Failed to set fetch interval: $e');
       }
+      await prefs.setInt(_fetchIntervalKey, previous);
       // Restore previous value — background task was not reconfigured
       state = state.copyWith(fetchInterval: previous);
+      try {
+        await stopBackgroundTasks(rethrowOnError: true);
+        await initBackgroundTasks(rethrowOnError: true);
+      } catch (_) {}
+      rethrow;
     }
   }
 
@@ -135,15 +142,16 @@ class SettingsNotifier extends StateNotifier<SettingsState> {
   Future<void> setFetchEnabled(bool enabled) async {
     final previous = state.fetchEnabled;
     state = state.copyWith(fetchEnabled: enabled);
+    final prefs = await SharedPreferences.getInstance();
     try {
-      final prefs = await SharedPreferences.getInstance();
       await prefs.setBool(_fetchEnabledKey, enabled);
 
       // Start or stop background tasks based on enabled state
       if (enabled) {
-        await initBackgroundTasks();
+        await initBackgroundTasks(rethrowOnError: true);
       } else {
-        await stopBackgroundTasks();
+        await stopBackgroundTasks(rethrowOnError: true);
+        await resetBackgroundTaskState();
       }
 
       if (kDebugMode) {
@@ -153,8 +161,17 @@ class SettingsNotifier extends StateNotifier<SettingsState> {
       if (kDebugMode) {
         debugPrint('[SettingsProvider] Failed to set fetch enabled: $e');
       }
+      await prefs.setBool(_fetchEnabledKey, previous);
       // Restore previous value — background task was not reconfigured
       state = state.copyWith(fetchEnabled: previous);
+      try {
+        if (previous) {
+          await initBackgroundTasks(rethrowOnError: true);
+        } else {
+          await stopBackgroundTasks(rethrowOnError: true);
+        }
+      } catch (_) {}
+      rethrow;
     }
   }
 }

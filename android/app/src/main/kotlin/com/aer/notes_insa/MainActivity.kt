@@ -20,6 +20,7 @@ private const val TAG = "MainActivity"
 // here and forward it to Flutter (see lib/main.dart). Keep the values in sync.
 internal const val EXTRA_NOTIF_ROUTE = "notif_route"
 internal const val ROUTE_REAUTH = "reauth"
+internal const val ROUTE_REFRESH = "refresh"
 
 class MainActivity : FlutterFragmentActivity() {
 
@@ -204,13 +205,17 @@ class MainActivity : FlutterFragmentActivity() {
 
                 "InitBackgroundTask" -> {
                     val intervalMinutes = (call.argument<Int>("intervalMinutes") ?: 15).toLong()
-                    GradesBackgroundWorker.schedule(applicationContext, intervalMinutes)
-                    result.success(null)
+                    runUtilityInBackground("InitBackgroundTask", result) {
+                        GradesBackgroundWorker.schedule(applicationContext, intervalMinutes)
+                        null
+                    }
                 }
 
                 "StopBackgroundTask" -> {
-                    GradesBackgroundWorker.cancel(applicationContext)
-                    result.success(null)
+                    runUtilityInBackground("StopBackgroundTask", result) {
+                        GradesBackgroundWorker.cancel(applicationContext)
+                        null
+                    }
                 }
 
                 // Cold-start deep link: Flutter pulls the route captured in
@@ -247,6 +252,30 @@ class MainActivity : FlutterFragmentActivity() {
                 if (BuildConfig.DEBUG) {
                     Log.e(TAG, "$methodName failed: ${e.message}", e)
                 }
+                mainHandler.post {
+                    result.error(
+                        "ERR_${methodName.uppercase()}",
+                        "An error occurred during $methodName execution",
+                        null,
+                    )
+                }
+            }
+        }
+    }
+
+    /** Runs scheduler operations off the UI thread without taking the CAS lock. */
+    private fun runUtilityInBackground(
+        methodName: String,
+        result: MethodChannel.Result,
+        block: () -> Any?,
+    ) {
+        val mainHandler = Handler(Looper.getMainLooper())
+        NativeSession.utilityExecutor.execute {
+            try {
+                val value = block()
+                mainHandler.post { result.success(value) }
+            } catch (e: Exception) {
+                if (BuildConfig.DEBUG) Log.e(TAG, "$methodName failed", e)
                 mainHandler.post {
                     result.error(
                         "ERR_${methodName.uppercase()}",

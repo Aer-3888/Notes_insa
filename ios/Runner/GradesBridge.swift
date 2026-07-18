@@ -12,9 +12,14 @@ import Foundation
 /// Dart side relies on.
 enum GradesBridge {
     static let channelName = "com.aer.notes_insa/grades"
+    static let notificationRouteKey = "notes_insa_route"
+    private static var routeChannel: FlutterMethodChannel?
+    private static var pendingNotificationRoute: String?
+    private static var routeConsumerReady = false
 
     static func register(with messenger: FlutterBinaryMessenger) {
         let channel = FlutterMethodChannel(name: channelName, binaryMessenger: messenger)
+        routeChannel = channel
         channel.setMethodCallHandler { call, result in
             handle(call, result)
         }
@@ -109,14 +114,14 @@ enum GradesBridge {
                 return result(invalidArgs("values missing"))
             }
             runInBackground("SyncWorkerStore", result) {
-                WorkerStore.write(values: normalizeNulls(values))
+                try WorkerStore.write(values: normalizeNulls(values))
                 return nil
             }
 
         case "ReadWorkerStore":
             let keys = args?["keys"] as? [String] ?? []
             runInBackground("ReadWorkerStore", result) {
-                denormalizeNulls(WorkerStore.read(keys: keys))
+                denormalizeNulls(try WorkerStore.read(keys: keys))
             }
 
         case "ClearWorkerStore":
@@ -128,7 +133,15 @@ enum GradesBridge {
         case "InitBackgroundTask":
             let interval = args?["intervalMinutes"] as? Int ?? 15
             if #available(iOS 13.0, *) {
-                GradesBackgroundTask.schedule(intervalMinutes: interval)
+                do {
+                    try GradesBackgroundTask.schedule(intervalMinutes: interval)
+                } catch {
+                    return result(FlutterError(
+                        code: "ERR_INITBACKGROUNDTASK",
+                        message: "Failed to schedule background task",
+                        details: nil
+                    ))
+                }
             }
             result(nil)
 
@@ -138,8 +151,23 @@ enum GradesBridge {
             }
             result(nil)
 
+        case "ConsumeNotificationRoute":
+            result(pendingNotificationRoute)
+            pendingNotificationRoute = nil
+            routeConsumerReady = true
+
         default:
             result(FlutterMethodNotImplemented)
+        }
+    }
+
+    static func handleNotificationRoute(_ route: String) {
+        DispatchQueue.main.async {
+            if routeConsumerReady, let channel = routeChannel {
+                channel.invokeMethod("onNotificationRoute", arguments: route)
+            } else {
+                pendingNotificationRoute = route
+            }
         }
     }
 
@@ -183,7 +211,10 @@ enum GradesBridge {
     private static func normalizeNulls(_ values: [String: Any]) -> [String: String?] {
         var out: [String: String?] = [:]
         for (key, value) in values {
-            out[key] = (value is NSNull) ? nil : (value as? String)
+            // updateValue preserves an explicit Optional.none as a dictionary
+            // value; subscript assignment with nil would remove the key and
+            // silently drop worker-store deletion requests.
+            out.updateValue((value is NSNull) ? nil : (value as? String), forKey: key)
         }
         return out
     }

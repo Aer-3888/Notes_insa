@@ -35,25 +35,25 @@ enum WorkerStore {
     // MARK: - Public API (mirrors WorkerStore.kt: read / write / clearAll)
 
     /// Reads the requested keys. Keys with no stored value come back as `nil`.
-    static func read(keys: [String]) -> [String: String?] {
+    static func read(keys: [String]) throws -> [String: String?] {
         var result: [String: String?] = [:]
         for key in keys {
             // updateValue keeps the key present with a nil value when nothing is
             // stored (matching Kotlin's `associateWith`). Plain `result[key] =
             // nil` would instead REMOVE the key, so don't simplify this.
-            result.updateValue(get(key), forKey: key)
+            result.updateValue(try get(key), forKey: key)
         }
         return result
     }
 
     /// Writes the provided keys. A `nil` value removes that key. Keys absent
     /// from `values` are left untouched, so callers can sync a subset.
-    static func write(values: [String: String?]) {
+    static func write(values: [String: String?]) throws {
         for (key, value) in values {
             if let value = value {
-                set(key, value)
+                try set(key, value)
             } else {
-                remove(key)
+                try remove(key)
             }
         }
     }
@@ -77,7 +77,7 @@ enum WorkerStore {
 
     // MARK: - Single-item helpers
 
-    static func get(_ key: String) -> String? {
+    static func get(_ key: String) throws -> String? {
         let query: [String: Any] = [
             kSecClass as String: kSecClassGenericPassword,
             kSecAttrService as String: service,
@@ -87,15 +87,22 @@ enum WorkerStore {
         ]
         var item: CFTypeRef?
         let status = SecItemCopyMatching(query as CFDictionary, &item)
-        guard status == errSecSuccess,
-              let data = item as? Data,
+        if status == errSecItemNotFound { return nil }
+        guard status == errSecSuccess else {
+            throw keychainError(status, operation: "read")
+        }
+        guard let data = item as? Data,
               let value = String(data: data, encoding: .utf8) else {
-            return nil
+            throw NSError(
+                domain: "NotesInsaWorkerStore",
+                code: -1,
+                userInfo: [NSLocalizedDescriptionKey: "Worker store value is corrupt"]
+            )
         }
         return value
     }
 
-    private static func set(_ key: String, _ value: String) {
+    private static func set(_ key: String, _ value: String) throws {
         let data = Data(value.utf8)
         let base: [String: Any] = [
             kSecClass as String: kSecClassGenericPassword,
@@ -112,16 +119,34 @@ enum WorkerStore {
             var insert = base
             insert[kSecValueData as String] = data
             insert[kSecAttrAccessible as String] = kSecAttrAccessibleAfterFirstUnlock
-            SecItemAdd(insert as CFDictionary, nil)
+            let addStatus = SecItemAdd(insert as CFDictionary, nil)
+            guard addStatus == errSecSuccess else {
+                throw keychainError(addStatus, operation: "insert")
+            }
+        } else if status != errSecSuccess {
+            throw keychainError(status, operation: "update")
         }
     }
 
-    private static func remove(_ key: String) {
+    private static func remove(_ key: String) throws {
         let query: [String: Any] = [
             kSecClass as String: kSecClassGenericPassword,
             kSecAttrService as String: service,
             kSecAttrAccount as String: key,
         ]
-        SecItemDelete(query as CFDictionary)
+        let status = SecItemDelete(query as CFDictionary)
+        guard status == errSecSuccess || status == errSecItemNotFound else {
+            throw keychainError(status, operation: "remove")
+        }
+    }
+
+    private static func keychainError(_ status: OSStatus, operation: String) -> NSError {
+        NSError(
+            domain: "NotesInsaWorkerStore",
+            code: Int(status),
+            userInfo: [
+                NSLocalizedDescriptionKey: "Worker store \(operation) failed",
+            ]
+        )
     }
 }

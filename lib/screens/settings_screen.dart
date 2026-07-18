@@ -274,10 +274,21 @@ class SettingsScreen extends ConsumerWidget {
                               scale: 0.85,
                               child: Switch(
                                 value: settingsState.fetchEnabled,
-                                onChanged: (enabled) {
-                                  ref
-                                      .read(settingsProvider.notifier)
-                                      .setFetchEnabled(enabled);
+                                onChanged: (enabled) async {
+                                  try {
+                                    await ref
+                                        .read(settingsProvider.notifier)
+                                        .setFetchEnabled(enabled);
+                                  } catch (_) {
+                                    if (!context.mounted) return;
+                                    ScaffoldMessenger.of(context).showSnackBar(
+                                      const SnackBar(
+                                        content: Text(
+                                          'Impossible de modifier la mise à jour en arrière-plan.',
+                                        ),
+                                      ),
+                                    );
+                                  }
                                 },
                                 activeThumbColor: AppColors.statusPositive,
                                 activeTrackColor: AppColors.statusPositive
@@ -294,9 +305,22 @@ class SettingsScreen extends ConsumerWidget {
                             child: _IntervalSelector(
                               intervals: availableIntervals,
                               selected: settingsState.fetchInterval,
-                              onChanged: (v) => ref
-                                  .read(settingsProvider.notifier)
-                                  .setFetchInterval(v),
+                              onChanged: (v) async {
+                                try {
+                                  await ref
+                                      .read(settingsProvider.notifier)
+                                      .setFetchInterval(v);
+                                } catch (_) {
+                                  if (!context.mounted) return;
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    const SnackBar(
+                                      content: Text(
+                                        'Impossible de modifier la fréquence de mise à jour.',
+                                      ),
+                                    ),
+                                  );
+                                }
+                              },
                             ),
                           ),
                         ),

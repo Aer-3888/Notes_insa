@@ -86,6 +86,14 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
     );
   }
 
+  Future<void> _advanceOrComplete() async {
+    if (_currentIndex >= _steps.length - 1) {
+      await _completeOnboarding();
+      return;
+    }
+    _advance();
+  }
+
   void _goBack() {
     if (_currentIndex <= 0) return;
     setState(() {
@@ -196,7 +204,7 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
   Future<void> _handleEmailValidate() async {
     // Already validated on a previous visit: don't replay the server call.
     if (_twoFactorValidated) {
-      _advance();
+      await _advanceOrComplete();
       return;
     }
     final code = _codeController.text.trim();
@@ -208,7 +216,7 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
     try {
       await GradesService.validate(code);
       _twoFactorValidated = true;
-      _advance();
+      await _advanceOrComplete();
     } on PlatformException catch (_) {
       setState(() => _error = 'Code invalide ou expiré');
     } finally {
@@ -229,7 +237,7 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
     if (_scannedSecret == null) return;
     // Already validated on a previous visit: don't replay the server call.
     if (_twoFactorValidated) {
-      _advance();
+      await _advanceOrComplete();
       return;
     }
     setState(() {
@@ -240,7 +248,7 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
       await GradesService.autoValidate(_scannedSecret!);
       if (_saveOtpSecret) await _authService.storeOtpSecret(_scannedSecret!);
       _twoFactorValidated = true;
-      _advance();
+      await _advanceOrComplete();
     } on PlatformException catch (_) {
       setState(() => _error = 'Secret OTP invalide');
     } finally {
@@ -252,15 +260,14 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
 
   Future<void> _handleSetPin(String pin) async {
     await _authService.setPin(pin);
-    _advance();
+    await _advanceOrComplete();
   }
 
   // ─── Participation ───────────────────────────────────────────────────────────
 
-  void _handleParticipation(bool consent) {
-    ref.read(settingsProvider.notifier).setSharingConsent(consent);
-    ref.read(settingsProvider.notifier).markConsentAsked();
-    _advance();
+  Future<void> _handleParticipation(bool consent) async {
+    await ref.read(settingsProvider.notifier).setSharingConsent(consent);
+    await _advanceOrComplete();
   }
 
   // ─── Notifications ───────────────────────────────────────────────────────────
@@ -368,8 +375,8 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
                 onBack: onBack,
               ),
       OnboardingStep.pinSetup => PinSetupSlide(
-        onSetPin: _handleSetPin,
-        onSkip: _advance,
+        onSetPin: (pin) => unawaited(_handleSetPin(pin)),
+        onSkip: () => unawaited(_advanceOrComplete()),
         isLoading: _isLoading,
         error: _error,
         stepCount: count,
@@ -377,8 +384,8 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
         onBack: onBack,
       ),
       OnboardingStep.participation => ParticipationSlide(
-        onAccept: () => _handleParticipation(true),
-        onDecline: () => _handleParticipation(false),
+        onAccept: () => unawaited(_handleParticipation(true)),
+        onDecline: () => unawaited(_handleParticipation(false)),
         stepCount: count,
         currentIndex: idx,
         onBack: onBack,

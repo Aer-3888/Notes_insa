@@ -6,6 +6,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:notes_insa/constants.dart';
 import 'package:notes_insa/providers/auth_providers.dart';
 import 'package:notes_insa/providers/grades_provider.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 /// Logout must always reset the auth-gated state so AuthGate drops back to
 /// onboarding. Regression guard for the bug where the reset lived behind a
@@ -30,6 +31,10 @@ void main() {
       TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger;
 
   setUp(() {
+    SharedPreferences.setMockInitialValues({
+      'background_failure_started_at_ms': 1000,
+      'last_background_failure_alert_ms': 2000,
+    });
     store = <String, String>{};
     nativeCalls = <String>[];
     deleteAllThrows = false;
@@ -90,6 +95,9 @@ void main() {
       expect(store, isEmpty);
       expect(container.read(appUnlockedProvider), isFalse);
       expect(await container.read(hasCredentialsProvider.future), isFalse);
+      final prefs = await SharedPreferences.getInstance();
+      expect(prefs.get('background_failure_started_at_ms'), isNull);
+      expect(prefs.get('last_background_failure_alert_ms'), isNull);
       expect(
         nativeCalls,
         containsAll(<String>[
