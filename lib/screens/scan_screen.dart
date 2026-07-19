@@ -1,7 +1,9 @@
+import 'dart:math' as math;
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:image_picker/image_picker.dart';
-import '../app_colors.dart';
 import 'package:mobile_scanner/mobile_scanner.dart';
+import '../app_colors.dart';
 import '../utils/google_auth_migration_decoder.dart';
 import '../utils/base32_codec.dart';
 
@@ -16,9 +18,12 @@ class _ScanScreenState extends State<ScanScreen>
     with SingleTickerProviderStateMixin {
   bool _isScanned = false;
   DateTime? _lastErrorAt;
+  BarcodeCapture? _trackedCapture;
   late final AnimationController _successController;
   late final Animation<double> _successFade;
-  final MobileScannerController _scannerController = MobileScannerController();
+  final MobileScannerController _scannerController = MobileScannerController(
+    formats: const [BarcodeFormat.qrCode],
+  );
 
   @override
   void initState() {
@@ -40,13 +45,16 @@ class _ScanScreenState extends State<ScanScreen>
     super.dispose();
   }
 
-  void _onDetect(BarcodeCapture capture) {
+  void _onDetect(BarcodeCapture capture, {bool trackBarcode = true}) {
     if (_isScanned) return;
 
     for (final barcode in capture.barcodes) {
       if (barcode.rawValue == null) continue;
 
-      setState(() => _isScanned = true);
+      setState(() {
+        _isScanned = true;
+        if (trackBarcode) _trackedCapture = capture;
+      });
 
       final result = _extractSecretFromQR(barcode.rawValue!);
 
@@ -61,6 +69,7 @@ class _ScanScreenState extends State<ScanScreen>
         }
         setState(() => _isScanned = false);
       } else if (result.isNotEmpty && mounted) {
+        HapticFeedback.lightImpact();
         _successController.forward().then((_) {
           if (mounted) Navigator.pop(context, result);
         });
@@ -89,7 +98,7 @@ class _ScanScreenState extends State<ScanScreen>
         return;
       }
       // Reuse the live-scan handling (extraction, multi-account, navigation).
-      _onDetect(capture);
+      _onDetect(capture, trackBarcode: false);
     } catch (_) {
       if (mounted) _showError('Impossible de lire l\'image.');
     }
@@ -336,132 +345,117 @@ class _ScanScreenState extends State<ScanScreen>
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      extendBodyBehindAppBar: true,
       backgroundColor: Colors.black,
-      body: Stack(
-        fit: StackFit.expand,
-        children: [
-          // Camera feed
-          MobileScanner(controller: _scannerController, onDetect: _onDetect),
+      body: LayoutBuilder(
+        builder: (context, constraints) {
+          final scanWindow = _scanWindowFor(constraints.biggest);
 
-          // Overlay
-          _ScanOverlay(isScanned: _isScanned),
-
-          // Success flash
-          FadeTransition(
-            opacity: _successFade,
-            child: Container(color: Colors.white.withValues(alpha: 0.25)),
-          ),
-
-          // Top bar: back button + title
-          Positioned(
-            top: 0,
-            left: 0,
-            right: 0,
-            child: SafeArea(
-              child: Padding(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 16,
-                  vertical: 8,
-                ),
-                child: Row(
-                  children: [
-                    _OverlayButton(
-                      icon: Icons.arrow_back,
-                      onTap: () => Navigator.pop(context),
-                    ),
-                    const SizedBox(width: 12),
-                    const Text(
-                      'Scanner le Token',
-                      style: TextStyle(
-                        color: Colors.white,
-                        fontSize: 18,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                  ],
+          return Stack(
+            fit: StackFit.expand,
+            children: [
+              MobileScanner(
+                controller: _scannerController,
+                onDetect: _onDetect,
+                errorBuilder: (_, _) => const _CameraError(),
+              ),
+              _ScanOverlay(
+                guideWindow: scanWindow,
+                capture: _trackedCapture,
+                deviceOrientation: _scannerController.value.deviceOrientation,
+                isScanned: _isScanned,
+              ),
+              IgnorePointer(
+                child: FadeTransition(
+                  opacity: _successFade,
+                  child: const ColoredBox(
+                    color: Color.fromRGBO(5, 150, 105, 0.1),
+                  ),
                 ),
               ),
-            ),
-          ),
-
-          // Bottom bar: instruction + manual entry
-          Positioned(
-            left: 0,
-            right: 0,
-            bottom: 0,
-            child: SafeArea(
-              child: Padding(
-                padding: const EdgeInsets.fromLTRB(24, 0, 24, 32),
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Text(
-                      _isScanned
-                          ? 'Code reconnu...'
-                          : 'Pointez vers un QR code OTP',
-                      style: const TextStyle(
-                        color: Colors.white,
-                        fontSize: 15,
-                        fontWeight: FontWeight.w500,
-                      ),
+              Positioned(
+                top: 0,
+                left: 0,
+                right: 0,
+                child: SafeArea(
+                  bottom: false,
+                  child: Padding(
+                    padding: const EdgeInsets.fromLTRB(16, 10, 16, 0),
+                    child: Row(
+                      children: [
+                        _OverlayButton(
+                          icon: Icons.arrow_back_rounded,
+                          tooltip: 'Retour',
+                          onTap: () => Navigator.pop(context),
+                        ),
+                        const Expanded(
+                          child: Text(
+                            'Scanner le QR code',
+                            textAlign: TextAlign.center,
+                            style: TextStyle(
+                              color: Colors.white,
+                              fontSize: 17,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        ),
+                        ValueListenableBuilder<MobileScannerState>(
+                          valueListenable: _scannerController,
+                          builder: (_, state, _) {
+                            final torchAvailable =
+                                state.torchState != TorchState.unavailable;
+                            final torchEnabled =
+                                state.torchState == TorchState.on;
+                            return _OverlayButton(
+                              icon: torchEnabled
+                                  ? Icons.flashlight_on_rounded
+                                  : Icons.flashlight_off_rounded,
+                              tooltip: torchEnabled
+                                  ? 'Éteindre la lampe'
+                                  : 'Allumer la lampe',
+                              isActive: torchEnabled,
+                              onTap: torchAvailable && !_isScanned
+                                  ? _scannerController.toggleTorch
+                                  : null,
+                            );
+                          },
+                        ),
+                      ],
                     ),
-                    const SizedBox(height: 20),
-                    SizedBox(
-                      width: double.infinity,
-                      child: OutlinedButton.icon(
-                        onPressed: _pickFromGallery,
-                        icon: const Icon(Icons.image_outlined, size: 20),
-                        label: const Text(
-                          'Importer depuis la galerie',
-                          style: TextStyle(
-                            fontSize: 15,
-                            fontWeight: FontWeight.w500,
-                          ),
-                        ),
-                        style: OutlinedButton.styleFrom(
-                          foregroundColor: Colors.white,
-                          side: BorderSide(
-                            color: Colors.white.withValues(alpha: 0.5),
-                          ),
-                          padding: const EdgeInsets.symmetric(vertical: 14),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(12),
-                          ),
-                        ),
-                      ),
-                    ),
-                    const SizedBox(height: 12),
-                    SizedBox(
-                      width: double.infinity,
-                      child: OutlinedButton(
-                        onPressed: _showManualEntryDialog,
-                        style: OutlinedButton.styleFrom(
-                          foregroundColor: Colors.white,
-                          side: BorderSide(
-                            color: Colors.white.withValues(alpha: 0.5),
-                          ),
-                          padding: const EdgeInsets.symmetric(vertical: 14),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(12),
-                          ),
-                        ),
-                        child: const Text(
-                          'Saisir manuellement',
-                          style: TextStyle(
-                            fontSize: 15,
-                            fontWeight: FontWeight.w500,
-                          ),
-                        ),
-                      ),
-                    ),
-                  ],
+                  ),
                 ),
               ),
-            ),
-          ),
-        ],
+              Positioned(
+                left: 12,
+                right: 12,
+                bottom: 12,
+                child: SafeArea(
+                  top: false,
+                  child: _ScannerActions(
+                    isScanned: _isScanned,
+                    onGallery: _pickFromGallery,
+                    onManualEntry: _showManualEntryDialog,
+                  ),
+                ),
+              ),
+            ],
+          );
+        },
       ),
+    );
+  }
+
+  Rect _scanWindowFor(Size size) {
+    final availableWidth = math.max(160.0, size.width - 64);
+    final availableHeight = math.max(160.0, size.height - 300);
+    final side = math.min(300.0, math.min(availableWidth, availableHeight));
+    final minimumY = (side / 2) + 88;
+    final maximumY = math.max(minimumY, size.height - (side / 2) - 190);
+    final centerY = (size.height * 0.4).clamp(minimumY, maximumY);
+
+    return Rect.fromCenter(
+      center: Offset(size.width / 2, centerY),
+      width: side,
+      height: side,
     );
   }
 }
@@ -471,45 +465,127 @@ class _ScanScreenState extends State<ScanScreen>
 // ---------------------------------------------------------------------------
 
 class _ScanOverlay extends StatelessWidget {
+  final Rect guideWindow;
+  final BarcodeCapture? capture;
+  final DeviceOrientation deviceOrientation;
   final bool isScanned;
 
-  const _ScanOverlay({required this.isScanned});
+  const _ScanOverlay({
+    required this.guideWindow,
+    required this.capture,
+    required this.deviceOrientation,
+    required this.isScanned,
+  });
 
   @override
   Widget build(BuildContext context) {
-    final size = MediaQuery.of(context).size;
-    final cutoutSize = size.width * 0.68;
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final trackedWindow = _trackedWindowFor(
+          capture,
+          constraints.biggest,
+          deviceOrientation,
+        );
 
-    return CustomPaint(
-      painter: _OverlayPainter(cutoutSize: cutoutSize, isScanned: isScanned),
-      child: const SizedBox.expand(),
+        return TweenAnimationBuilder<Rect>(
+          tween: _ScannerRectTween(
+            begin: guideWindow,
+            end: trackedWindow ?? guideWindow,
+          ),
+          duration: const Duration(milliseconds: 240),
+          curve: Curves.easeOutCubic,
+          builder: (context, animatedWindow, _) {
+            return CustomPaint(
+              painter: _OverlayPainter(
+                scanWindow: animatedWindow,
+                isScanned: isScanned,
+                isTracking: trackedWindow != null,
+              ),
+              child: const SizedBox.expand(),
+            );
+          },
+        );
+      },
     );
+  }
+
+  Rect? _trackedWindowFor(
+    BarcodeCapture? capture,
+    Size layoutSize,
+    DeviceOrientation orientation,
+  ) {
+    if (capture == null || capture.size.isEmpty || layoutSize.isEmpty) {
+      return null;
+    }
+
+    Barcode? detectedQr;
+    for (final barcode in capture.barcodes) {
+      if (barcode.corners.length >= 4) {
+        detectedQr = barcode;
+        break;
+      }
+    }
+    if (detectedQr == null) return null;
+
+    final isLandscape =
+        orientation == DeviceOrientation.landscapeLeft ||
+        orientation == DeviceOrientation.landscapeRight;
+    final previewSize = isLandscape ? capture.size.flipped : capture.size;
+    final ratios = calculateBoxFitRatio(BoxFit.cover, previewSize, layoutSize);
+    final horizontalCrop =
+        (previewSize.width * ratios.widthRatio - layoutSize.width) / 2;
+    final verticalCrop =
+        (previewSize.height * ratios.heightRatio - layoutSize.height) / 2;
+
+    final points = detectedQr.corners.map(
+      (corner) => Offset(
+        corner.dx * ratios.widthRatio - horizontalCrop,
+        corner.dy * ratios.heightRatio - verticalCrop,
+      ),
+    );
+    final left = points.map((point) => point.dx).reduce(math.min);
+    final top = points.map((point) => point.dy).reduce(math.min);
+    final right = points.map((point) => point.dx).reduce(math.max);
+    final bottom = points.map((point) => point.dy).reduce(math.max);
+    final trackedWindow = Rect.fromLTRB(left, top, right, bottom).inflate(10);
+    final visibleArea = Rect.fromLTWH(
+      8,
+      8,
+      math.max(0, layoutSize.width - 16),
+      math.max(0, layoutSize.height - 16),
+    );
+    final visibleWindow = trackedWindow.intersect(visibleArea);
+
+    if (visibleWindow.width < 40 || visibleWindow.height < 40) return null;
+    return visibleWindow;
   }
 }
 
-class _OverlayPainter extends CustomPainter {
-  final double cutoutSize;
-  final bool isScanned;
+class _ScannerRectTween extends Tween<Rect> {
+  _ScannerRectTween({required Rect begin, required Rect end})
+    : super(begin: begin, end: end);
 
-  _OverlayPainter({required this.cutoutSize, required this.isScanned});
+  @override
+  Rect lerp(double t) => Rect.lerp(begin, end, t)!;
+}
+
+class _OverlayPainter extends CustomPainter {
+  final Rect scanWindow;
+  final bool isScanned;
+  final bool isTracking;
+
+  _OverlayPainter({
+    required this.scanWindow,
+    required this.isScanned,
+    required this.isTracking,
+  });
 
   @override
   void paint(Canvas canvas, Size size) {
-    final cx = size.width / 2;
-    final cy = size.height * 0.42;
-    final half = cutoutSize / 2;
-    const radius = 12.0;
+    final radius = math.min(22.0, scanWindow.shortestSide / 4);
+    final cutout = RRect.fromRectAndRadius(scanWindow, Radius.circular(radius));
 
-    final cutout = RRect.fromLTRBR(
-      cx - half,
-      cy - half,
-      cx + half,
-      cy + half,
-      const Radius.circular(radius),
-    );
-
-    // Dark overlay with hole
-    final overlayPaint = Paint()..color = Colors.black.withValues(alpha: 0.55);
+    final overlayPaint = Paint()..color = Colors.black.withValues(alpha: 0.46);
     final fullRect = Rect.fromLTWH(0, 0, size.width, size.height);
     final path = Path()
       ..addRect(fullRect)
@@ -517,67 +593,62 @@ class _OverlayPainter extends CustomPainter {
       ..fillType = PathFillType.evenOdd;
     canvas.drawPath(path, overlayPaint);
 
-    // Corner brackets
     final bracketColor = isScanned ? AppColors.statusPositive : Colors.white;
+    final outlinePaint = Paint()
+      ..color = bracketColor.withValues(alpha: isTracking ? 0.7 : 0.45)
+      ..strokeWidth = 1
+      ..style = PaintingStyle.stroke;
+    canvas.drawRRect(cutout, outlinePaint);
+
     final bracketPaint = Paint()
       ..color = bracketColor
-      ..strokeWidth = 3
+      ..strokeWidth = 2.5
       ..style = PaintingStyle.stroke
       ..strokeCap = StrokeCap.round;
 
-    const arm = 24.0;
-    final l = cx - half;
-    final t = cy - half;
-    final r = cx + half;
-    final b = cy + half;
+    final arm = math.min(28.0, scanWindow.shortestSide / 3);
+    final l = scanWindow.left;
+    final t = scanWindow.top;
+    final r = scanWindow.right;
+    final b = scanWindow.bottom;
 
-    // Top-left
     canvas.drawPath(
       Path()
         ..moveTo(l + arm, t)
         ..lineTo(l + radius, t)
         ..arcToPoint(
           Offset(l, t + radius),
-          radius: const Radius.circular(radius),
+          radius: Radius.circular(radius),
           clockwise: false,
         )
         ..lineTo(l, t + arm),
       bracketPaint,
     );
-    // Top-right
     canvas.drawPath(
       Path()
         ..moveTo(r - arm, t)
         ..lineTo(r - radius, t)
-        ..arcToPoint(
-          Offset(r, t + radius),
-          radius: const Radius.circular(radius),
-        )
+        ..arcToPoint(Offset(r, t + radius), radius: Radius.circular(radius))
         ..lineTo(r, t + arm),
       bracketPaint,
     );
-    // Bottom-left
     canvas.drawPath(
       Path()
         ..moveTo(l, b - arm)
         ..lineTo(l, b - radius)
         ..arcToPoint(
           Offset(l + radius, b),
-          radius: const Radius.circular(radius),
+          radius: Radius.circular(radius),
           clockwise: false,
         )
         ..lineTo(l + arm, b),
       bracketPaint,
     );
-    // Bottom-right
     canvas.drawPath(
       Path()
         ..moveTo(r, b - arm)
         ..lineTo(r, b - radius)
-        ..arcToPoint(
-          Offset(r - radius, b),
-          radius: const Radius.circular(radius),
-        )
+        ..arcToPoint(Offset(r - radius, b), radius: Radius.circular(radius))
         ..lineTo(r - arm, b),
       bracketPaint,
     );
@@ -585,7 +656,9 @@ class _OverlayPainter extends CustomPainter {
 
   @override
   bool shouldRepaint(_OverlayPainter old) =>
-      old.isScanned != isScanned || old.cutoutSize != cutoutSize;
+      old.isScanned != isScanned ||
+      old.isTracking != isTracking ||
+      old.scanWindow != scanWindow;
 }
 
 // ---------------------------------------------------------------------------
@@ -594,22 +667,213 @@ class _OverlayPainter extends CustomPainter {
 
 class _OverlayButton extends StatelessWidget {
   final IconData icon;
-  final VoidCallback onTap;
+  final String tooltip;
+  final VoidCallback? onTap;
+  final bool isActive;
 
-  const _OverlayButton({required this.icon, required this.onTap});
+  const _OverlayButton({
+    required this.icon,
+    required this.tooltip,
+    required this.onTap,
+    this.isActive = false,
+  });
 
   @override
   Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        width: 40,
-        height: 40,
-        decoration: BoxDecoration(
-          color: Colors.black.withValues(alpha: 0.4),
-          borderRadius: BorderRadius.circular(10),
+    return IconButton(
+      onPressed: onTap,
+      tooltip: tooltip,
+      icon: Icon(icon, size: 22),
+      style: IconButton.styleFrom(
+        fixedSize: const Size(48, 48),
+        foregroundColor: isActive ? Colors.black : Colors.white,
+        disabledForegroundColor: Colors.white.withValues(alpha: 0.35),
+        backgroundColor: isActive
+            ? Colors.white
+            : Colors.black.withValues(alpha: 0.24),
+        disabledBackgroundColor: Colors.black.withValues(alpha: 0.14),
+        side: BorderSide(color: Colors.white.withValues(alpha: 0.16)),
+        shape: const CircleBorder(),
+      ),
+    );
+  }
+}
+
+class _ScannerActions extends StatelessWidget {
+  const _ScannerActions({
+    required this.isScanned,
+    required this.onGallery,
+    required this.onManualEntry,
+  });
+
+  final bool isScanned;
+  final VoidCallback onGallery;
+  final VoidCallback onManualEntry;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.fromLTRB(18, 16, 18, 8),
+      decoration: BoxDecoration(
+        color: Colors.black.withValues(alpha: 0.56),
+        borderRadius: BorderRadius.circular(24),
+        border: Border.all(color: Colors.white.withValues(alpha: 0.12)),
+      ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          AnimatedSwitcher(
+            duration: const Duration(milliseconds: 180),
+            child: Column(
+              key: ValueKey(isScanned),
+              children: [
+                Text(
+                  isScanned
+                      ? 'QR code reconnu'
+                      : 'Placez le QR code dans le cadre',
+                  textAlign: TextAlign.center,
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 16,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  isScanned
+                      ? 'Validation en cours'
+                      : 'La lecture démarre automatiquement',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    color: Colors.white.withValues(alpha: 0.64),
+                    fontSize: 13,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 12),
+          Divider(height: 1, color: Colors.white.withValues(alpha: 0.12)),
+          Row(
+            children: [
+              Expanded(
+                child: _ScannerAction(
+                  icon: Icons.photo_library_outlined,
+                  label: 'Galerie',
+                  onTap: isScanned ? null : onGallery,
+                ),
+              ),
+              SizedBox(
+                height: 36,
+                child: VerticalDivider(
+                  width: 1,
+                  color: Colors.white.withValues(alpha: 0.12),
+                ),
+              ),
+              Expanded(
+                child: _ScannerAction(
+                  icon: Icons.keyboard_outlined,
+                  label: 'Saisie manuelle',
+                  onTap: isScanned ? null : onManualEntry,
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _ScannerAction extends StatelessWidget {
+  const _ScannerAction({
+    required this.icon,
+    required this.label,
+    required this.onTap,
+  });
+
+  final IconData icon;
+  final String label;
+  final VoidCallback? onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final color = Colors.white.withValues(alpha: onTap == null ? 0.34 : 0.78);
+
+    return Semantics(
+      button: true,
+      enabled: onTap != null,
+      label: label,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(12),
+        child: SizedBox(
+          height: 54,
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(icon, size: 20, color: color),
+              const SizedBox(width: 8),
+              Flexible(
+                child: Text(
+                  label,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    color: color,
+                    fontSize: 13,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ),
+            ],
+          ),
         ),
-        child: Icon(icon, color: Colors.white, size: 22),
+      ),
+    );
+  }
+}
+
+class _CameraError extends StatelessWidget {
+  const _CameraError();
+
+  @override
+  Widget build(BuildContext context) {
+    return const ColoredBox(
+      color: Color(0xFF151719),
+      child: Center(
+        child: Padding(
+          padding: EdgeInsets.symmetric(horizontal: 36),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(
+                Icons.no_photography_outlined,
+                size: 34,
+                color: Colors.white70,
+              ),
+              SizedBox(height: 16),
+              Text(
+                'Caméra indisponible',
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  color: Colors.white,
+                  fontSize: 17,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+              SizedBox(height: 8),
+              Text(
+                'Vérifiez l’autorisation caméra dans les réglages de l’appareil.',
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  color: Colors.white60,
+                  fontSize: 13,
+                  height: 1.4,
+                ),
+              ),
+            ],
+          ),
+        ),
       ),
     );
   }
