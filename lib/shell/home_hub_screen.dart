@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../app_colors.dart';
 import '../modules/registry.dart';
+import 'app_settings_screen.dart';
 import 'module_card.dart';
 
 class HomeHubScreen extends ConsumerWidget {
@@ -24,6 +25,17 @@ class HomeHubScreen extends ConsumerWidget {
             ),
           ),
         ),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.tune),
+            tooltip: 'Paramètres',
+            onPressed: () => Navigator.of(context).push(
+              MaterialPageRoute<void>(
+                builder: (_) => const AppSettingsScreen(),
+              ),
+            ),
+          ),
+        ],
       ),
       body: GridView.count(
         padding: const EdgeInsets.all(16),

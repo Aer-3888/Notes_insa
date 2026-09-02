@@ -2,18 +2,19 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:permission_handler/permission_handler.dart';
-import '../app_colors.dart';
-import '../modules/grades/app_drawer.dart';
-import '../providers/settings_provider.dart';
-import '../modules/grades/grades_provider.dart';
-import '../services/averages_service.dart';
+import '../../app_colors.dart';
+import 'app_drawer.dart';
+import '../../providers/settings_provider.dart';
+import 'grades_provider.dart';
+import '../../services/averages_service.dart';
 
 String _intervalLabel(int minutes) =>
     minutes < 60 ? '$minutes min' : '${minutes ~/ 60} h';
 
-/// Settings screen for background fetch configuration.
-class SettingsScreen extends ConsumerWidget {
-  const SettingsScreen({super.key});
+/// Grades module settings: background fetch, cohort sharing and the
+/// notification permission. App-level settings live in shell/app_settings_screen.dart.
+class GradesSettingsScreen extends ConsumerWidget {
+  const GradesSettingsScreen({super.key});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {

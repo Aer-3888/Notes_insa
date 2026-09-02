@@ -5,7 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../app_colors.dart';
 import 'grades_provider.dart';
 import 'raw_json_viewer_screen.dart';
-import '../../screens/settings_screen.dart';
+import 'grades_settings_screen.dart';
 import '../../providers/package_info_provider.dart';
 
 enum DrawerItem { notes, rawJson, config, settings }
@@ -106,7 +106,9 @@ class AppDrawer extends ConsumerWidget {
                     Navigator.pop(context);
                     Navigator.push(
                       context,
-                      MaterialPageRoute(builder: (_) => const SettingsScreen()),
+                      MaterialPageRoute(
+                        builder: (_) => const GradesSettingsScreen(),
+                      ),
                     );
                   },
                 ),
