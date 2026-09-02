@@ -26,7 +26,7 @@ class NotificationsSlide extends StatelessWidget {
       onBack: onBack,
       title: 'Une alerte quand une note arrive',
       subtitle:
-          'Facultatif. Relevé peut vous prévenir même lorsque l’application est fermée.',
+          'Facultatif. Campus INSA peut vous prévenir même lorsque l’application est fermée.',
       primaryLabel: 'Activer les notifications',
       onPrimary: onEnable,
       secondaryLabel: 'Peut-être plus tard',
@@ -57,7 +57,7 @@ class NotificationsSlide extends StatelessWidget {
                 ),
                 const SizedBox(width: 12),
                 const Text(
-                  'Relevé',
+                  'Campus INSA',
                   style: TextStyle(fontWeight: FontWeight.bold),
                 ),
               ],

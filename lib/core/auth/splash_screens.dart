@@ -86,7 +86,7 @@ class SplashScreen extends StatelessWidget {
             Icon(Icons.school, size: 72, color: AppColors.primary),
             SizedBox(height: 16),
             Text(
-              'Relevé',
+              'Campus INSA',
               style: TextStyle(
                 color: AppColors.primary,
                 fontSize: 24,
@@ -143,7 +143,7 @@ class _AuthenticatingSplashState extends ConsumerState<AuthenticatingSplash> {
               const Icon(Icons.school, size: 72, color: AppColors.primary),
               const SizedBox(height: 16),
               const Text(
-                'Relevé',
+                'Campus INSA',
                 style: TextStyle(
                   color: AppColors.primary,
                   fontSize: 24,

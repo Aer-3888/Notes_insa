@@ -150,7 +150,7 @@ class _BiometricScreenState extends ConsumerState<BiometricScreen>
               ),
               const SizedBox(height: 16),
               Text(
-                _failed ? 'Authentification échouée' : 'Relevé',
+                _failed ? 'Authentification échouée' : 'Campus INSA',
                 style: TextStyle(
                   fontSize: _failed ? 20 : 24,
                   fontWeight: FontWeight.bold,

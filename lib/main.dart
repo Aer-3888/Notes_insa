@@ -30,7 +30,7 @@ class MyApp extends StatelessWidget {
     return MaterialApp(
       navigatorKey: rootNavigatorKey,
       debugShowCheckedModeBanner: false,
-      title: 'Relevé',
+      title: 'Campus INSA',
       theme: ThemeData(
         brightness: Brightness.light,
         primarySwatch: Colors.blue,

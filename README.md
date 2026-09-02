@@ -1,8 +1,8 @@
-# Notes INSA
+# Campus INSA
 
 [![Release APK](https://github.com/Aer-3888/Notes_insa/actions/workflows/release.yml/badge.svg)](https://github.com/Aer-3888/Notes_insa/actions/workflows/release.yml)
 
-Android app for INSA students to view grades, track averages, and receive notifications on grade updates.
+Android app for INSA Rennes students: timetable, grades, weather and campus services in one place.
 
 ## Screenshots
 

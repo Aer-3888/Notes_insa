@@ -65,7 +65,7 @@ class _PrivacyCurtain extends StatelessWidget {
             Icon(Icons.school, size: 72, color: AppColors.primary),
             SizedBox(height: 16),
             Text(
-              'Relevé',
+              'Campus INSA',
               style: TextStyle(
                 color: AppColors.primary,
                 fontSize: 24,
