@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'app_colors.dart';
+import 'core/time.dart';
 import 'services/auth_service.dart';
 import 'services/worker_sync_service.dart';
 import 'providers/grades_provider.dart';
@@ -20,6 +21,7 @@ final GlobalKey<NavigatorState> rootNavigatorKey = GlobalKey<NavigatorState>();
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  await initCampusTime();
   if (kAppSecret.isEmpty) {
     throw StateError('APP_SECRET not provided via --dart-define');
   }

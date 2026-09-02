@@ -62,6 +62,8 @@ dependencies:
   # Shimmer skeleton loading effect
   shimmer: ^3.0.0
   crypto: ^3.0.7
+  # Campus-local wall-clock comparisons (see lib/core/time.dart)
+  timezone: ^0.10.0
   image_picker: ^1.2.2
 
 dev_dependencies:
