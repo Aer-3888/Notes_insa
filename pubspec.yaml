@@ -56,7 +56,7 @@ dependencies:
   # JSON serialization
   json_annotation: ^4.9.0
   # State management
-  flutter_riverpod: ^2.6.1
+  flutter_riverpod: ^3.3.2
   # Staggered list/grid entry animations
   flutter_staggered_animations: ^1.1.1
   # Shimmer skeleton loading effect
