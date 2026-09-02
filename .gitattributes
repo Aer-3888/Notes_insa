@@ -1,3 +1,20 @@
+# The repository lives on a Windows filesystem accessed from WSL, where editors
+# reintroduce CRLF on save. Normalize every text file to LF in the repository
+# and on checkout so those saves stop producing whole-file diffs.
+* text=auto eol=lf
+
 # Git hooks must keep LF line endings to run correctly under sh, even on
 # Windows checkouts where core.autocrlf would otherwise convert them to CRLF.
 .husky/* text eol=lf
+
+# Binary assets must never be line-ending normalized.
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.ico binary
+*.ttf binary
+*.otf binary
+*.jar binary
+*.keystore binary
+*.jks binary
+*.vsix binary
