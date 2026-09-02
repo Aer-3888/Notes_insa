@@ -64,6 +64,8 @@ dependencies:
   crypto: ^3.0.7
   # Campus-local wall-clock comparisons (see lib/core/time.dart)
   timezone: ^0.10.0
+  # Module cache location (see lib/core/module_cache.dart)
+  path_provider: ^2.1.5
   image_picker: ^1.2.2
 
 dev_dependencies:
