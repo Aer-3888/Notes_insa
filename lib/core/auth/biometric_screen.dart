@@ -113,7 +113,10 @@ class _BiometricScreenState extends ConsumerState<BiometricScreen>
   }
 
   void _onSuccess() {
-    ref.read(appUnlockedProvider.notifier).state = true;
+    ref.read(gradesUnlockedProvider.notifier).state = true;
+    // The lock is a pushed route, so it dismisses itself rather than waiting
+    // for a parent to swap its body.
+    if (mounted && Navigator.canPop(context)) Navigator.of(context).pop();
     unawaited(
       ref
           .read(gradesProvider.notifier)

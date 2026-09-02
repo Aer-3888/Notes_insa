@@ -79,7 +79,10 @@ class _PinScreenState extends ConsumerState<PinScreen> {
   }
 
   void _unlockAndFetch() {
-    ref.read(appUnlockedProvider.notifier).state = true;
+    ref.read(gradesUnlockedProvider.notifier).state = true;
+    // The lock is a pushed route, so it dismisses itself rather than waiting
+    // for a parent to swap its body.
+    if (mounted && Navigator.canPop(context)) Navigator.of(context).pop();
     unawaited(
       ref
           .read(gradesProvider.notifier)

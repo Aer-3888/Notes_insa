@@ -521,7 +521,7 @@ class GradesNotifier extends StateNotifier<GradesState> {
     _accountGeneration++;
     clearGrades();
     state = state.copyWith(authStatus: AuthStatus.loggingOut, error: null);
-    _ref.read(appUnlockedProvider.notifier).state = false;
+    _ref.read(gradesUnlockedProvider.notifier).state = false;
     unawaited(_performLogout(completer));
     return completer.future;
   }

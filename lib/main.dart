@@ -87,7 +87,7 @@ class _AuthGateState extends ConsumerState<AuthGate>
     // already-logged-in users enable background fetch without re-authenticating.
     unawaited(WorkerSyncService.backfill());
     unawaited(_setupNotifications());
-    _unlockSub = ref.listenManual<bool>(appUnlockedProvider, (_, unlocked) {
+    _unlockSub = ref.listenManual<bool>(gradesUnlockedProvider, (_, unlocked) {
       if (unlocked) _consumePendingNotification();
     });
   }
@@ -127,7 +127,7 @@ class _AuthGateState extends ConsumerState<AuthGate>
   void _onNotificationTap(String payload) {
     if (!mounted) return;
     // Preserve the tap until the user passes the biometric/PIN gate.
-    if (!ref.read(appUnlockedProvider)) {
+    if (!ref.read(gradesUnlockedProvider)) {
       _pendingNotificationPayload = payload;
       return;
     }
@@ -168,8 +168,8 @@ class _AuthGateState extends ConsumerState<AuthGate>
   void didChangeAppLifecycleState(AppLifecycleState state) {
     // Re-arm the biometric/PIN gate whenever the app leaves the foreground.
     if (state == AppLifecycleState.paused) {
-      final wasUnlocked = ref.read(appUnlockedProvider);
-      ref.read(appUnlockedProvider.notifier).state = false;
+      final wasUnlocked = ref.read(gradesUnlockedProvider);
+      ref.read(gradesUnlockedProvider.notifier).state = false;
       // The lock gate is a body swap inside AuthGate, so any open bottom sheet,
       // dialog, or pushed screen lives *above* it on the Navigator stack and
       // would otherwise linger over the lock screen on resume (and leak into the
@@ -210,7 +210,7 @@ class _AuthGateState extends ConsumerState<AuthGate>
 
             // Lock gate: until the user passes biometric/PIN this session, no
             // auth state may reveal the dashboard.
-            final unlocked = ref.watch(appUnlockedProvider);
+            final unlocked = ref.watch(gradesUnlockedProvider);
             if (!unlocked) {
               return gradesState.authStatus == AuthStatus.pinRequired
                   ? const PinScreen()

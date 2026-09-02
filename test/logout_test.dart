@@ -86,14 +86,14 @@ void main() {
 
       final container = ProviderContainer();
       addTearDown(container.dispose);
-      container.read(appUnlockedProvider.notifier).state = true;
+      container.read(gradesUnlockedProvider.notifier).state = true;
       // Sanity check: credentials are seen before logout.
       expect(await container.read(hasCredentialsProvider.future), isTrue);
 
       await container.read(gradesProvider.notifier).logout();
 
       expect(store, isEmpty);
-      expect(container.read(appUnlockedProvider), isFalse);
+      expect(container.read(gradesUnlockedProvider), isFalse);
       expect(await container.read(hasCredentialsProvider.future), isFalse);
       final prefs = await SharedPreferences.getInstance();
       expect(prefs.get('background_failure_started_at_ms'), isNull);
@@ -118,13 +118,13 @@ void main() {
 
       final container = ProviderContainer();
       addTearDown(container.dispose);
-      container.read(appUnlockedProvider.notifier).state = true;
+      container.read(gradesUnlockedProvider.notifier).state = true;
 
       // Must not rethrow, and must still re-arm the lock gate — the reset can no
       // longer be skipped by a failing secure store.
       await container.read(gradesProvider.notifier).logout();
 
-      expect(container.read(appUnlockedProvider), isFalse);
+      expect(container.read(gradesUnlockedProvider), isFalse);
       expect(
         container.read(gradesProvider).authStatus,
         AuthStatus.logoutFailed,

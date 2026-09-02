@@ -4,7 +4,7 @@ import '../../app_colors.dart';
 
 // Full-screen cover shown whenever the app is not in the foreground, so the OS
 // task-switcher snapshot never reveals user data. Purely visual — the
-// biometric/PIN lock gate (AuthGate + appUnlockedProvider) is what actually
+// biometric/PIN lock gate (AuthGate + gradesUnlockedProvider) is what actually
 // re-gates access on resume.
 class PrivacyCover extends StatefulWidget {
   final Widget child;

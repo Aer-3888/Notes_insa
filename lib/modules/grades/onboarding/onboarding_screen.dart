@@ -289,7 +289,7 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
     // Logout cancels account work. Recreate it only after credentials are safely
     // stored, and only when the persisted user setting allows background fetch.
     unawaited(initBackgroundTasks());
-    ref.read(appUnlockedProvider.notifier).state = true;
+    ref.read(gradesUnlockedProvider.notifier).state = true;
     ref.invalidate(hasCredentialsProvider);
     unawaited(
       ref
