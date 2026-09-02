@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import '../../app_colors.dart';
+import '../../../app_colors.dart';
 
 /// A focused theme for account setup. Keeping it local prevents the quieter
 /// onboarding surfaces from changing the denser dashboard UI.

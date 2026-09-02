@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
-import '../../../app_colors.dart';
-import '../../../components/credentials_fields.dart';
+import '../../../../app_colors.dart';
+import '../../../../components/credentials_fields.dart';
 import '../widgets/slide_layout.dart';
 
 class CredentialsSlide extends StatefulWidget {

@@ -1,11 +1,11 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import '../components/two_factor_form.dart';
-import '../providers/grades_provider.dart';
-import '../services/auth_service.dart';
-import '../services/grades_service.dart';
-import 'scan_screen.dart';
+import '../../components/two_factor_form.dart';
+import 'grades_provider.dart';
+import '../../services/auth_service.dart';
+import '../../services/grades_service.dart';
+import '../../screens/scan_screen.dart';
 import 'onboarding/onboarding_screen.dart';
 
 class TwoFactorScreen extends ConsumerStatefulWidget {

@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import '../../../app_colors.dart';
+import '../../../../app_colors.dart';
 
 class SlideLayout extends StatelessWidget {
   final int stepCount;

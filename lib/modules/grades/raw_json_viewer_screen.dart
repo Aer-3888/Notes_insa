@@ -1,10 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import '../app_colors.dart';
+import '../../app_colors.dart';
 import 'dart:convert';
-import '../providers/grades_provider.dart';
-import '../components/app_drawer.dart';
+import 'grades_provider.dart';
+import 'app_drawer.dart';
 
 // Syntax highlight colors (dark terminal palette)
 const _colorKey = Color(0xFF82AAFF); // blue — JSON keys

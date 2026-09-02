@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import '../../../services/auth_service.dart';
+import '../../../../services/auth_service.dart';
 import '../widgets/slide_layout.dart';
 
 class PinSetupSlide extends StatefulWidget {

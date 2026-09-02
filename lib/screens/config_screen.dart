@@ -4,7 +4,7 @@ import '../app_colors.dart';
 import '../models.dart';
 import '../data.dart';
 import '../providers/dashboard_providers.dart';
-import '../components/app_drawer.dart';
+import '../modules/grades/app_drawer.dart';
 
 class ConfigScreen extends ConsumerWidget {
   const ConfigScreen({super.key});

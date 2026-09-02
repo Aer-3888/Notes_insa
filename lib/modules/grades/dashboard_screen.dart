@@ -1,20 +1,20 @@
 import 'dart:async';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
-import '../app_colors.dart';
+import '../../app_colors.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import '../models.dart';
-import '../providers/dashboard_providers.dart';
-import '../providers/grades_provider.dart';
-import '../providers/settings_provider.dart';
-import '../providers/averages_provider.dart';
-import '../providers/coefficients_provider.dart';
-import '../components/app_drawer.dart';
-import '../components/dashboard_header.dart';
-import '../components/unit_card_grid.dart';
-import '../services/averages_service.dart';
-import '../services/notification_service.dart';
+import '../../models.dart';
+import '../../providers/dashboard_providers.dart';
+import 'grades_provider.dart';
+import '../../providers/settings_provider.dart';
+import '../../providers/averages_provider.dart';
+import '../../providers/coefficients_provider.dart';
+import 'app_drawer.dart';
+import '../../components/dashboard_header.dart';
+import '../../components/unit_card_grid.dart';
+import '../../services/averages_service.dart';
+import '../../services/notification_service.dart';
 
 part 'dashboard/subject_stats_sheet.dart';
 

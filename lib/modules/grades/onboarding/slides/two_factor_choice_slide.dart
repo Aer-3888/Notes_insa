@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import '../../../app_colors.dart';
+import '../../../../app_colors.dart';
 import '../onboarding_enums.dart';
 import '../widgets/slide_layout.dart';
 

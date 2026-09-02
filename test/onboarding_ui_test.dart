@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:notes_insa/app_colors.dart';
-import 'package:notes_insa/screens/onboarding/onboarding_theme.dart';
-import 'package:notes_insa/screens/onboarding/slides/credentials_slide.dart';
+import 'package:notes_insa/modules/grades/onboarding/onboarding_theme.dart';
+import 'package:notes_insa/modules/grades/onboarding/slides/credentials_slide.dart';
 
 void main() {
   testWidgets('login stays usable on a compact phone viewport', (tester) async {

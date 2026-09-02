@@ -5,7 +5,7 @@ import '../models.dart';
 import '../data.dart';
 import '../services/averages_service.dart';
 import 'coefficients_provider.dart';
-import 'grades_provider.dart';
+import '../modules/grades/grades_provider.dart';
 
 /// Single memoized decode of the grades payload. Returns null when there is no
 /// usable data — either nothing loaded yet (`{}`/empty) or a decode failure

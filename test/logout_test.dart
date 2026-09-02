@@ -5,7 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:notes_insa/constants.dart';
 import 'package:notes_insa/providers/auth_providers.dart';
-import 'package:notes_insa/providers/grades_provider.dart';
+import 'package:notes_insa/modules/grades/grades_provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 /// Logout must always reset the auth-gated state so AuthGate drops back to

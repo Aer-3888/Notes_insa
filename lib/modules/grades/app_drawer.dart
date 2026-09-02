@@ -2,11 +2,11 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import '../app_colors.dart';
-import '../providers/grades_provider.dart';
-import '../screens/raw_json_viewer_screen.dart';
-import '../screens/settings_screen.dart';
-import '../providers/package_info_provider.dart';
+import '../../app_colors.dart';
+import 'grades_provider.dart';
+import 'raw_json_viewer_screen.dart';
+import '../../screens/settings_screen.dart';
+import '../../providers/package_info_provider.dart';
 
 enum DrawerItem { notes, rawJson, config, settings }
 

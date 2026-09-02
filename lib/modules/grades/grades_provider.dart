@@ -2,16 +2,16 @@ import 'dart:async';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_riverpod/legacy.dart';
 import 'package:flutter/foundation.dart';
-import '../services/grades_service.dart';
-import '../services/coefficients_service.dart';
-import '../services/averages_service.dart';
-import '../services/auth_service.dart';
-import '../services/worker_sync_service.dart';
-import '../background_tasks.dart';
-import '../constants.dart';
-import 'auth_providers.dart';
-import 'coefficients_provider.dart';
-import 'dashboard_providers.dart';
+import '../../services/grades_service.dart';
+import '../../services/coefficients_service.dart';
+import '../../services/averages_service.dart';
+import '../../services/auth_service.dart';
+import '../../services/worker_sync_service.dart';
+import '../../background_tasks.dart';
+import '../../constants.dart';
+import '../../providers/auth_providers.dart';
+import '../../providers/coefficients_provider.dart';
+import '../../providers/dashboard_providers.dart';
 
 enum AuthStatus {
   unauthenticated,
