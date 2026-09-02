@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import 'grades/dashboard_screen.dart';
 import 'grades/two_factor_screen.dart';
+import 'weather/weather_screen.dart';
 
 /// One entry in the campus hub. Sealed so the hub's switch is exhaustive and a
 /// new state cannot be added without every call site being updated.
@@ -63,7 +64,7 @@ const List<CampusModule> kCampusModules = <CampusModule>[
     id: 'meteo',
     label: 'Météo',
     icon: Icons.wb_sunny_outlined,
-    builder: _notYetBuilt,
+    builder: _weather,
   ),
   ComingSoonModule(
     id: 'carte',
@@ -87,6 +88,8 @@ const List<CampusModule> kCampusModules = <CampusModule>[
 
 Widget _notYetBuilt(BuildContext context) =>
     const Scaffold(body: Center(child: Text('En cours de construction')));
+
+Widget _weather(BuildContext context) => const WeatherScreen();
 
 Widget _gradesDashboard(BuildContext context) => DashboardScreen(
   onReauthRequired: () => Navigator.of(

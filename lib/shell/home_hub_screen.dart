@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../app_colors.dart';
 import '../modules/registry.dart';
+import '../modules/weather/weather_screen.dart';
 import 'app_settings_screen.dart';
 import 'module_card.dart';
 
@@ -37,23 +38,31 @@ class HomeHubScreen extends ConsumerWidget {
           ),
         ],
       ),
-      body: GridView.count(
-        padding: const EdgeInsets.all(16),
-        crossAxisCount: 2,
-        mainAxisSpacing: 12,
-        crossAxisSpacing: 12,
-        childAspectRatio: 0.95,
+      body: Column(
         children: [
-          for (final module in kCampusModules)
-            ModuleCard(
-              module: module,
-              onTap: switch (module) {
-                ReadyModule() => () => Navigator.of(
-                  context,
-                ).push(MaterialPageRoute<void>(builder: module.builder)),
-                ComingSoonModule() => null,
-              },
+          const SizedBox(height: 8),
+          const WeatherStrip(),
+          Expanded(
+            child: GridView.count(
+              padding: const EdgeInsets.all(16),
+              crossAxisCount: 2,
+              mainAxisSpacing: 12,
+              crossAxisSpacing: 12,
+              childAspectRatio: 0.95,
+              children: [
+                for (final module in kCampusModules)
+                  ModuleCard(
+                    module: module,
+                    onTap: switch (module) {
+                      ReadyModule() => () => Navigator.of(
+                        context,
+                      ).push(MaterialPageRoute<void>(builder: module.builder)),
+                      ComingSoonModule() => null,
+                    },
+                  ),
+              ],
             ),
+          ),
         ],
       ),
     );
