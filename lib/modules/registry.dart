@@ -1,5 +1,8 @@
 import 'package:flutter/material.dart';
 
+import 'grades/dashboard_screen.dart';
+import 'grades/two_factor_screen.dart';
+
 /// One entry in the campus hub. Sealed so the hub's switch is exhaustive and a
 /// new state cannot be added without every call site being updated.
 sealed class CampusModule {
@@ -54,7 +57,7 @@ const List<CampusModule> kCampusModules = <CampusModule>[
     label: 'Notes',
     icon: Icons.school_outlined,
     requiresCas: true,
-    builder: _notYetBuilt,
+    builder: _gradesDashboard,
   ),
   ReadyModule(
     id: 'meteo',
@@ -84,3 +87,9 @@ const List<CampusModule> kCampusModules = <CampusModule>[
 
 Widget _notYetBuilt(BuildContext context) =>
     const Scaffold(body: Center(child: Text('En cours de construction')));
+
+Widget _gradesDashboard(BuildContext context) => DashboardScreen(
+  onReauthRequired: () => Navigator.of(
+    context,
+  ).push(MaterialPageRoute<void>(builder: (_) => const TwoFactorScreen())),
+);

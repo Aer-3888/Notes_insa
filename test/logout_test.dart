@@ -8,7 +8,7 @@ import 'package:notes_insa/providers/auth_providers.dart';
 import 'package:notes_insa/modules/grades/grades_provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
-/// Logout must always reset the auth-gated state so AuthGate drops back to
+/// Logout must always reset the auth-gated state so CasGuard drops back to
 /// onboarding. Regression guard for the bug where the reset lived behind a
 /// widget `context.mounted` guard after an `await`, so a storage failure (or the
 /// drawer unmounting) silently skipped it and stranded the user on the now-empty

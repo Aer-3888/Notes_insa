@@ -162,7 +162,7 @@ class _TwoFactorScreenState extends ConsumerState<TwoFactorScreen> {
   }
 
   Future<void> _logout() async {
-    // Pop this pushed route so the rebuilt AuthGate (now showing the onboarding
+    // Pop this pushed route so the rebuilt CasGuard (now showing the onboarding
     // secure logout state) isn't left covered by a dangling 2FA screen.
     if (Navigator.canPop(context)) Navigator.pop(context);
     unawaited(ref.read(gradesProvider.notifier).logout());

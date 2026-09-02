@@ -14,7 +14,7 @@ class GradesService {
   static const String _gradesKey = kStorageGradesJson;
 
   /// Native calls go through the CAS server; cap them so a hung native call
-  /// can't strand the UI on a control-less splash (see AuthGate).
+  /// can't strand the UI on a control-less splash (see CasGuard).
   static const Duration _nativeTimeout = Duration(seconds: 30);
 
   /// Wraps [MethodChannel.invokeMethod] with a timeout. Throws

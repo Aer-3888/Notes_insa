@@ -85,12 +85,12 @@ class AppDrawer extends ConsumerWidget {
                   label: 'Mes Notes',
                   isSelected: selected == DrawerItem.notes,
                   onTap: () {
+                    // Close the drawer, and any screen pushed from it, back to
+                    // the grades destination. Never popUntil isFirst: route 0
+                    // is now the ungated campus hub, not the dashboard.
                     Navigator.pop(context);
                     if (selected != DrawerItem.notes) {
-                      // Return to the AuthGate-owned dashboard (which keeps the
-                      // 2FA reauth callback and stays under AuthGate's control)
-                      // rather than pushing a new bare DashboardScreen on top.
-                      Navigator.popUntil(context, (route) => route.isFirst);
+                      Navigator.pop(context);
                     }
                   },
                 ),
