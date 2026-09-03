@@ -11,10 +11,12 @@ import '../core/auth/splash_screens.dart';
 import '../main.dart' show rootNavigatorKey;
 import '../modules/grades/grades_provider.dart';
 import '../modules/grades/two_factor_screen.dart';
+import '../app_colors.dart';
 import '../modules/registry.dart';
 import '../providers/auth_providers.dart';
 import '../services/notification_service.dart';
 import '../services/worker_sync_service.dart';
+import 'app_settings_screen.dart';
 import 'home_hub_screen.dart';
 
 /// Root of the app. Opens on the campus hub with no account; only modules that
@@ -32,27 +34,41 @@ class _CampusShellState extends ConsumerState<CampusShell>
   PendingDeepLinkController? _deepLinks;
   LockController? _lock;
 
-  int _index = 0;
+  /// Accueil sits in the middle of five destinations, so it is index 2.
+  static const int _homeIndex = 2;
+  static const int _notesIndex = 3;
+
+  int _index = _homeIndex;
 
   /// Destinations that have been opened at least once. IndexedStack builds
   /// every child eagerly, which would construct the grades dashboard for a user
   /// who never logs in, so unvisited destinations render nothing until chosen.
-  final Set<int> _visited = <int>{0};
+  final Set<int> _visited = <int>{_homeIndex};
 
   // Same channel as the native method calls; used only to receive notification
   // deep-link routes posted by MainActivity (see EXTRA_NOTIF_ROUTE there).
   static const _routeChannel = MethodChannel('com.aer.notes_insa/grades');
 
-  /// The navigation bar's module destinations, resolved from the registry so
-  /// the bar and the hub can never disagree about a label or icon. Index 0 of
-  /// the bar is the hub itself, which is not a registry entry.
-  static final List<ReadyModule> _barModules = <ReadyModule>[
-    for (final id in const ['edt', 'notes'])
-      kCampusModules.whereType<ReadyModule>().firstWhere((m) => m.id == id),
+  /// The five bottom destinations, in bar order. Labels and icons come from the
+  /// registry where a module owns them, so the bar and the hub cannot disagree.
+  ///
+  /// Accueil and Paramètres are shell surfaces rather than modules, so they are
+  /// named here.
+  static final List<_Destination> _destinations = <_Destination>[
+    _Destination.module('carte'),
+    _Destination.module('edt'),
+    const _Destination(
+      icon: Icons.home_outlined,
+      selectedIcon: Icons.home,
+      label: 'Accueil',
+    ),
+    _Destination.module('notes'),
+    const _Destination(
+      icon: Icons.tune_outlined,
+      selectedIcon: Icons.tune,
+      label: 'Paramètres',
+    ),
   ];
-
-  static final int _notesIndex =
-      _barModules.indexWhere((m) => m.id == 'notes') + 1;
 
   @override
   void initState() {
@@ -175,10 +191,18 @@ class _CampusShellState extends ConsumerState<CampusShell>
 
   Widget _bodyFor(int index) {
     if (!_visited.contains(index)) return const SizedBox.shrink();
-    if (index == 0) return const HomeHubScreen();
-    final module = _barModules[index - 1];
-    final body = Builder(builder: module.builder);
-    return module.requiresCas ? CasGuard(child: body) : body;
+    if (index == _homeIndex) return const HomeHubScreen();
+    if (index == _destinations.length - 1) return const AppSettingsScreen();
+
+    final module = _destinations[index].module;
+    return switch (module) {
+      ReadyModule(:final builder, :final requiresCas) =>
+        requiresCas
+            ? CasGuard(child: Builder(builder: builder))
+            : Builder(builder: builder),
+      ComingSoonModule() => _ComingSoon(module: module),
+      null => const SizedBox.shrink(),
+    };
   }
 
   @override
@@ -197,31 +221,99 @@ class _CampusShellState extends ConsumerState<CampusShell>
     }
 
     return PopScope(
-      canPop: _index == 0,
+      canPop: _index == _homeIndex,
       onPopInvokedWithResult: (didPop, _) {
-        if (!didPop) _select(0);
+        if (!didPop) _select(_homeIndex);
       },
       child: Scaffold(
         body: IndexedStack(
           index: _index,
           children: <Widget>[
-            for (var i = 0; i < _barModules.length + 1; i++) _bodyFor(i),
+            for (var i = 0; i < _destinations.length; i++) _bodyFor(i),
           ],
         ),
         bottomNavigationBar: NavigationBar(
           selectedIndex: _index,
           onDestinationSelected: _select,
           destinations: <NavigationDestination>[
-            const NavigationDestination(
-              icon: Icon(Icons.home_outlined),
-              selectedIcon: Icon(Icons.home),
-              label: 'Accueil',
-            ),
-            for (final m in _barModules)
-              NavigationDestination(icon: Icon(m.icon), label: m.label),
+            for (final d in _destinations)
+              NavigationDestination(
+                icon: Icon(d.icon),
+                selectedIcon: Icon(d.selectedIcon ?? d.icon),
+                label: d.label,
+              ),
           ],
         ),
       ),
     );
   }
+}
+
+/// One bottom-bar destination. A module-backed one takes its icon and label
+/// from the registry; Accueil and Paramètres are shell surfaces and name
+/// themselves.
+class _Destination {
+  const _Destination({
+    required this.icon,
+    required this.label,
+    this.selectedIcon,
+    this.module,
+  });
+
+  factory _Destination.module(String id) {
+    final m = kCampusModules.firstWhere((m) => m.id == id);
+    return _Destination(icon: m.icon, label: m.label, module: m);
+  }
+
+  final IconData icon;
+  final IconData? selectedIcon;
+  final String label;
+  final CampusModule? module;
+}
+
+/// A module that is in the bar but not built yet. It is a destination rather
+/// than a hidden entry so the app says plainly what is coming.
+class _ComingSoon extends StatelessWidget {
+  const _ComingSoon({required this.module});
+
+  final ComingSoonModule module;
+
+  @override
+  Widget build(BuildContext context) => Scaffold(
+    appBar: AppBar(
+      title: Text(module.label),
+      foregroundColor: Colors.white,
+      flexibleSpace: const DecoratedBox(
+        decoration: BoxDecoration(
+          gradient: LinearGradient(
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+            colors: AppColors.headerGradient,
+          ),
+        ),
+      ),
+    ),
+    body: Center(
+      child: Padding(
+        padding: const EdgeInsets.all(32),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(module.icon, size: 56, color: AppColors.textMuted),
+            const SizedBox(height: 16),
+            Text(
+              module.teaser,
+              textAlign: TextAlign.center,
+              style: const TextStyle(color: AppColors.textSecondary),
+            ),
+            const SizedBox(height: 8),
+            const Text(
+              'Bientôt disponible',
+              style: TextStyle(fontSize: 12, color: AppColors.textMuted),
+            ),
+          ],
+        ),
+      ),
+    ),
+  );
 }

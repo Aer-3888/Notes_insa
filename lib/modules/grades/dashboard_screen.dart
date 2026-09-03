@@ -11,7 +11,6 @@ import '../../providers/settings_provider.dart';
 import '../../providers/averages_provider.dart';
 import '../../providers/coefficients_provider.dart';
 import '../../components/dashboard_header.dart';
-import '../../shell/app_settings_screen.dart';
 import '../../components/unit_card_grid.dart';
 import '../../services/averages_service.dart';
 import '../../services/notification_service.dart';
@@ -319,11 +318,6 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen>
                       average: semesterAverage,
                       provisional: ref.watch(
                         semesterAverageProvisionalProvider,
-                      ),
-                      onSettingsPressed: () => Navigator.of(context).push(
-                        MaterialPageRoute<void>(
-                          builder: (_) => const AppSettingsScreen(),
-                        ),
                       ),
                       lastUpdated: lastUpdated,
                       selectedSemester: effectiveSemester ?? 0,

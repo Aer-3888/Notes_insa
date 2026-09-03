@@ -3,7 +3,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../app_colors.dart';
 import '../../core/module_cache.dart';
-import '../../shell/app_settings_screen.dart';
 import 'weather_model.dart';
 import 'weather_provider.dart';
 
@@ -66,17 +65,6 @@ class WeatherScreen extends ConsumerWidget {
       appBar: AppBar(
         title: const Text('Météo'),
         foregroundColor: Colors.white,
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.tune),
-            tooltip: 'Paramètres',
-            onPressed: () => Navigator.of(context).push(
-              MaterialPageRoute<void>(
-                builder: (_) => const AppSettingsScreen(),
-              ),
-            ),
-          ),
-        ],
         flexibleSpace: const DecoratedBox(
           decoration: BoxDecoration(
             gradient: LinearGradient(

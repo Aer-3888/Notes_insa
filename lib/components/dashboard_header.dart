@@ -15,9 +15,6 @@ class DashboardHeader extends StatelessWidget {
   final double? average;
   final String title;
 
-  /// Opens the app-wide settings screen. There is no drawer any more: grades
-  /// is a module of the campus app, not an app of its own.
-  final VoidCallback onSettingsPressed;
   final DateTime? lastUpdated;
   final int selectedSemester;
   final List<int> availableSemesters;
@@ -30,7 +27,6 @@ class DashboardHeader extends StatelessWidget {
     super.key,
     required this.average,
     required this.title,
-    required this.onSettingsPressed,
     this.lastUpdated,
     required this.selectedSemester,
     required this.availableSemesters,
@@ -41,20 +37,12 @@ class DashboardHeader extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.fromLTRB(16, 16, 24, 0),
+      padding: const EdgeInsets.fromLTRB(20, 16, 24, 0),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           Row(
             children: [
-              // Menu Button
-              IconButton(
-                icon: const Icon(Icons.tune, size: 26, color: Colors.black87),
-                tooltip: 'Paramètres',
-                onPressed: onSettingsPressed,
-              ),
-              const SizedBox(width: 8),
-
               // Department Title + last updated
               Expanded(
                 child: Column(

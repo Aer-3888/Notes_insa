@@ -4,7 +4,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../app_colors.dart';
 import '../../core/module_cache.dart';
 import '../../core/time.dart';
-import '../../shell/app_settings_screen.dart';
 import 'group_picker_screen.dart';
 import 'schedule_event.dart';
 import 'schedule_provider.dart';
@@ -99,15 +98,6 @@ class _ScheduleScreenState extends ConsumerState<ScheduleScreen> {
             onPressed: () => Navigator.of(context).push(
               MaterialPageRoute<void>(
                 builder: (_) => const GroupPickerScreen(),
-              ),
-            ),
-          ),
-          IconButton(
-            icon: const Icon(Icons.tune),
-            tooltip: 'Paramètres',
-            onPressed: () => Navigator.of(context).push(
-              MaterialPageRoute<void>(
-                builder: (_) => const AppSettingsScreen(),
               ),
             ),
           ),
