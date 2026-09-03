@@ -30,22 +30,28 @@ class AdeGroup {
     required this.id,
     required this.name,
     this.category = AdeCategory.student,
+    this.parentId,
   });
 
   final int id;
   final String name;
   final AdeCategory category;
 
+  /// Null for a top-level entry such as INFO or STPI.
+  final int? parentId;
+
   Map<String, dynamic> toJson() => <String, dynamic>{
     'id': id,
     'name': name,
     'c': category.code,
+    if (parentId != null) 'p': parentId,
   };
 
   factory AdeGroup.fromJson(Map<String, dynamic> json) => AdeGroup(
     id: json['id'] as int,
     name: json['name'] as String,
     category: AdeCategory.fromCode(json['c'] as String?),
+    parentId: json['p'] as int?,
   );
 }
 
@@ -114,6 +120,33 @@ class AdeGroups {
   /// Rows of one category, for the picker's tabs.
   static List<AdeGroup> ofCategory(List<AdeGroup> all, AdeCategory category) =>
       all.where((g) => g.category == category).toList();
+
+  /// Direct children of [parentId], or the top level when it is null.
+  ///
+  /// ADE nests by department, then semester, then group (INFO > S7-INFO >
+  /// S7-INFO-G1). Browsing that beats scrolling 1433 rows.
+  static List<AdeGroup> childrenOf(List<AdeGroup> rows, int? parentId) {
+    final out = rows.where((g) => g.parentId == parentId).toList();
+    out.sort((a, b) => a.name.compareTo(b.name));
+    return out;
+  }
+
+  static bool hasChildren(List<AdeGroup> rows, int id) =>
+      rows.any((g) => g.parentId == id);
+
+  /// Ancestors of [id], outermost first, for the breadcrumb.
+  static List<AdeGroup> pathTo(List<AdeGroup> rows, int id) {
+    final byId = <int, AdeGroup>{for (final g in rows) g.id: g};
+    final path = <AdeGroup>[];
+    var current = byId[id];
+    while (current != null) {
+      path.insert(0, current);
+      final parent = current.parentId;
+      current = parent == null ? null : byId[parent];
+      if (path.length > 12) break; // defensive: never loop on malformed data
+    }
+    return path;
+  }
 
   /// Case- and accent-insensitive contains search over group names.
   static List<AdeGroup> search(List<AdeGroup> groups, String query) {

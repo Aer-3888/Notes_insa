@@ -50,6 +50,10 @@ final selectedGroupsProvider = NotifierProvider<SelectedGroups, List<int>>(
   SelectedGroups.new,
 );
 
+/// Injected so tests can drive the real screens against a recorded calendar
+/// instead of the network.
+final adeServiceProvider = Provider<AdeService>((ref) => const AdeService());
+
 /// Cache-first timetable. Emits the cached week immediately so the screen
 /// paints offline, then the refreshed one.
 final scheduleProvider = StreamProvider<CachedEntry<List<ScheduleEvent>>>((
@@ -83,11 +87,13 @@ final scheduleProvider = StreamProvider<CachedEntry<List<ScheduleEvent>>>((
 
   try {
     final now = campusNow();
-    final events = await const AdeService().fetch(
-      resourceIds: ids,
-      from: now.subtract(kScheduleLookback),
-      to: now.add(kScheduleLookahead),
-    );
+    final events = await ref
+        .read(adeServiceProvider)
+        .fetch(
+          resourceIds: ids,
+          from: now.subtract(kScheduleLookback),
+          to: now.add(kScheduleLookahead),
+        );
     await cache.write(
       kScheduleModuleId,
       schemaVersion: kScheduleSchemaVersion,

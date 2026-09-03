@@ -52,6 +52,55 @@ void main() {
     }
   });
 
+  test('the top level is departments, not 1433 groups', () async {
+    final all = await AdeGroups.loadBundled();
+    final students = AdeGroups.ofCategory(all, AdeCategory.student);
+    final roots = AdeGroups.childrenOf(students, null);
+    expect(roots.length, 18);
+    expect(roots.map((g) => g.name), contains('INFO'));
+    expect(roots.map((g) => g.name), contains('STPI'));
+  });
+
+  test('drilling INFO reaches S7-INFO, then its groups', () async {
+    final all = await AdeGroups.loadBundled();
+    final students = AdeGroups.ofCategory(all, AdeCategory.student);
+    final info = AdeGroups.childrenOf(
+      students,
+      null,
+    ).firstWhere((g) => g.name == 'INFO');
+
+    final semesters = AdeGroups.childrenOf(students, info.id);
+    expect(semesters.map((g) => g.name), contains('S7-INFO'));
+
+    final s7 = semesters.firstWhere((g) => g.name == 'S7-INFO');
+    expect(s7.id, 1214);
+    final groups = AdeGroups.childrenOf(students, s7.id);
+    expect(groups.map((g) => g.name), contains('S7-INFO-G1'));
+    expect(groups.map((g) => g.name), contains('S7-INFO-OPTION'));
+  });
+
+  test(
+    'a leaf reports no children so the picker offers no drill-down',
+    () async {
+      final all = await AdeGroups.loadBundled();
+      final students = AdeGroups.ofCategory(all, AdeCategory.student);
+      expect(AdeGroups.hasChildren(students, 899), isFalse); // S7-INFO-ROBO
+      expect(AdeGroups.hasChildren(students, 1214), isTrue); // S7-INFO
+    },
+  );
+
+  test('pathTo builds the breadcrumb outermost first', () async {
+    final all = await AdeGroups.loadBundled();
+    final students = AdeGroups.ofCategory(all, AdeCategory.student);
+    final path = AdeGroups.pathTo(students, 136); // S7-INFO-G1-1
+    expect(path.map((g) => g.name).toList(), <String>[
+      'INFO',
+      'S7-INFO',
+      'S7-INFO-G1',
+      'S7-INFO-G1-1',
+    ]);
+  });
+
   test('a v1 payload still parses, so a cached older list keeps working', () {
     final groups = AdeGroups.parseForTest(
       jsonEncode({

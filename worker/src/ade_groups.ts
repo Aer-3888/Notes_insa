@@ -13,6 +13,9 @@ export interface AdeGroup {
   /// the ade-planning web app offers. Teachers need a CAS session, so the
   /// upstream teacher array is empty and is not carried.
   c: string;
+  /// Parent resource id. Absent for a top-level entry such as INFO or STPI.
+  /// The picker nests by this so students narrow down instead of scrolling.
+  p?: number;
 }
 
 export interface AdeGroupsPayload {
@@ -40,6 +43,7 @@ const USER_AGENT =
 interface WrapperResource {
   id: string;
   name: string;
+  parent?: string | null;
 }
 
 /// Fetches the student group list from the wrapper and normalizes it.
@@ -63,7 +67,10 @@ export async function fetchAdeGroups(): Promise<AdeGroupsPayload> {
       const id = Number.parseInt(r.id, 10);
       const name = (r.name ?? "").trim();
       if (Number.isFinite(id) && name.length > 0) {
-        resources.push({ id, name, c: category[0] });
+        const parent = Number.parseInt(r.parent ?? "", 10);
+        const row: AdeGroup = { id, name, c: category[0] };
+        if (Number.isFinite(parent)) row.p = parent;
+        resources.push(row);
       }
     }
   }
@@ -71,11 +78,15 @@ export async function fetchAdeGroups(): Promise<AdeGroupsPayload> {
     throw new Error("ade resources returned nothing usable");
   }
 
+  // A parent outside the retained set is effectively a root.
+  const ids = new Set(resources.map((r) => r.id));
+  for (const r of resources) if (r.p !== undefined && !ids.has(r.p)) delete r.p;
+
   resources.sort(
     (a, b) => a.c.localeCompare(b.c) || a.name.localeCompare(b.name, "fr"),
   );
   return {
-    version: 2,
+    version: 3,
     projectId: 2,
     fetchedAt: new Date().toISOString(),
     resources,

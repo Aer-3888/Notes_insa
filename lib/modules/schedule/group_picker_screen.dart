@@ -6,13 +6,14 @@ import 'ade_groups.dart';
 import 'ade_link.dart';
 import 'schedule_provider.dart';
 
-/// Search over the bundled group list. A tree of 1433 entries is not browsable
-/// on a phone, so this is a search field, not a hierarchy.
+/// Browse ADE resources the way the web app does: drill down by department,
+/// then semester, then group. Typing switches to a flat search across the whole
+/// category, because 1433 rows are unusable as a single list.
 class GroupPickerScreen extends ConsumerStatefulWidget {
   const GroupPickerScreen({super.key});
 
-  /// Matches AdeLink.maxIds so a pasted selection and a hand-picked one have
-  /// the same ceiling. Verified against ADE with a real 20-group request.
+  /// Same ceiling as the ade-planning web app, so a selection that works there
+  /// works here. A cap below this silently truncated real students' groups.
   static const int maxSelection = AdeLink.maxIds;
 
   @override
@@ -21,11 +22,14 @@ class GroupPickerScreen extends ConsumerStatefulWidget {
 
 class _GroupPickerScreenState extends ConsumerState<GroupPickerScreen> {
   final _controller = TextEditingController();
+
   List<AdeGroup> _all = const <AdeGroup>[];
-  List<AdeGroup> _shown = const <AdeGroup>[];
   late Set<int> _selected;
   bool _loading = true;
   AdeCategory _category = AdeCategory.student;
+
+  /// Null at the top level; otherwise the node we have drilled into.
+  int? _parentId;
 
   @override
   void initState() {
@@ -40,23 +44,18 @@ class _GroupPickerScreenState extends ConsumerState<GroupPickerScreen> {
     setState(() {
       _all = groups;
       _loading = false;
-      _applyFilters();
     });
   }
 
-  void _applyFilters() {
-    _shown = AdeGroups.search(
-      AdeGroups.ofCategory(_all, _category),
-      _controller.text,
-    );
-  }
+  List<AdeGroup> get _categoryRows => AdeGroups.ofCategory(_all, _category);
 
-  void _search(String query) => setState(_applyFilters);
+  bool get _searching => _controller.text.trim().isNotEmpty;
 
-  void _selectCategory(AdeCategory category) => setState(() {
-    _category = category;
-    _applyFilters();
-  });
+  /// Search ignores the current position in the tree: someone typing
+  /// "S7-INFO-ROBO" should find it without knowing it lives under INFO.
+  List<AdeGroup> get _rows => _searching
+      ? AdeGroups.search(_categoryRows, _controller.text)
+      : AdeGroups.childrenOf(_categoryRows, _parentId);
 
   void _toggle(AdeGroup g) {
     setState(() {
@@ -68,8 +67,12 @@ class _GroupPickerScreenState extends ConsumerState<GroupPickerScreen> {
     });
   }
 
-  /// Import a selection from a pasted ade-planning or ADE link. Students who
-  /// already curated a group set have it in a URL; retyping it here is worse.
+  void _openCategory(AdeCategory c) => setState(() {
+    _category = c;
+    _parentId = null;
+    _controller.clear();
+  });
+
   Future<void> _importFromLink() async {
     final field = TextEditingController();
     final link = await showDialog<String>(
@@ -119,104 +122,188 @@ class _GroupPickerScreenState extends ConsumerState<GroupPickerScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: AppColors.scaffoldBg,
-      appBar: AppBar(
-        title: const Text('Choisir un groupe'),
-        foregroundColor: Colors.white,
-        flexibleSpace: const DecoratedBox(
-          decoration: BoxDecoration(
-            gradient: LinearGradient(
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
-              colors: AppColors.headerGradient,
-            ),
-          ),
-        ),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.link),
-            tooltip: 'Coller un lien ADE',
-            onPressed: _importFromLink,
-          ),
-          TextButton(
-            onPressed: _selected.isEmpty
-                ? null
-                : () async {
-                    await ref
-                        .read(selectedGroupsProvider.notifier)
-                        .set(_selected.toList());
-                    if (context.mounted) Navigator.of(context).pop();
-                  },
-            child: Text(
-              'OK (${_selected.length})',
-              style: TextStyle(
-                color: _selected.isEmpty ? Colors.white54 : Colors.white,
-                fontWeight: FontWeight.w600,
+    final breadcrumb = _parentId == null
+        ? const <AdeGroup>[]
+        : AdeGroups.pathTo(_categoryRows, _parentId!);
+
+    return PopScope(
+      // Back steps up the tree before it leaves the screen.
+      canPop: _parentId == null,
+      onPopInvokedWithResult: (didPop, _) {
+        if (didPop) return;
+        setState(
+          () => _parentId = breadcrumb.length >= 2
+              ? breadcrumb[breadcrumb.length - 2].id
+              : null,
+        );
+      },
+      child: Scaffold(
+        backgroundColor: AppColors.scaffoldBg,
+        appBar: AppBar(
+          title: const Text('Choisir un groupe'),
+          foregroundColor: Colors.white,
+          flexibleSpace: const DecoratedBox(
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+                colors: AppColors.headerGradient,
               ),
             ),
           ),
-        ],
-      ),
-      body: Column(
-        children: [
-          Padding(
-            padding: const EdgeInsets.all(12),
-            child: TextField(
-              controller: _controller,
-              onChanged: _search,
-              autofocus: true,
-              decoration: InputDecoration(
-                hintText: 'Ex. S3-STPI-L',
-                prefixIcon: const Icon(Icons.search),
-                filled: true,
-                fillColor: Colors.white,
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(12),
-                  borderSide: const BorderSide(color: AppColors.border),
+          actions: [
+            IconButton(
+              icon: const Icon(Icons.link),
+              tooltip: 'Coller un lien ADE',
+              onPressed: _importFromLink,
+            ),
+            TextButton(
+              onPressed: _selected.isEmpty
+                  ? null
+                  : () async {
+                      await ref
+                          .read(selectedGroupsProvider.notifier)
+                          .set(_selected.toList());
+                      if (context.mounted) Navigator.of(context).pop();
+                    },
+              child: Text(
+                'OK (${_selected.length})',
+                style: TextStyle(
+                  color: _selected.isEmpty ? Colors.white54 : Colors.white,
+                  fontWeight: FontWeight.w600,
                 ),
               ),
             ),
-          ),
-          SizedBox(
-            height: 40,
-            child: ListView(
-              scrollDirection: Axis.horizontal,
-              padding: const EdgeInsets.symmetric(horizontal: 12),
-              children: [
-                for (final c in AdeCategory.values)
-                  Padding(
-                    padding: const EdgeInsets.only(right: 8),
-                    child: ChoiceChip(
-                      label: Text(c.label),
-                      selected: _category == c,
-                      onSelected: (_) => _selectCategory(c),
-                    ),
+          ],
+        ),
+        body: Column(
+          children: [
+            Padding(
+              padding: const EdgeInsets.fromLTRB(12, 12, 12, 8),
+              child: TextField(
+                controller: _controller,
+                onChanged: (_) => setState(() {}),
+                decoration: InputDecoration(
+                  hintText: 'Rechercher (ex. S7-INFO-ROBO)',
+                  prefixIcon: const Icon(Icons.search),
+                  suffixIcon: _searching
+                      ? IconButton(
+                          icon: const Icon(Icons.clear),
+                          onPressed: () => setState(_controller.clear),
+                        )
+                      : null,
+                  filled: true,
+                  fillColor: Colors.white,
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                    borderSide: const BorderSide(color: AppColors.border),
                   ),
-              ],
-            ),
-          ),
-          const SizedBox(height: 8),
-          if (_loading)
-            const Expanded(child: Center(child: CircularProgressIndicator()))
-          else
-            Expanded(
-              child: ListView.builder(
-                itemCount: _shown.length,
-                itemBuilder: (context, i) {
-                  final g = _shown[i];
-                  final selected = _selected.contains(g.id);
-                  return CheckboxListTile(
-                    value: selected,
-                    onChanged: (_) => _toggle(g),
-                    title: Text(g.name),
-                    dense: true,
-                  );
-                },
+                ),
               ),
             ),
-        ],
+            SizedBox(
+              height: 38,
+              child: ListView(
+                scrollDirection: Axis.horizontal,
+                padding: const EdgeInsets.symmetric(horizontal: 12),
+                children: [
+                  for (final c in AdeCategory.values)
+                    Padding(
+                      padding: const EdgeInsets.only(right: 8),
+                      child: ChoiceChip(
+                        label: Text(c.label),
+                        selected: _category == c,
+                        onSelected: (_) => _openCategory(c),
+                      ),
+                    ),
+                ],
+              ),
+            ),
+            if (!_searching && breadcrumb.isNotEmpty)
+              _Breadcrumb(
+                path: breadcrumb,
+                onRoot: () => setState(() => _parentId = null),
+                onTap: (g) => setState(() => _parentId = g.id),
+              ),
+            const SizedBox(height: 4),
+            if (_loading)
+              const Expanded(child: Center(child: CircularProgressIndicator()))
+            else
+              Expanded(child: _buildList()),
+          ],
+        ),
       ),
     );
   }
+
+  Widget _buildList() {
+    final rows = _rows;
+    if (rows.isEmpty) {
+      return const Center(
+        child: Padding(
+          padding: EdgeInsets.all(24),
+          child: Text(
+            'Aucun résultat.',
+            style: TextStyle(color: AppColors.textSecondary),
+          ),
+        ),
+      );
+    }
+    return ListView.builder(
+      itemCount: rows.length,
+      itemBuilder: (context, i) {
+        final g = rows[i];
+        final selected = _selected.contains(g.id);
+        final expandable =
+            !_searching && AdeGroups.hasChildren(_categoryRows, g.id);
+        return ListTile(
+          dense: true,
+          leading: Checkbox(value: selected, onChanged: (_) => _toggle(g)),
+          title: Text(g.name),
+          // A parent is selectable in its own right: picking S7-INFO gives the
+          // whole promotion's timetable, which is what many students want.
+          subtitle: expandable
+              ? const Text(
+                  'Contient des sous-groupes',
+                  style: TextStyle(fontSize: 11),
+                )
+              : null,
+          trailing: expandable
+              ? const Icon(Icons.chevron_right, color: AppColors.textMuted)
+              : null,
+          onTap: expandable
+              ? () => setState(() => _parentId = g.id)
+              : () => _toggle(g),
+        );
+      },
+    );
+  }
+}
+
+class _Breadcrumb extends StatelessWidget {
+  const _Breadcrumb({
+    required this.path,
+    required this.onRoot,
+    required this.onTap,
+  });
+
+  final List<AdeGroup> path;
+  final VoidCallback onRoot;
+  final ValueChanged<AdeGroup> onTap;
+
+  @override
+  Widget build(BuildContext context) => SizedBox(
+    height: 34,
+    child: ListView(
+      scrollDirection: Axis.horizontal,
+      padding: const EdgeInsets.symmetric(horizontal: 12),
+      children: [
+        TextButton(onPressed: onRoot, child: const Text('Tout')),
+        for (final g in path) ...[
+          const Icon(Icons.chevron_right, size: 16, color: AppColors.textMuted),
+          TextButton(onPressed: () => onTap(g), child: Text(g.name)),
+        ],
+      ],
+    ),
+  );
 }
