@@ -12,6 +12,15 @@ database_id = "D1_DATABASE_ID"
 binding = "RATE_LIMIT"
 id = "KV_NAMESPACE_ID"
 
+# Stores the ADE group list refreshed by the daily cron. Kept separate from
+# RATE_LIMIT so the binding name does not lie about its contents.
+[[kv_namespaces]]
+binding = "ADE_CACHE"
+id = "ADE_KV_NAMESPACE_ID"
+
+[triggers]
+crons = ["17 4 * * *"]
+
 [vars]
 # APP_SECRET = "SET_THIS_VIA_DASHBOARD"
 # IP_SALT = "SET_THIS_VIA_DASHBOARD"

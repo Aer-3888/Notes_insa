@@ -1,6 +1,13 @@
+import {
+  ADE_GROUPS_KEY,
+  readAdeGroups,
+  refreshAdeGroups,
+} from "./ade_groups";
+
 export interface Env {
   DB: D1Database;
   RATE_LIMIT: KVNamespace;
+  ADE_CACHE: KVNamespace;
   APP_SECRET: string;
   IP_SALT: string;
   USER_HASH_SALT: string;
@@ -498,6 +505,35 @@ export default {
       return handlePostCoefficients(request, env);
     }
 
+    if (url.pathname === "/ade/groups" && request.method === "GET") {
+      return handleAdeGroups(env);
+    }
+
     return error("Not found", 404);
   },
+
+  // Refreshes the ADE group list once a day. The app ships a bundled copy, so a
+  // failed run degrades to a slightly stale list rather than an outage.
+  async scheduled(_event: ScheduledEvent, env: Env, ctx: ExecutionContext) {
+    ctx.waitUntil(
+      refreshAdeGroups(env.ADE_CACHE).catch(() => {
+        // Leave the previous list in place; it is deliberately long-lived.
+      }),
+    );
+  },
 };
+
+async function handleAdeGroups(env: Env): Promise<Response> {
+  const payload = await readAdeGroups(env.ADE_CACHE);
+  if (payload === null) {
+    return error("Group list unavailable", 503);
+  }
+  return new Response(JSON.stringify(payload), {
+    headers: {
+      ...CORS_HEADERS,
+      "Content-Type": "application/json",
+      // The list moves about twice a year; let clients hold it for a day.
+      "Cache-Control": "public, max-age=86400",
+    },
+  });
+}
