@@ -10,8 +10,8 @@ import 'grades_provider.dart';
 import '../../providers/settings_provider.dart';
 import '../../providers/averages_provider.dart';
 import '../../providers/coefficients_provider.dart';
-import 'app_drawer.dart';
 import '../../components/dashboard_header.dart';
+import '../../shell/app_settings_screen.dart';
 import '../../components/unit_card_grid.dart';
 import '../../services/averages_service.dart';
 import '../../services/notification_service.dart';
@@ -308,7 +308,6 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen>
     return AnnotatedRegion<SystemUiOverlayStyle>(
       value: SystemUiOverlayStyle.dark,
       child: Scaffold(
-        drawer: const AppDrawer(selected: DrawerItem.notes),
         body: SafeArea(
           child: Stack(
             children: [
@@ -321,7 +320,11 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen>
                       provisional: ref.watch(
                         semesterAverageProvisionalProvider,
                       ),
-                      onMenuPressed: () => Scaffold.of(context).openDrawer(),
+                      onSettingsPressed: () => Navigator.of(context).push(
+                        MaterialPageRoute<void>(
+                          builder: (_) => const AppSettingsScreen(),
+                        ),
+                      ),
                       lastUpdated: lastUpdated,
                       selectedSemester: effectiveSemester ?? 0,
                       availableSemesters: ref.watch(availableSemestersProvider),

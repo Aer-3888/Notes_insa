@@ -3,7 +3,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:permission_handler/permission_handler.dart';
 import '../../app_colors.dart';
-import 'app_drawer.dart';
 import '../../providers/settings_provider.dart';
 import 'grades_provider.dart';
 import '../../services/averages_service.dart';
@@ -22,11 +21,9 @@ class GradesSettingsScreen extends ConsumerWidget {
     final availableIntervals = ref.watch(availableIntervalsProvider);
 
     return Scaffold(
-      drawer: const AppDrawer(selected: DrawerItem.settings),
       appBar: AppBar(
         toolbarHeight: 84,
         elevation: 4,
-        automaticallyImplyLeading: false,
         shape: const RoundedRectangleBorder(
           borderRadius: BorderRadius.vertical(bottom: Radius.circular(20)),
         ),
@@ -40,16 +37,6 @@ class GradesSettingsScreen extends ConsumerWidget {
           ),
         ),
         backgroundColor: Colors.transparent,
-        leading: Builder(
-          builder: (context) => Padding(
-            padding: const EdgeInsets.only(left: 6.0),
-            child: IconButton(
-              icon: const Icon(Icons.menu, color: Colors.white),
-              onPressed: () => Scaffold.of(context).openDrawer(),
-              tooltip: MaterialLocalizations.of(context).openAppDrawerTooltip,
-            ),
-          ),
-        ),
         title: const Text(
           'Paramètres',
           style: TextStyle(

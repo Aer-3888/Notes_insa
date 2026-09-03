@@ -4,7 +4,6 @@ import '../app_colors.dart';
 import '../models.dart';
 import '../data.dart';
 import '../providers/dashboard_providers.dart';
-import '../modules/grades/app_drawer.dart';
 
 class ConfigScreen extends ConsumerWidget {
   const ConfigScreen({super.key});
@@ -33,11 +32,9 @@ class ConfigScreen extends ConsumerWidget {
     const childAspectRatio = 4 / 3;
 
     return Scaffold(
-      drawer: const AppDrawer(selected: DrawerItem.config),
       appBar: AppBar(
         toolbarHeight: 84,
         elevation: 4,
-        automaticallyImplyLeading: false,
         shape: const RoundedRectangleBorder(
           borderRadius: BorderRadius.vertical(bottom: Radius.circular(20)),
         ),
@@ -51,16 +48,6 @@ class ConfigScreen extends ConsumerWidget {
           ),
         ),
         backgroundColor: Colors.transparent,
-        leading: Builder(
-          builder: (context) => Padding(
-            padding: const EdgeInsets.only(left: 6.0),
-            child: IconButton(
-              icon: const Icon(Icons.menu, color: Colors.white),
-              onPressed: () => Scaffold.of(context).openDrawer(),
-              tooltip: MaterialLocalizations.of(context).openAppDrawerTooltip,
-            ),
-          ),
-        ),
         title: Row(
           children: [
             const Expanded(

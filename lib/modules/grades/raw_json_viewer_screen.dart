@@ -4,7 +4,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../app_colors.dart';
 import 'dart:convert';
 import 'grades_provider.dart';
-import 'app_drawer.dart';
 
 // Syntax highlight colors (dark terminal palette)
 const _colorKey = Color(0xFF82AAFF); // blue — JSON keys
@@ -124,11 +123,9 @@ class RawJsonViewerScreen extends ConsumerWidget {
     final isEmpty = jsonString == '{}' || jsonString.isEmpty;
 
     return Scaffold(
-      drawer: const AppDrawer(selected: DrawerItem.rawJson),
       appBar: AppBar(
         toolbarHeight: 84,
         elevation: 4,
-        automaticallyImplyLeading: false,
         shape: const RoundedRectangleBorder(
           borderRadius: BorderRadius.vertical(bottom: Radius.circular(20)),
         ),
@@ -142,15 +139,6 @@ class RawJsonViewerScreen extends ConsumerWidget {
           ),
         ),
         backgroundColor: Colors.transparent,
-        leading: Builder(
-          builder: (context) => Padding(
-            padding: const EdgeInsets.only(left: 6),
-            child: IconButton(
-              icon: const Icon(Icons.menu, color: Colors.white),
-              onPressed: () => Scaffold.of(context).openDrawer(),
-            ),
-          ),
-        ),
         title: const Text(
           'JSON Brut',
           style: TextStyle(
