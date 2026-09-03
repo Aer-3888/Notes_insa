@@ -4,15 +4,12 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:http/http.dart' as http;
 
 import '../../core/module_cache.dart';
+import '../../core/module_cache_provider.dart';
 import 'weather_model.dart';
 import 'weather_service.dart';
 
 const String kWeatherModuleId = 'meteo';
 const int kWeatherSchemaVersion = 1;
-
-final moduleCacheProvider = FutureProvider<ModuleCache>(
-  (ref) => ModuleCache.open(),
-);
 
 /// Cache-first weather. Emits the cached snapshot immediately so the screen
 /// paints without waiting on the network, then the refreshed one.

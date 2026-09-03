@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import 'grades/dashboard_screen.dart';
 import 'grades/two_factor_screen.dart';
+import 'schedule/schedule_screen.dart';
 import 'weather/weather_screen.dart';
 
 /// One entry in the campus hub. Sealed so the hub's switch is exhaustive and a
@@ -51,7 +52,7 @@ const List<CampusModule> kCampusModules = <CampusModule>[
     id: 'edt',
     label: 'Emploi du temps',
     icon: Icons.calendar_month_outlined,
-    builder: _notYetBuilt,
+    builder: _schedule,
   ),
   ReadyModule(
     id: 'notes',
@@ -86,8 +87,7 @@ const List<CampusModule> kCampusModules = <CampusModule>[
   ),
 ];
 
-Widget _notYetBuilt(BuildContext context) =>
-    const Scaffold(body: Center(child: Text('En cours de construction')));
+Widget _schedule(BuildContext context) => const ScheduleScreen();
 
 Widget _weather(BuildContext context) => const WeatherScreen();
 

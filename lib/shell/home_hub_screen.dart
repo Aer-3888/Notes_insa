@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../app_colors.dart';
 import '../modules/registry.dart';
+import '../modules/schedule/next_course_card.dart';
 import '../modules/weather/weather_screen.dart';
 import 'app_settings_screen.dart';
 import 'module_card.dart';
@@ -41,6 +42,7 @@ class HomeHubScreen extends ConsumerWidget {
       body: Column(
         children: [
           const SizedBox(height: 8),
+          const NextCourseCard(),
           const WeatherStrip(),
           Expanded(
             child: GridView.count(
