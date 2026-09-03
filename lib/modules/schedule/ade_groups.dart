@@ -1,21 +1,52 @@
 import 'dart:convert';
 
+import 'package:flutter/foundation.dart' show visibleForTesting;
 import 'package:flutter/services.dart' show rootBundle;
 import 'package:http/http.dart' as http;
 
 import '../../constants.dart';
 
-/// A selectable ADE resource (a student group).
+/// What kind of ADE resource a row is. The web app offers the same tabs; its
+/// teacher list is empty without a CAS session, so it is not carried here.
+enum AdeCategory {
+  student('s', 'Groupes'),
+  room('r', 'Salles'),
+  module('m', 'Matières');
+
+  const AdeCategory(this.code, this.label);
+
+  final String code;
+  final String label;
+
+  static AdeCategory fromCode(String? code) => values.firstWhere(
+    (c) => c.code == code,
+    orElse: () => AdeCategory.student,
+  );
+}
+
+/// A selectable ADE resource.
 class AdeGroup {
-  const AdeGroup({required this.id, required this.name});
+  const AdeGroup({
+    required this.id,
+    required this.name,
+    this.category = AdeCategory.student,
+  });
 
   final int id;
   final String name;
+  final AdeCategory category;
 
-  Map<String, dynamic> toJson() => <String, dynamic>{'id': id, 'name': name};
+  Map<String, dynamic> toJson() => <String, dynamic>{
+    'id': id,
+    'name': name,
+    'c': category.code,
+  };
 
-  factory AdeGroup.fromJson(Map<String, dynamic> json) =>
-      AdeGroup(id: json['id'] as int, name: json['name'] as String);
+  factory AdeGroup.fromJson(Map<String, dynamic> json) => AdeGroup(
+    id: json['id'] as int,
+    name: json['name'] as String,
+    category: AdeCategory.fromCode(json['c'] as String?),
+  );
 }
 
 /// Loads the ADE group list.
@@ -64,15 +95,25 @@ class AdeGroups {
     }
   }
 
+  @visibleForTesting
+  static List<AdeGroup> parseForTest(String source) => _parse(source);
+
   static List<AdeGroup> _parse(String source) {
     final raw = jsonDecode(source) as Map<String, dynamic>;
+    // v1 shipped student groups under "groups"; v2 carries every category
+    // under "resources". Both are accepted so a cached v1 payload still loads.
+    final rows = (raw['resources'] ?? raw['groups']) as List<dynamic>?;
+    if (rows == null) throw const FormatException('no resource list');
     final groups = <AdeGroup>[
-      for (final g in raw['groups'] as List<dynamic>)
-        AdeGroup.fromJson(g as Map<String, dynamic>),
+      for (final g in rows) AdeGroup.fromJson(g as Map<String, dynamic>),
     ];
-    if (groups.isEmpty) throw const FormatException('empty group list');
+    if (groups.isEmpty) throw const FormatException('empty resource list');
     return groups;
   }
+
+  /// Rows of one category, for the picker's tabs.
+  static List<AdeGroup> ofCategory(List<AdeGroup> all, AdeCategory category) =>
+      all.where((g) => g.category == category).toList();
 
   /// Case- and accent-insensitive contains search over group names.
   static List<AdeGroup> search(List<AdeGroup> groups, String query) {

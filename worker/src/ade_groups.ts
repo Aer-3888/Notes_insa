@@ -9,13 +9,17 @@
 export interface AdeGroup {
   id: number;
   name: string;
+  /// Category code: s = student group, r = room, m = module. Mirrors the tabs
+  /// the ade-planning web app offers. Teachers need a CAS session, so the
+  /// upstream teacher array is empty and is not carried.
+  c: string;
 }
 
 export interface AdeGroupsPayload {
   version: number;
   projectId: number;
   fetchedAt: string;
-  groups: AdeGroup[];
+  resources: AdeGroup[];
 }
 
 export const ADE_GROUPS_KEY = "ade:groups";
@@ -53,21 +57,28 @@ export async function fetchAdeGroups(): Promise<AdeGroupsPayload> {
   }
 
   const raw = (await response.json()) as Record<string, WrapperResource[]>;
-  const students = raw.student ?? [];
-  const groups: AdeGroup[] = [];
-  for (const r of students) {
-    const id = Number.parseInt(r.id, 10);
-    const name = (r.name ?? "").trim();
-    if (Number.isFinite(id) && name.length > 0) groups.push({ id, name });
+  const resources: AdeGroup[] = [];
+  for (const category of ["student", "room", "module"] as const) {
+    for (const r of raw[category] ?? []) {
+      const id = Number.parseInt(r.id, 10);
+      const name = (r.name ?? "").trim();
+      if (Number.isFinite(id) && name.length > 0) {
+        resources.push({ id, name, c: category[0] });
+      }
+    }
   }
-  if (groups.length === 0) throw new Error("ade resources returned no groups");
+  if (resources.length === 0) {
+    throw new Error("ade resources returned nothing usable");
+  }
 
-  groups.sort((a, b) => a.name.localeCompare(b.name, "fr"));
+  resources.sort(
+    (a, b) => a.c.localeCompare(b.c) || a.name.localeCompare(b.name, "fr"),
+  );
   return {
-    version: 1,
+    version: 2,
     projectId: 2,
     fetchedAt: new Date().toISOString(),
-    groups,
+    resources,
   };
 }
 
@@ -77,7 +88,7 @@ export async function refreshAdeGroups(kv: KVNamespace): Promise<number> {
   await kv.put(ADE_GROUPS_KEY, JSON.stringify(payload), {
     expirationTtl: HARD_TTL_SECONDS,
   });
-  return payload.groups.length;
+  return payload.resources.length;
 }
 
 /// Reads the stored list, refreshing on a cold cache.
