@@ -2,23 +2,13 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../app_colors.dart';
+import '../../core/freshness.dart' as freshness;
 import '../../core/module_cache.dart';
 import 'weather_model.dart';
 import 'weather_provider.dart';
 
-String freshnessLabel(CachedEntry<WeatherSnapshot> entry) {
-  final at = entry.cachedAt;
-  final stamp = at == null
-      ? ''
-      : ' (${at.day}/${at.month} ${at.hour.toString().padLeft(2, '0')}:'
-            '${at.minute.toString().padLeft(2, '0')})';
-  return switch (entry.refreshState) {
-    RefreshState.fresh => 'À jour',
-    RefreshState.refreshing => 'Actualisation...',
-    RefreshState.failedOffline => 'Hors ligne$stamp',
-    RefreshState.failedUpstream => 'Service indisponible$stamp',
-  };
-}
+String freshnessLabel(CachedEntry<WeatherSnapshot> entry) =>
+    freshness.freshnessLabel(entry.refreshState, entry.cachedAt);
 
 /// One-line summary for the hub. Renders a fixed-height box while the cache
 /// resolves so the grid below it does not jump.

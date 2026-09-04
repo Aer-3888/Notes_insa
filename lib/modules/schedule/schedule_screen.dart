@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../app_colors.dart';
+import '../../core/freshness.dart' as freshness;
 import '../../core/module_cache.dart';
 import '../../core/time.dart';
 import 'group_picker_screen.dart';
@@ -39,16 +40,8 @@ String _dayLabel(DateTime d) =>
 String _hm(DateTime d) =>
     '${d.hour.toString().padLeft(2, '0')}:${d.minute.toString().padLeft(2, '0')}';
 
-String scheduleFreshnessLabel(CachedEntry<List<ScheduleEvent>> entry) {
-  final at = entry.cachedAt;
-  final stamp = at == null ? '' : ' (${at.day}/${at.month} ${_hm(at)})';
-  return switch (entry.refreshState) {
-    RefreshState.fresh => 'À jour',
-    RefreshState.refreshing => 'Actualisation...',
-    RefreshState.failedOffline => 'Hors ligne$stamp',
-    RefreshState.failedUpstream => 'Service indisponible$stamp',
-  };
-}
+String scheduleFreshnessLabel(CachedEntry<List<ScheduleEvent>> entry) =>
+    freshness.freshnessLabel(entry.refreshState, entry.cachedAt);
 
 /// Day view with a week strip. A seven-column grid of small text does not
 /// survive contact with a phone, so days are swiped instead.
