@@ -266,7 +266,7 @@ ThemeData campusTheme(Brightness brightness) {
       contentTextStyle: textTheme.bodyMedium!.copyWith(color: c.surface),
       behavior: SnackBarBehavior.floating,
       shape: controlShape,
-      actionTextColor: c.now,
+      actionTextColor: c.surface,
       elevation: 3,
     ),
     dividerTheme: DividerThemeData(
