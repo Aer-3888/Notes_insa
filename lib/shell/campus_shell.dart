@@ -11,12 +11,10 @@ import '../core/auth/splash_screens.dart';
 import '../main.dart' show rootNavigatorKey;
 import '../modules/grades/grades_provider.dart';
 import '../modules/grades/two_factor_screen.dart';
-import '../app_colors.dart';
 import '../modules/registry.dart';
 import '../providers/auth_providers.dart';
 import '../services/notification_service.dart';
 import '../services/worker_sync_service.dart';
-import 'app_settings_screen.dart';
 import 'home_hub_screen.dart';
 
 /// Root of the app. Opens on the campus hub with no account; only modules that
@@ -34,9 +32,9 @@ class _CampusShellState extends ConsumerState<CampusShell>
   PendingDeepLinkController? _deepLinks;
   LockController? _lock;
 
-  /// Accueil sits in the middle of five destinations, so it is index 2.
-  static const int _homeIndex = 2;
-  static const int _notesIndex = 3;
+  /// Aujourd'hui is the first destination so system back always lands on it.
+  static const int _homeIndex = 0;
+  static const int _notesIndex = 2;
 
   int _index = _homeIndex;
 
@@ -49,25 +47,18 @@ class _CampusShellState extends ConsumerState<CampusShell>
   // deep-link routes posted by MainActivity (see EXTRA_NOTIF_ROUTE there).
   static const _routeChannel = MethodChannel('com.aer.notes_insa/grades');
 
-  /// The five bottom destinations, in bar order. Labels and icons come from the
+  /// The four bottom destinations, in bar order. Labels and icons come from the
   /// registry where a module owns them, so the bar and the hub cannot disagree.
-  ///
-  /// Accueil and Paramètres are shell surfaces rather than modules, so they are
-  /// named here.
+  /// Aujourd'hui is a shell surface and names itself.
   static final List<_Destination> _destinations = <_Destination>[
-    _Destination.module('carte'),
+    const _Destination(
+      icon: Icons.today_outlined,
+      selectedIcon: Icons.today,
+      label: 'Aujourd’hui',
+    ),
     _Destination.module('edt'),
-    const _Destination(
-      icon: Icons.home_outlined,
-      selectedIcon: Icons.home,
-      label: 'Accueil',
-    ),
     _Destination.module('notes'),
-    const _Destination(
-      icon: Icons.tune_outlined,
-      selectedIcon: Icons.tune,
-      label: 'Paramètres',
-    ),
+    _Destination.module('carte'),
   ];
 
   @override
@@ -192,7 +183,6 @@ class _CampusShellState extends ConsumerState<CampusShell>
   Widget _bodyFor(int index) {
     if (!_visited.contains(index)) return const SizedBox.shrink();
     if (index == _homeIndex) return const HomeHubScreen();
-    if (index == _destinations.length - 1) return const AppSettingsScreen();
 
     final module = _destinations[index].module;
     return switch (module) {
@@ -200,7 +190,6 @@ class _CampusShellState extends ConsumerState<CampusShell>
         requiresCas
             ? CasGuard(child: Builder(builder: builder))
             : Builder(builder: builder),
-      ComingSoonModule() => _ComingSoon(module: module),
       null => const SizedBox.shrink(),
     };
   }
@@ -250,8 +239,7 @@ class _CampusShellState extends ConsumerState<CampusShell>
 }
 
 /// One bottom-bar destination. A module-backed one takes its icon and label
-/// from the registry; Accueil and Paramètres are shell surfaces and name
-/// themselves.
+/// from the registry; Aujourd'hui is a shell surface and names itself.
 class _Destination {
   const _Destination({
     required this.icon,
@@ -269,51 +257,4 @@ class _Destination {
   final IconData? selectedIcon;
   final String label;
   final CampusModule? module;
-}
-
-/// A module that is in the bar but not built yet. It is a destination rather
-/// than a hidden entry so the app says plainly what is coming.
-class _ComingSoon extends StatelessWidget {
-  const _ComingSoon({required this.module});
-
-  final ComingSoonModule module;
-
-  @override
-  Widget build(BuildContext context) => Scaffold(
-    appBar: AppBar(
-      title: Text(module.label),
-      foregroundColor: Colors.white,
-      flexibleSpace: const DecoratedBox(
-        decoration: BoxDecoration(
-          gradient: LinearGradient(
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-            colors: AppColors.headerGradient,
-          ),
-        ),
-      ),
-    ),
-    body: Center(
-      child: Padding(
-        padding: const EdgeInsets.all(32),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(module.icon, size: 56, color: AppColors.textMuted),
-            const SizedBox(height: 16),
-            Text(
-              module.teaser,
-              textAlign: TextAlign.center,
-              style: const TextStyle(color: AppColors.textSecondary),
-            ),
-            const SizedBox(height: 8),
-            const Text(
-              'Bientôt disponible',
-              style: TextStyle(fontSize: 12, color: AppColors.textMuted),
-            ),
-          ],
-        ),
-      ),
-    ),
-  );
 }

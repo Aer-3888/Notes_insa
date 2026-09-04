@@ -14,28 +14,27 @@ void main() {
     await tester.pump();
   }
 
-  testWidgets('the bar has five destinations in the agreed order', (
-    tester,
-  ) async {
+  testWidgets('the bar has four destinations, home first', (tester) async {
     await pumpShell(tester);
     final bar = tester.widget<NavigationBar>(find.byType(NavigationBar));
-    expect(bar.destinations.length, 5);
     final labels = bar.destinations
         .cast<NavigationDestination>()
         .map((d) => d.label)
         .toList();
     expect(labels, <String>[
-      'Carte du campus',
+      'Aujourd’hui',
       'Emploi du temps',
-      'Accueil',
       'Notes',
-      'Paramètres',
+      'Carte',
     ]);
+    expect(bar.selectedIndex, 0);
   });
 
-  testWidgets('Accueil is selected on launch, in the middle', (tester) async {
+  testWidgets('settings is not a destination but is reachable from home', (
+    tester,
+  ) async {
     await pumpShell(tester);
-    final bar = tester.widget<NavigationBar>(find.byType(NavigationBar));
-    expect(bar.selectedIndex, 2);
+    expect(find.text('Paramètres'), findsNothing);
+    expect(find.byTooltip('Paramètres'), findsOneWidget);
   });
 }

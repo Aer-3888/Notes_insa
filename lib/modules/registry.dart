@@ -1,12 +1,13 @@
 import 'package:flutter/material.dart';
 
+import 'campus_map/map_screen.dart';
 import 'grades/dashboard_screen.dart';
 import 'grades/two_factor_screen.dart';
 import 'schedule/schedule_screen.dart';
 import 'weather/weather_screen.dart';
 
 /// One entry in the campus hub. Sealed so the hub's switch is exhaustive and a
-/// new state cannot be added without every call site being updated.
+/// new kind cannot be added without every call site being updated.
 sealed class CampusModule {
   const CampusModule({
     required this.id,
@@ -19,7 +20,8 @@ sealed class CampusModule {
   final IconData icon;
 }
 
-/// A module with an implementation behind it.
+/// A module with an implementation behind it. Every module in the registry is
+/// one of these: unbuilt modules do not appear in the UI.
 final class ReadyModule extends CampusModule {
   const ReadyModule({
     required super.id,
@@ -33,18 +35,6 @@ final class ReadyModule extends CampusModule {
 
   /// True when opening this module requires INSA credentials and the lock.
   final bool requiresCas;
-}
-
-/// A module announced in the hub but not yet built.
-final class ComingSoonModule extends CampusModule {
-  const ComingSoonModule({
-    required super.id,
-    required super.label,
-    required super.icon,
-    required this.teaser,
-  });
-
-  final String teaser;
 }
 
 const List<CampusModule> kCampusModules = <CampusModule>[
@@ -67,29 +57,19 @@ const List<CampusModule> kCampusModules = <CampusModule>[
     icon: Icons.wb_sunny_outlined,
     builder: _weather,
   ),
-  ComingSoonModule(
+  ReadyModule(
     id: 'carte',
-    label: 'Carte du campus',
+    label: 'Carte',
     icon: Icons.map_outlined,
-    teaser: 'Bâtiments, amphis et salles du campus de Beaulieu.',
-  ),
-  ComingSoonModule(
-    id: 'assos',
-    label: 'Événements et assos',
-    icon: Icons.celebration_outlined,
-    teaser: 'Les événements du campus, publiés par les assos.',
-  ),
-  ComingSoonModule(
-    id: 'laverie',
-    label: 'Laverie',
-    icon: Icons.local_laundry_service_outlined,
-    teaser: 'Machines libres en résidence, en temps réel.',
+    builder: _map,
   ),
 ];
 
 Widget _schedule(BuildContext context) => const ScheduleScreen();
 
 Widget _weather(BuildContext context) => const WeatherScreen();
+
+Widget _map(BuildContext context) => const MapScreen();
 
 Widget _gradesDashboard(BuildContext context) => DashboardScreen(
   onReauthRequired: () => Navigator.of(

@@ -29,26 +29,30 @@ void main() {
     }
   });
 
-  testWidgets('coming-soon modules render their teaser and are not tappable', (
+  testWidgets('every module card is tappable and nothing is greyed out', (
     tester,
   ) async {
     await pumpHub(tester);
-    final placeholders = kCampusModules.whereType<ComingSoonModule>();
-    expect(placeholders, isNotEmpty);
-    for (final module in placeholders) {
-      expect(find.text(module.teaser), findsOneWidget);
-    }
     final cards = tester.widgetList<ModuleCard>(find.byType(ModuleCard));
+    expect(cards, isNotEmpty);
     for (final card in cards) {
-      if (card.module is ComingSoonModule) {
-        expect(card.onTap, isNull);
-      }
+      expect(
+        card.onTap,
+        isNotNull,
+        reason: '${card.module.id} is not tappable',
+      );
     }
+    expect(
+      find.byWidgetPredicate((w) => w is Opacity && w.opacity < 1),
+      findsNothing,
+    );
+    expect(find.textContaining('Bientôt'), findsNothing);
   });
 
   testWidgets('the hub renders without any credentials', (tester) async {
     await pumpHub(tester);
     expect(tester.takeException(), isNull);
     expect(find.text('Emploi du temps'), findsWidgets);
+    expect(find.text('Aujourd’hui'), findsOneWidget);
   });
 }
