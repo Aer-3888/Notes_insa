@@ -3,13 +3,15 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../app_colors.dart';
 import '../modules/grades/grades_provider.dart';
 import '../modules/grades/grades_settings_screen.dart';
 import '../modules/grades/raw_json_viewer_screen.dart';
 import '../modules/schedule/group_picker_screen.dart';
 import '../providers/auth_providers.dart';
 import '../providers/package_info_provider.dart';
+import '../providers/theme_mode_provider.dart';
+import '../theme/campus_context.dart';
+import '../theme/tokens.dart';
 
 /// The app's single settings screen.
 ///
@@ -23,127 +25,87 @@ class AppSettingsScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final hasCreds = ref.watch(hasCredentialsProvider).value ?? false;
+    final mode = ref.watch(themeModeProvider);
 
     return Scaffold(
-      backgroundColor: AppColors.scaffoldBg,
-      appBar: AppBar(
-        title: const Text('Paramètres'),
-        foregroundColor: Colors.white,
-        flexibleSpace: const DecoratedBox(
-          decoration: BoxDecoration(
-            gradient: LinearGradient(
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
-              colors: AppColors.headerGradient,
+      appBar: AppBar(title: const Text('Paramètres')),
+      body: ListView(
+        padding: const EdgeInsets.only(bottom: CampusSpacing.x8),
+        children: [
+          const _SectionHeader('Emploi du temps'),
+          ListTile(
+            leading: const Icon(Icons.group_outlined),
+            title: const Text('Mes groupes'),
+            subtitle: const Text('Choisir les groupes affichés'),
+            trailing: const Icon(Icons.chevron_right),
+            onTap: () => Navigator.of(context).push(
+              MaterialPageRoute<void>(
+                builder: (_) => const GroupPickerScreen(),
+              ),
             ),
           ),
-        ),
-      ),
-      body: ListView(
-        padding: const EdgeInsets.all(16),
-        children: [
-          const _SectionTitle('Emploi du temps'),
-          _Card(
-            children: [
-              ListTile(
-                leading: const Icon(
-                  Icons.group_outlined,
-                  color: AppColors.primary,
-                ),
-                title: const Text('Mes groupes'),
-                subtitle: const Text('Choisir les groupes affichés'),
-                trailing: const Icon(Icons.chevron_right),
-                onTap: () => Navigator.of(context).push(
-                  MaterialPageRoute<void>(
-                    builder: (_) => const GroupPickerScreen(),
-                  ),
-                ),
+
+          const _SectionHeader('Apparence'),
+          Padding(
+            padding: const EdgeInsets.symmetric(
+              horizontal: CampusSpacing.gutter,
+              vertical: CampusSpacing.x2,
+            ),
+            child: SegmentedButton<ThemeMode>(
+              segments: const <ButtonSegment<ThemeMode>>[
+                ButtonSegment(value: ThemeMode.system, label: Text('Système')),
+                ButtonSegment(value: ThemeMode.light, label: Text('Clair')),
+                ButtonSegment(value: ThemeMode.dark, label: Text('Sombre')),
+              ],
+              selected: <ThemeMode>{mode},
+              showSelectedIcon: false,
+              onSelectionChanged: (selection) => unawaited(
+                ref.read(themeModeProvider.notifier).set(selection.first),
               ),
-            ],
+            ),
           ),
-          const SizedBox(height: 20),
 
           if (hasCreds) ...[
-            const _SectionTitle('Notes'),
-            _Card(
-              children: [
-                ListTile(
-                  leading: const Icon(
-                    Icons.sync_outlined,
-                    color: AppColors.primary,
-                  ),
-                  title: const Text('Synchronisation et partage'),
-                  subtitle: const Text(
-                    'Rafraîchissement en arrière-plan, notifications, partage',
-                  ),
-                  trailing: const Icon(Icons.chevron_right),
-                  onTap: () => Navigator.of(context).push(
-                    MaterialPageRoute<void>(
-                      builder: (_) => const GradesSettingsScreen(),
-                    ),
-                  ),
+            const _SectionHeader('Notes'),
+            ListTile(
+              leading: const Icon(Icons.sync_outlined),
+              title: const Text('Synchronisation et partage'),
+              subtitle: const Text(
+                'Rafraîchissement en arrière-plan, notifications, partage',
+              ),
+              trailing: const Icon(Icons.chevron_right),
+              onTap: () => Navigator.of(context).push(
+                MaterialPageRoute<void>(
+                  builder: (_) => const GradesSettingsScreen(),
                 ),
-                const Divider(height: 1),
-                ListTile(
-                  leading: const Icon(
-                    Icons.data_object_outlined,
-                    color: AppColors.primary,
-                  ),
-                  title: const Text('JSON brut'),
-                  trailing: const Icon(Icons.chevron_right),
-                  onTap: () => Navigator.of(context).push(
-                    MaterialPageRoute<void>(
-                      builder: (_) => const RawJsonViewerScreen(),
-                    ),
-                  ),
-                ),
-                const Divider(height: 1),
-                ListTile(
-                  leading: Icon(Icons.logout, color: Colors.red.shade400),
-                  title: Text(
-                    'Déconnexion',
-                    style: TextStyle(color: Colors.red.shade400),
-                  ),
-                  onTap: () => _confirmLogout(context, ref),
-                ),
-              ],
+              ),
             ),
-            const SizedBox(height: 20),
+            const _SectionHeader('Compte'),
+            ListTile(
+              leading: Icon(Icons.logout, color: context.scheme.error),
+              title: Text(
+                'Se déconnecter',
+                style: context.text.bodyLarge?.copyWith(
+                  color: context.scheme.error,
+                ),
+              ),
+              onTap: () => _confirmLogout(context, ref),
+            ),
           ],
 
-          const _SectionTitle('À propos'),
-          _Card(
-            children: [
-              ListTile(
-                leading: const Icon(
-                  Icons.info_outline,
-                  color: AppColors.primary,
-                ),
-                title: const Text('Version'),
-                subtitle: ref
-                    .watch(packageInfoProvider)
-                    .when(
-                      data: (info) =>
-                          Text('${info.version}+${info.buildNumber}'),
-                      loading: () => const Text('...'),
-                      error: (_, _) => const Text('inconnue'),
-                    ),
-              ),
-              const Divider(height: 1),
-              const ListTile(
-                leading: Icon(Icons.schedule, color: AppColors.primary),
-                title: Text('Source des horaires'),
-                subtitle: Text(
-                  'Les horaires proviennent du service ADE de l’INSA Rennes.',
-                ),
-              ),
-              const Divider(height: 1),
-              const ListTile(
-                leading: Icon(Icons.mail_outline, color: AppColors.primary),
-                title: Text('Contact'),
-                subtitle: Text('theo.phan.quoc.huy@gmail.com'),
-              ),
-            ],
+          const _SectionHeader('À propos'),
+          const _VersionTile(),
+          const ListTile(
+            leading: Icon(Icons.schedule),
+            title: Text('Source des horaires'),
+            subtitle: Text(
+              'Les horaires proviennent du service ADE de l’INSA Rennes.',
+            ),
+          ),
+          const ListTile(
+            leading: Icon(Icons.mail_outline),
+            title: Text('Contact'),
+            subtitle: Text('theo.phan.quoc.huy@gmail.com'),
           ),
         ],
       ),
@@ -178,37 +140,79 @@ class AppSettingsScreen extends ConsumerWidget {
   }
 }
 
-class _SectionTitle extends StatelessWidget {
-  const _SectionTitle(this.label);
+class _SectionHeader extends StatelessWidget {
+  const _SectionHeader(this.label);
 
   final String label;
 
   @override
   Widget build(BuildContext context) => Padding(
-    padding: const EdgeInsets.only(left: 4, bottom: 8),
+    padding: const EdgeInsets.fromLTRB(
+      CampusSpacing.gutter,
+      CampusSpacing.x6,
+      CampusSpacing.gutter,
+      CampusSpacing.x1,
+    ),
     child: Text(
       label,
-      style: const TextStyle(
-        fontSize: 13,
-        fontWeight: FontWeight.w700,
-        color: AppColors.textSecondary,
+      style: context.text.labelMedium?.copyWith(
+        color: context.scheme.onSurfaceVariant,
       ),
     ),
   );
 }
 
-class _Card extends StatelessWidget {
-  const _Card({required this.children});
-
-  final List<Widget> children;
+/// Seven taps on the version reveal the raw JSON viewer, the way Android
+/// reveals developer options. Nothing else in the list mentions it.
+class _VersionTile extends ConsumerStatefulWidget {
+  const _VersionTile();
 
   @override
-  Widget build(BuildContext context) => Container(
-    decoration: BoxDecoration(
-      color: Colors.white,
-      borderRadius: BorderRadius.circular(16),
-      border: Border.all(color: AppColors.border),
-    ),
-    child: Column(children: children),
-  );
+  ConsumerState<_VersionTile> createState() => _VersionTileState();
+}
+
+class _VersionTileState extends ConsumerState<_VersionTile> {
+  static const int _tapsToReveal = 7;
+  int _taps = 0;
+  bool _revealed = false;
+
+  void _onTap() {
+    if (_revealed) return;
+    _taps++;
+    if (_taps < _tapsToReveal) return;
+    setState(() => _revealed = true);
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(const SnackBar(content: Text('Outils développeur activés')));
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final version = ref.watch(packageInfoProvider);
+    return Column(
+      children: [
+        ListTile(
+          leading: const Icon(Icons.info_outline),
+          title: const Text('Version'),
+          subtitle: version.when(
+            data: (info) => Text('${info.version}+${info.buildNumber}'),
+            loading: () => const SizedBox.shrink(),
+            error: (_, _) => const Text('inconnue'),
+          ),
+          onTap: _onTap,
+        ),
+        if (_revealed)
+          ListTile(
+            leading: const Icon(Icons.data_object_outlined),
+            title: const Text('JSON brut'),
+            trailing: const Icon(Icons.chevron_right),
+            onTap: () => Navigator.of(context).push(
+              MaterialPageRoute<void>(
+                builder: (_) => const RawJsonViewerScreen(),
+              ),
+            ),
+          ),
+      ],
+    );
+  }
 }
