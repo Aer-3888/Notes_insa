@@ -1,11 +1,13 @@
 import 'dart:async';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
-import '../../app_colors.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../models.dart';
 import '../../providers/dashboard_providers.dart';
+import '../../theme/campus_context.dart';
+import '../../theme/state_view.dart';
+import '../../theme/tokens.dart';
 import 'grades_provider.dart';
 import '../../providers/settings_provider.dart';
 import '../../providers/averages_provider.dart';
@@ -28,12 +30,8 @@ class DashboardScreen extends ConsumerStatefulWidget {
   ConsumerState<DashboardScreen> createState() => _DashboardScreenState();
 }
 
-enum _PillMode { hidden, loading, cooldown }
-
 class _DashboardScreenState extends ConsumerState<DashboardScreen>
     with WidgetsBindingObserver {
-  _PillMode _pillMode = _PillMode.hidden;
-  int _cooldownSecs = 0;
   Timer? _cooldownTimer;
   // Guard so we only call requestPermission() once across all DashboardScreen
   // instances in this process lifetime (the widget is recreated on every unlock).
@@ -82,7 +80,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen>
             onPressed: () => Navigator.pop(ctx, false),
             child: const Text('Non merci'),
           ),
-          ElevatedButton(
+          FilledButton(
             onPressed: () => Navigator.pop(ctx, true),
             child: const Text('Participer'),
           ),
@@ -130,44 +128,36 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen>
   void _showReauthBanner() {
     if (!mounted) return;
     final messenger = ScaffoldMessenger.of(context);
+    final scheme = Theme.of(context).colorScheme;
     messenger.clearMaterialBanners();
     messenger.showMaterialBanner(
       MaterialBanner(
-        padding: const EdgeInsets.fromLTRB(16, 12, 8, 12),
-        leading: const Icon(Icons.lock_outline, color: Colors.white),
-        backgroundColor: Colors.orange.shade700,
-        content: const Text(
-          'Une double authentification est requise.',
-          style: TextStyle(color: Colors.white),
-        ),
+        leading: Icon(Icons.lock_outline, color: scheme.error),
+        content: const Text('Une double authentification est requise.'),
         actions: [
           TextButton(
             onPressed: () {
               messenger.clearMaterialBanners();
               widget.onReauthRequired?.call();
             },
-            child: const Text(
-              'Se reconnecter',
-              style: TextStyle(
-                color: Colors.white,
-                fontWeight: FontWeight.bold,
-              ),
-            ),
+            child: const Text('Se reconnecter'),
           ),
         ],
       ),
     );
   }
 
-  void _showCooldownPill(int secs) {
+  void _showCooldownMessage(int secs) {
     _cooldownTimer?.cancel();
-    setState(() {
-      _pillMode = _PillMode.cooldown;
-      _cooldownSecs = secs;
-    });
-    _cooldownTimer = Timer(const Duration(seconds: 2), () {
-      if (mounted) setState(() => _pillMode = _PillMode.hidden);
-    });
+    if (!mounted) return;
+    ScaffoldMessenger.of(context)
+      ..clearSnackBars()
+      ..showSnackBar(
+        SnackBar(
+          content: Text('Actualisable dans $secs s'),
+          duration: const Duration(seconds: 2),
+        ),
+      );
   }
 
   void _swipeSemester(DragEndDetails details) {
@@ -195,7 +185,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen>
     final started = await ref.read(gradesProvider.notifier).manualRefresh();
     if (!started && context.mounted) {
       final remaining = ref.read(gradesProvider).manualRefreshCooldown;
-      _showCooldownPill(remaining?.inSeconds ?? 0);
+      _showCooldownMessage(remaining?.inSeconds ?? 0);
     } else if (started) {
       // Also refresh class averages if the grade fetch successfully started.
       final department = ref.read(departmentNameProvider);
@@ -218,7 +208,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen>
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
-      backgroundColor: Colors.transparent,
+      useSafeArea: true,
       builder: (_) => _UEDetailSheet(unit: unit),
     );
   }
@@ -288,8 +278,6 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen>
 
     final isLoading = gradesState.isLoading;
     final lastUpdated = gradesState.lastUpdated;
-    final pillMode = isLoading ? _PillMode.loading : _pillMode;
-    final pillVisible = pillMode != _PillMode.hidden;
 
     // When there is nothing to display, distinguish a real problem (unreadable
     // data or a failed fetch) from a legitimately empty payload so the user
@@ -300,151 +288,52 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen>
       if (corrupt) {
         gridError = 'Données illisibles. Réessayez pour les recharger.';
       } else if (gradesState.error != null) {
-        gridError = 'Impossible de charger les notes.';
+        gridError =
+            'Impossible de joindre le portail. Vérifiez la connexion, '
+            'puis réessayez.';
       }
     }
 
-    return AnnotatedRegion<SystemUiOverlayStyle>(
-      value: SystemUiOverlayStyle.dark,
-      child: Scaffold(
-        body: SafeArea(
-          child: Stack(
-            children: [
-              Column(
-                children: [
-                  Builder(
-                    builder: (context) => DashboardHeader(
-                      title: departmentName,
-                      average: semesterAverage,
-                      provisional: ref.watch(
-                        semesterAverageProvisionalProvider,
-                      ),
-                      lastUpdated: lastUpdated,
-                      selectedSemester: effectiveSemester ?? 0,
-                      availableSemesters: ref.watch(availableSemestersProvider),
-                      onSemesterChanged: (newSem) {
-                        ref.read(selectedSemesterProvider.notifier).state =
-                            newSem;
-                      },
-                    ),
-                  ),
-                  Expanded(
-                    child: GestureDetector(
-                      onHorizontalDragEnd: _swipeSemester,
-                      behavior: HitTestBehavior.opaque,
-                      child: RefreshIndicator(
-                        onRefresh: () => _onManualRefresh(context),
-                        color: Colors.black87,
-                        backgroundColor: Colors.white,
-                        child: UnitCardGrid(
-                          curriculum: curriculum,
-                          isLoading: isLoading,
-                          errorMessage: gridError,
-                          onRetry: gridError == null
-                              ? null
-                              : () => ref
-                                    .read(gradesProvider.notifier)
-                                    .fetchGradesWithStoredCredentials()
-                                    .catchError((_) {}),
-                          onUnitTap: (unit) => _showUEDetails(context, unit),
-                        ),
-                      ),
-                    ),
-                  ),
-                ],
+    return Scaffold(
+      body: SafeArea(
+        child: Column(
+          children: [
+            Builder(
+              builder: (context) => DashboardHeader(
+                title: 'Notes',
+                subtitle: departmentName,
+                average: semesterAverage,
+                provisional: ref.watch(semesterAverageProvisionalProvider),
+                lastUpdated: lastUpdated,
+                selectedSemester: effectiveSemester ?? 0,
+                availableSemesters: ref.watch(availableSemestersProvider),
+                onSemesterChanged: (newSem) {
+                  ref.read(selectedSemesterProvider.notifier).state = newSem;
+                },
               ),
-              // Floating pill — overlaid, no layout shift
-              Positioned(
-                bottom: 24,
-                left: 0,
-                right: 0,
-                child: AnimatedSlide(
-                  offset: pillVisible ? Offset.zero : const Offset(0, 0.5),
-                  duration: const Duration(milliseconds: 350),
-                  curve: Curves.easeOutCubic,
-                  child: AnimatedOpacity(
-                    opacity: pillVisible ? 1.0 : 0.0,
-                    duration: const Duration(milliseconds: 350),
-                    curve: Curves.easeInOut,
-                    child: Center(
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 14,
-                          vertical: 7,
-                        ),
-                        decoration: BoxDecoration(
-                          color: Colors.black87,
-                          borderRadius: BorderRadius.circular(20),
-                          boxShadow: [
-                            BoxShadow(
-                              color: Colors.black.withValues(alpha: 0.15),
-                              blurRadius: 8,
-                              offset: const Offset(0, 2),
-                            ),
-                          ],
-                        ),
-                        child: AnimatedSwitcher(
-                          duration: const Duration(milliseconds: 200),
-                          child: pillMode == _PillMode.cooldown
-                              ? Row(
-                                  key: const ValueKey('cooldown'),
-                                  mainAxisSize: MainAxisSize.min,
-                                  children: [
-                                    Icon(
-                                      Icons.timer_outlined,
-                                      size: 12,
-                                      color: Colors.white.withValues(
-                                        alpha: 0.9,
-                                      ),
-                                    ),
-                                    const SizedBox(width: 6),
-                                    Text(
-                                      'Actualisable dans $_cooldownSecs s',
-                                      style: TextStyle(
-                                        color: Colors.white.withValues(
-                                          alpha: 0.9,
-                                        ),
-                                        fontSize: 12,
-                                        fontWeight: FontWeight.w500,
-                                      ),
-                                    ),
-                                  ],
-                                )
-                              : Row(
-                                  key: const ValueKey('loading'),
-                                  mainAxisSize: MainAxisSize.min,
-                                  children: [
-                                    SizedBox(
-                                      width: 12,
-                                      height: 12,
-                                      child: CircularProgressIndicator(
-                                        strokeWidth: 1.5,
-                                        valueColor: AlwaysStoppedAnimation(
-                                          Colors.white.withValues(alpha: 0.9),
-                                        ),
-                                      ),
-                                    ),
-                                    const SizedBox(width: 8),
-                                    Text(
-                                      'Mise à jour...',
-                                      style: TextStyle(
-                                        color: Colors.white.withValues(
-                                          alpha: 0.9,
-                                        ),
-                                        fontSize: 12,
-                                        fontWeight: FontWeight.w500,
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                        ),
-                      ),
-                    ),
+            ),
+            Expanded(
+              child: GestureDetector(
+                onHorizontalDragEnd: _swipeSemester,
+                behavior: HitTestBehavior.opaque,
+                child: RefreshIndicator(
+                  onRefresh: () => _onManualRefresh(context),
+                  child: UnitCardGrid(
+                    curriculum: curriculum,
+                    isLoading: isLoading,
+                    errorMessage: gridError,
+                    onRetry: gridError == null
+                        ? null
+                        : () => ref
+                              .read(gradesProvider.notifier)
+                              .fetchGradesWithStoredCredentials()
+                              .catchError((_) {}),
+                    onUnitTap: (unit) => _showUEDetails(context, unit),
                   ),
                 ),
               ),
-            ],
-          ),
+            ),
+          ],
         ),
       ),
     );
@@ -480,17 +369,13 @@ class _UEDetailSheetState extends ConsumerState<_UEDetailSheet> {
   ) {
     showModalBottomSheet(
       context: context,
-      backgroundColor: Colors.transparent,
+      useSafeArea: true,
       builder: (_) => _SubjectStatsSheet(subject: subject, avg: avg),
     );
   }
 
   @override
   Widget build(BuildContext context) {
-    final ueColor = GradeUtils.getColorForStatus(
-      widget.unit.average,
-      widget.unit.extractedStatus,
-    );
     final ueAveragePrefix = widget.unit.isAverageEstimated ? '≈' : '';
     final ueAverageText = widget.unit.average == null
         ? '–'
@@ -531,193 +416,129 @@ class _UEDetailSheetState extends ConsumerState<_UEDetailSheet> {
       maxChildSize: 0.95,
       expand: false,
       builder: (context, scrollController) {
-        return Container(
-          decoration: const BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-          ),
-          child: Column(
-            children: [
-              // Drag handle
-              Padding(
-                padding: const EdgeInsets.symmetric(vertical: 12),
-                child: Container(
-                  width: 36,
-                  height: 4,
-                  decoration: BoxDecoration(
-                    color: Colors.grey.shade300,
-                    borderRadius: BorderRadius.circular(2),
-                  ),
-                ),
+        return Column(
+          children: [
+            // Header
+            Padding(
+              padding: const EdgeInsets.fromLTRB(
+                CampusSpacing.gutter,
+                CampusSpacing.x1,
+                CampusSpacing.gutter,
+                CampusSpacing.x4,
               ),
-              // Header
-              Padding(
-                padding: const EdgeInsets.fromLTRB(20, 4, 20, 16),
-                child: Row(
-                  crossAxisAlignment: CrossAxisAlignment.center,
-                  children: [
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            titleCase(widget.unit.name),
-                            style: const TextStyle(
-                              fontSize: 20,
-                              fontWeight: FontWeight.bold,
-                              height: 1.2,
-                            ),
-                          ),
-                          const SizedBox(height: 4),
-                          Text(
-                            widget.unit.isValidated ? 'Validé' : 'En cours',
-                            style: TextStyle(
-                              fontSize: 12,
-                              color: widget.unit.isValidated
-                                  ? AppColors.statusPositive
-                                  : Colors.grey.shade500,
-                              fontWeight: FontWeight.w500,
-                            ),
-                          ),
-                        ],
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          titleCase(widget.unit.name),
+                          style: context.text.titleLarge,
+                        ),
+                        const SizedBox(height: CampusSpacing.x2),
+                        _StatusChip(
+                          validated: widget.unit.isValidated,
+                          label: widget.unit.isValidated
+                              ? 'Validé'
+                              : 'En cours',
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(width: CampusSpacing.x3),
+                  Text(
+                    ueAverageText,
+                    style: context.campusType.displayNumeral.copyWith(
+                      fontSize: 32,
+                      height: 36 / 32,
+                      color:
+                          GradeUtils.needsAttention(
+                            widget.unit.average,
+                            widget.unit.extractedStatus,
+                          )
+                          ? context.scheme.error
+                          : context.scheme.onSurface,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            // Scroll shadow divider
+            ValueListenableBuilder<bool>(
+              valueListenable: _scrolled,
+              builder: (_, isScrolled, _) => AnimatedContainer(
+                duration: CampusMotion.of(context, CampusMotion.fast),
+                height: 1,
+                color: isScrolled
+                    ? context.scheme.outlineVariant
+                    : Colors.transparent,
+              ),
+            ),
+            // Subject list
+            Expanded(
+              child: Column(
+                children: [
+                  if (avgAsync.isLoading)
+                    const LinearProgressIndicator(minHeight: 2),
+                  if (avgAsync.hasError)
+                    ListTile(
+                      leading: Icon(
+                        Icons.error_outline,
+                        color: context.scheme.error,
+                      ),
+                      title: const Text('Statistiques indisponibles'),
+                      trailing: TextButton(
+                        onPressed: () => ref.invalidate(averagesProvider),
+                        child: const Text('Réessayer'),
                       ),
                     ),
-                    const SizedBox(width: 12),
-                    // Large average circle matching dashboard header style
-                    Container(
-                      width: 60,
-                      height: 60,
-                      decoration: BoxDecoration(
-                        shape: BoxShape.circle,
-                        color: ueColor,
-                        boxShadow: [
-                          BoxShadow(
-                            color: ueColor.withValues(alpha: 0.35),
-                            blurRadius: 12,
-                            offset: const Offset(0, 4),
-                          ),
-                        ],
-                      ),
-                      alignment: Alignment.center,
-                      child: Text(
-                        ueAverageText,
-                        style: const TextStyle(
-                          color: Colors.white,
-                          fontSize: 16,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              // Scroll shadow divider
-              ValueListenableBuilder<bool>(
-                valueListenable: _scrolled,
-                builder: (_, isScrolled, _) => AnimatedContainer(
-                  duration: const Duration(milliseconds: 150),
-                  height: 1,
-                  decoration: BoxDecoration(
-                    color: isScrolled
-                        ? Colors.grey.shade200
-                        : Colors.transparent,
-                    boxShadow: isScrolled
-                        ? [
-                            BoxShadow(
-                              color: Colors.black.withValues(alpha: 0.06),
-                              blurRadius: 4,
-                              offset: const Offset(0, 2),
-                            ),
-                          ]
-                        : null,
-                  ),
-                ),
-              ),
-              // Subject list
-              Expanded(
-                child: Column(
-                  children: [
-                    if (avgAsync.isLoading)
-                      const LinearProgressIndicator(minHeight: 2),
-                    if (avgAsync.hasError)
-                      Container(
-                        width: double.infinity,
-                        padding: const EdgeInsets.symmetric(
-                          vertical: 8,
-                          horizontal: 16,
-                        ),
-                        color: Colors.red.shade50,
-                        child: Row(
-                          children: [
-                            Icon(
-                              Icons.error_outline,
-                              size: 16,
-                              color: Colors.red.shade700,
-                            ),
-                            const SizedBox(width: 8),
-                            const Expanded(
-                              child: Text(
-                                'Erreur stats',
-                                style: TextStyle(
-                                  fontSize: 12,
-                                  color: Colors.red,
-                                ),
+                  Expanded(
+                    child: widget.unit.subjects.isEmpty
+                        ? Center(
+                            child: Text(
+                              'Aucune matière',
+                              style: context.text.bodyMedium?.copyWith(
+                                color: context.scheme.onSurfaceVariant,
                               ),
                             ),
-                            TextButton(
-                              onPressed: () => ref.invalidate(averagesProvider),
-                              child: const Text('Réessayer'),
-                            ),
-                          ],
-                        ),
-                      ),
-                    Expanded(
-                      child: widget.unit.subjects.isEmpty
-                          ? Center(
-                              child: Text(
-                                'Aucune matière',
-                                style: TextStyle(color: Colors.grey.shade400),
+                          )
+                        : NotificationListener<ScrollNotification>(
+                            onNotification: (n) {
+                              _scrolled.value = n.metrics.pixels > 0;
+                              return false;
+                            },
+                            child: ListView.separated(
+                              controller: scrollController,
+                              padding: const EdgeInsets.fromLTRB(
+                                16,
+                                16,
+                                16,
+                                32,
                               ),
-                            )
-                          : NotificationListener<ScrollNotification>(
-                              onNotification: (n) {
-                                _scrolled.value = n.metrics.pixels > 0;
-                                return false;
+                              itemCount: widget.unit.subjects.length,
+                              separatorBuilder: (_, _) =>
+                                  const SizedBox(height: 12),
+                              itemBuilder: (_, i) {
+                                final subject = widget.unit.subjects[i];
+                                final key =
+                                    '${widget.unit.name.cleanName()}|${subject.name.cleanName()}';
+                                final avg = avgMap[key];
+                                return _SubjectCard(
+                                  subject: subject,
+                                  hasData: avg != null,
+                                  onTap: () =>
+                                      _showSubjectStats(context, subject, avg),
+                                );
                               },
-                              child: ListView.separated(
-                                controller: scrollController,
-                                padding: const EdgeInsets.fromLTRB(
-                                  16,
-                                  16,
-                                  16,
-                                  32,
-                                ),
-                                itemCount: widget.unit.subjects.length,
-                                separatorBuilder: (_, _) =>
-                                    const SizedBox(height: 12),
-                                itemBuilder: (_, i) {
-                                  final subject = widget.unit.subjects[i];
-                                  final key =
-                                      '${widget.unit.name.cleanName()}|${subject.name.cleanName()}';
-                                  final avg = avgMap[key];
-                                  return _SubjectCard(
-                                    subject: subject,
-                                    hasData: avg != null,
-                                    onTap: () => _showSubjectStats(
-                                      context,
-                                      subject,
-                                      avg,
-                                    ),
-                                  );
-                                },
-                              ),
                             ),
-                    ),
-                  ],
-                ),
+                          ),
+                  ),
+                ],
               ),
-            ],
-          ),
+            ),
+          ],
         );
       },
     );
@@ -741,13 +562,17 @@ class _SubjectCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final subjectColor = GradeUtils.getColor(subject.average);
-    final averagePrefix = subject.isAverageEstimated ? '≈' : '';
+    final scheme = context.scheme;
+    final attention = GradeUtils.needsAttention(
+      subject.average,
+      subject.extractedStatus,
+    );
+    final averagePrefix = subject.isAverageEstimated ? '\u2248' : '';
     final averageText = subject.average == null
-        ? '–'
+        ? '\u2013'
         : '$averagePrefix${subject.average!.toStringAsFixed(2)}';
 
-    // Screen readers otherwise announce the raw pills; give the whole card a
+    // Screen readers otherwise announce the raw chips; give the whole card a
     // single actionable label (name + average) and mark it a button.
     final semanticLabel = subject.average == null
         ? '${titleCase(subject.name)}, pas encore de note'
@@ -757,114 +582,66 @@ class _SubjectCard extends StatelessWidget {
       button: true,
       label: semanticLabel,
       // Carry the tap action on this node too: excludeSemantics drops the
-      // GestureDetector's own descendant tap semantics, so without this the card
-      // would be a labelled button that assistive tech cannot activate.
+      // descendant tap semantics, so without this the card would be a labelled
+      // button that assistive tech cannot activate.
       onTap: onTap,
       excludeSemantics: true,
-      child: GestureDetector(
-        onTap: onTap,
-        behavior: HitTestBehavior.opaque,
-        child: Container(
-          decoration: BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.circular(16),
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black.withValues(alpha: 0.05),
-                blurRadius: 8,
-                offset: const Offset(0, 2),
-              ),
-            ],
-          ),
-          clipBehavior: Clip.hardEdge,
-          child: IntrinsicHeight(
-            child: Row(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
+      child: Card(
+        clipBehavior: Clip.antiAlias,
+        child: InkWell(
+          onTap: onTap,
+          child: Padding(
+            padding: const EdgeInsets.all(CampusSpacing.x4),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                // Left color accent strip
-                Container(width: 4, color: subjectColor),
-                // Card content
-                Expanded(
-                  child: Padding(
-                    padding: const EdgeInsets.all(14),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        // Subject name + coeff pill
-                        Row(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Expanded(
-                              child: Text(
-                                titleCase(subject.name),
-                                style: const TextStyle(
-                                  fontWeight: FontWeight.w600,
-                                  fontSize: 15,
-                                  height: 1.3,
-                                ),
-                              ),
-                            ),
-                            const SizedBox(width: 4),
-                            Icon(
-                              Icons.bar_chart_outlined,
-                              size: 14,
-                              color: hasData
-                                  ? AppColors.textMuted
-                                  : Colors.grey.shade300,
-                            ),
-                            const SizedBox(width: 8),
-                            // Validation tag (VAL / VALCOMP). Absent when the
-                            // school has not published a status for this EC.
-                            if (subject.extractedStatus != null) ...[
-                              _StatusPill(status: subject.extractedStatus!),
-                              const SizedBox(width: 6),
-                            ],
-                            _CoeffPill(coeff: subject.coeff),
-                          ],
-                        ),
-                        const SizedBox(height: 10),
-                        // Moyenne — full-width tinted row
-                        Container(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 12,
-                            vertical: 8,
-                          ),
-                          decoration: BoxDecoration(
-                            color: subjectColor.withValues(alpha: 0.08),
-                            borderRadius: BorderRadius.circular(10),
-                          ),
-                          child: Row(
-                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                            children: [
-                              Text(
-                                'Moyenne',
-                                style: TextStyle(
-                                  fontSize: 13,
-                                  fontWeight: FontWeight.w500,
-                                  color: subjectColor,
-                                ),
-                              ),
-                              Text(
-                                averageText,
-                                style: TextStyle(
-                                  fontSize: 15,
-                                  fontWeight: FontWeight.bold,
-                                  color: subjectColor,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                        if (subject.grades.isNotEmpty) ...[
-                          const SizedBox(height: 10),
-                          Divider(height: 1, color: Colors.grey.shade100),
-                          const SizedBox(height: 6),
-                          ...subject.grades.map((g) => _GradeRow(grade: g)),
-                        ],
-                      ],
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Expanded(
+                      child: Text(
+                        titleCase(subject.name),
+                        style: context.text.titleMedium,
+                      ),
                     ),
-                  ),
+                    const SizedBox(width: CampusSpacing.x2),
+                    Text(
+                      averageText,
+                      style: context.campusType.numeral.copyWith(
+                        color: attention ? scheme.error : scheme.onSurface,
+                      ),
+                    ),
+                  ],
                 ),
+                const SizedBox(height: CampusSpacing.x2),
+                Row(
+                  children: [
+                    if (subject.extractedStatus != null) ...[
+                      _StatusChip(
+                        validated: !GradeUtils.needsAttention(
+                          null,
+                          subject.extractedStatus,
+                        ),
+                        label: subject.extractedStatus!,
+                      ),
+                      const SizedBox(width: CampusSpacing.x2),
+                    ],
+                    _CoeffChip(coeff: subject.coeff),
+                    const Spacer(),
+                    if (hasData)
+                      Icon(
+                        Icons.bar_chart_outlined,
+                        size: 18,
+                        color: scheme.onSurfaceVariant,
+                      ),
+                  ],
+                ),
+                if (subject.grades.isNotEmpty) ...[
+                  const SizedBox(height: CampusSpacing.x3),
+                  const Divider(),
+                  const SizedBox(height: CampusSpacing.x2),
+                  ...subject.grades.map((g) => _GradeRow(grade: g)),
+                ],
               ],
             ),
           ),
@@ -885,56 +662,36 @@ class _GradeRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final color = GradeUtils.getColor(grade.value);
+    final scheme = context.scheme;
+    final attention = GradeUtils.needsAttention(grade.value, null);
 
     return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 5),
+      padding: const EdgeInsets.symmetric(vertical: CampusSpacing.x1),
       child: Row(
         children: [
-          // Color dot indicator
-          Container(
-            width: 6,
-            height: 6,
-            margin: const EdgeInsets.only(right: 10, top: 1),
-            decoration: BoxDecoration(color: color, shape: BoxShape.circle),
-          ),
           Expanded(
             child: Text(
               titleCase(grade.label),
-              style: TextStyle(
-                fontSize: 13,
-                height: 1.3,
-                color: Colors.grey.shade800,
-              ),
+              style: context.text.bodyMedium,
               maxLines: 2,
               overflow: TextOverflow.ellipsis,
             ),
           ),
           if (grade.coeff.isNotEmpty) ...[
-            const SizedBox(width: 8),
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-              decoration: BoxDecoration(
-                color: Colors.grey.shade100,
-                borderRadius: BorderRadius.circular(6),
-              ),
-              child: Text(
-                '×${grade.coeff}',
-                style: TextStyle(
-                  fontSize: 11,
-                  color: Colors.grey.shade600,
-                  fontWeight: FontWeight.w600,
-                ),
+            const SizedBox(width: CampusSpacing.x2),
+            Text(
+              '\u00d7${grade.coeff}',
+              style: context.text.labelMedium?.copyWith(
+                color: scheme.onSurfaceVariant,
               ),
             ),
           ],
-          const SizedBox(width: 10),
+          const SizedBox(width: CampusSpacing.x3),
           Text(
-            '${grade.value.toStringAsFixed(2)}/20',
-            style: TextStyle(
-              fontSize: 13,
-              fontWeight: FontWeight.w700,
-              color: color,
+            grade.value.toStringAsFixed(2),
+            semanticsLabel: '${grade.value.toStringAsFixed(2)} sur 20',
+            style: context.campusType.numeral.copyWith(
+              color: attention ? scheme.error : scheme.onSurface,
             ),
           ),
         ],
@@ -947,67 +704,42 @@ class _GradeRow extends StatelessWidget {
 // Shared widgets
 // ---------------------------------------------------------------------------
 
-class _CoeffPill extends StatelessWidget {
+class _CoeffChip extends StatelessWidget {
   final double coeff;
 
-  const _CoeffPill({required this.coeff});
+  const _CoeffChip({required this.coeff});
 
   @override
   Widget build(BuildContext context) {
     final label = coeff % 1 == 0 ? coeff.toInt().toString() : coeff.toString();
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-      decoration: BoxDecoration(
-        color: Colors.grey.shade100,
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: Colors.grey.shade300),
-      ),
-      child: Text(
-        'Coeff $label',
-        style: TextStyle(
-          fontSize: 11,
-          fontWeight: FontWeight.w600,
-          color: Colors.grey.shade600,
-        ),
-      ),
+    return Chip(
+      label: Text('Coeff $label'),
+      visualDensity: VisualDensity.compact,
     );
   }
 }
 
-/// Small colored tag showing an EC's validation status. VAL reads as a plain
-/// pass (green), VALCOMP as a pass by compensation (amber), and any other code
-/// stays neutral grey.
-class _StatusPill extends StatelessWidget {
-  final String status;
+/// Validation state as a tonal chip. The label carries the meaning and the fill
+/// only reinforces it, so it still reads without colour.
+class _StatusChip extends StatelessWidget {
+  const _StatusChip({required this.validated, required this.label});
 
-  const _StatusPill({required this.status});
+  final bool validated;
+  final String label;
 
   @override
   Widget build(BuildContext context) {
-    final (Color fg, Color bg, Color border) = switch (status.toUpperCase()) {
-      'VAL' => (
-        Colors.green.shade700,
-        Colors.green.shade50,
-        Colors.green.shade200,
-      ),
-      'VALCOMP' => (
-        Colors.orange.shade800,
-        Colors.orange.shade50,
-        Colors.orange.shade200,
-      ),
-      _ => (Colors.grey.shade600, Colors.grey.shade100, Colors.grey.shade300),
-    };
-
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-      decoration: BoxDecoration(
-        color: bg,
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: border),
-      ),
-      child: Text(
-        status,
-        style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: fg),
+    final campus = context.campus;
+    return Chip(
+      label: Text(label),
+      visualDensity: VisualDensity.compact,
+      backgroundColor: validated
+          ? campus.positiveContainer
+          : context.scheme.surfaceContainerHighest,
+      labelStyle: context.text.labelMedium?.copyWith(
+        color: validated
+            ? campus.onPositiveContainer
+            : context.scheme.onSurface,
       ),
     );
   }

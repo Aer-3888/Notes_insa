@@ -1,35 +1,27 @@
-import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:notes_insa/app_colors.dart';
 import 'package:notes_insa/models.dart';
 
 void main() {
-  group('GradeUtils.getColorForStatus', () {
-    test('uses the grade color when a numeric average exists', () {
-      expect(GradeUtils.getColorForStatus(15, null), AppColors.gradeExcellent);
-      expect(GradeUtils.getColorForStatus(11, 'VAL'), AppColors.gradePassing);
-      expect(
-        GradeUtils.getColorForStatus(8, 'VALCOMP'),
-        AppColors.gradeWarning,
-      );
+  group('GradeUtils.needsAttention', () {
+    test('a grade below 10 needs attention, 10 and above does not', () {
+      expect(GradeUtils.needsAttention(9.99, null), isTrue);
+      expect(GradeUtils.needsAttention(10, null), isFalse);
+      expect(GradeUtils.needsAttention(15, null), isFalse);
     });
 
-    test(
-      'a validated item with no grade reads as passing (blue), not grey',
-      () {
-        expect(
-          GradeUtils.getColorForStatus(null, 'VAL'),
-          AppColors.gradePassing,
-        );
-        expect(
-          GradeUtils.getColorForStatus(null, 'VALCOMP'),
-          AppColors.gradePassing,
-        );
-      },
-    );
+    test('the grade wins over the status when both are present', () {
+      expect(GradeUtils.needsAttention(8, 'VAL'), isTrue);
+      expect(GradeUtils.needsAttention(15, 'AJ'), isFalse);
+    });
 
-    test('grey only when in progress (no grade and no status)', () {
-      expect(GradeUtils.getColorForStatus(null, null), Colors.grey);
+    test('with no grade, only an explicitly non-validating status counts', () {
+      expect(GradeUtils.needsAttention(null, 'VAL'), isFalse);
+      expect(GradeUtils.needsAttention(null, 'valcomp'), isFalse);
+      expect(GradeUtils.needsAttention(null, 'AJ'), isTrue);
+    });
+
+    test('in progress is not an attention state', () {
+      expect(GradeUtils.needsAttention(null, null), isFalse);
     });
   });
 

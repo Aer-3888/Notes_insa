@@ -1,11 +1,13 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
+
 import '../models.dart';
-import '../app_colors.dart';
+import '../theme/campus_context.dart';
+import '../theme/tokens.dart';
 
 String _formatLastUpdated(DateTime dt) {
   final diff = DateTime.now().difference(dt);
-  if (diff.inSeconds < 60) return 'Mis à jour à l\'instant';
+  if (diff.inSeconds < 60) return 'Mis à jour à l’instant';
   if (diff.inMinutes < 60) return 'Mis à jour il y a ${diff.inMinutes} min';
   if (diff.inHours < 24) return 'Mis à jour il y a ${diff.inHours} h';
   return 'Mis à jour il y a ${diff.inDays} j';
@@ -13,7 +15,11 @@ String _formatLastUpdated(DateTime dt) {
 
 class DashboardHeader extends StatelessWidget {
   final double? average;
+
+  /// The screen's name. The department belongs in [subtitle]: a module is not
+  /// the app's home.
   final String title;
+  final String subtitle;
 
   final DateTime? lastUpdated;
   final int selectedSemester;
@@ -27,6 +33,7 @@ class DashboardHeader extends StatelessWidget {
     super.key,
     required this.average,
     required this.title,
+    required this.subtitle,
     this.lastUpdated,
     required this.selectedSemester,
     required this.availableSemesters,
@@ -36,78 +43,78 @@ class DashboardHeader extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final scheme = context.scheme;
+    final text = context.text;
+    final attention = GradeUtils.needsAttention(average, null);
+    final averageText = average == null
+        ? '–'
+        : '${provisional ? '≈' : ''}${average!.toStringAsFixed(2)}';
+
     return Padding(
-      padding: const EdgeInsets.fromLTRB(20, 16, 24, 0),
+      padding: const EdgeInsets.fromLTRB(
+        CampusSpacing.gutter,
+        CampusSpacing.x4,
+        CampusSpacing.gutter,
+        0,
+      ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           Row(
+            crossAxisAlignment: CrossAxisAlignment.end,
             children: [
-              // Department Title + last updated
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
+                    Text(title, style: text.headlineMedium),
                     Text(
-                      title,
-                      style: const TextStyle(
-                        fontSize: 28,
-                        fontWeight: FontWeight.bold,
-                        color: Colors.black87,
+                      subtitle,
+                      style: text.bodyMedium?.copyWith(
+                        color: scheme.onSurfaceVariant,
                       ),
                     ),
                     if (lastUpdated != null)
                       _LastUpdatedLabel(lastUpdated: lastUpdated!),
-                    if (provisional && average != null)
-                      Text(
-                        'Moyenne estimée',
-                        style: TextStyle(
-                          fontSize: 11,
-                          color: Colors.orange.shade700,
-                          fontWeight: FontWeight.w500,
-                        ),
-                      ),
                   ],
                 ),
               ),
-
-              // Average Circle
-              Container(
-                width: 70,
-                height: 70,
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  color: GradeUtils.getColor(average),
-                  boxShadow: [
-                    BoxShadow(
-                      color: GradeUtils.getColor(average).withValues(alpha: .4),
-                      blurRadius: 15,
-                      offset: const Offset(0, 5),
+              const SizedBox(width: CampusSpacing.x4),
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.end,
+                children: [
+                  Text(
+                    'Moyenne',
+                    style: text.labelMedium?.copyWith(
+                      color: scheme.onSurfaceVariant,
                     ),
-                  ],
-                ),
-                alignment: Alignment.center,
-                child: Text(
-                  average == null
-                      ? '-'
-                      : '${provisional ? '≈' : ''}${average!.toStringAsFixed(2)}',
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontSize: 20,
-                    fontWeight: FontWeight.bold,
                   ),
-                ),
+                  Text(
+                    averageText,
+                    semanticsLabel: average == null
+                        ? 'Moyenne du semestre indisponible'
+                        : 'Moyenne du semestre $averageText sur 20',
+                    style: context.campusType.displayNumeral.copyWith(
+                      color: attention ? scheme.error : scheme.onSurface,
+                    ),
+                  ),
+                ],
               ),
             ],
           ),
+          if (provisional && average != null)
+            Text(
+              'Moyenne estimée à partir des notes publiées',
+              style: text.labelMedium?.copyWith(color: scheme.onSurfaceVariant),
+            ),
           if (availableSemesters.isNotEmpty) ...[
-            const SizedBox(height: 12),
-            _AnimatedSemesterSelector(
+            const SizedBox(height: CampusSpacing.x3),
+            _SemesterSelector(
               availableSemesters: availableSemesters,
               selectedSemester: selectedSemester,
               onSemesterChanged: onSemesterChanged,
             ),
-            const SizedBox(height: 12),
+            const SizedBox(height: CampusSpacing.x3),
           ],
         ],
       ),
@@ -144,185 +151,47 @@ class _LastUpdatedLabelState extends State<_LastUpdatedLabel> {
   }
 
   @override
-  Widget build(BuildContext context) {
-    return Text(
-      _formatLastUpdated(widget.lastUpdated),
-      style: TextStyle(
-        fontSize: 11,
-        color: Colors.grey.shade500,
-        fontWeight: FontWeight.w400,
-      ),
-    );
-  }
+  Widget build(BuildContext context) => Text(
+    _formatLastUpdated(widget.lastUpdated),
+    style: context.text.labelMedium?.copyWith(
+      color: context.campus.onSurfaceMuted,
+    ),
+  );
 }
 
-class _AnimatedSemesterSelector extends StatefulWidget {
-  final List<int> availableSemesters;
-  final int selectedSemester;
-  final ValueChanged<int> onSemesterChanged;
-
-  const _AnimatedSemesterSelector({
+/// Selection reads the same here as everywhere else in the app, because it is
+/// the themed Material control rather than a hand-built pill.
+class _SemesterSelector extends StatelessWidget {
+  const _SemesterSelector({
     required this.availableSemesters,
     required this.selectedSemester,
     required this.onSemesterChanged,
   });
 
-  @override
-  State<_AnimatedSemesterSelector> createState() =>
-      _AnimatedSemesterSelectorState();
-}
-
-class _AnimatedSemesterSelectorState extends State<_AnimatedSemesterSelector> {
-  // Fixed item width used only when there are enough items to scroll.
-  static const double _scrollItemWidth = 100.0;
-
-  // Semesters displayed lowest-first (oldest on the left, most recent on the right).
-  List<int> get _display => widget.availableSemesters.toList();
-
-  final ScrollController _scrollController = ScrollController();
-
-  @override
-  void initState() {
-    super.initState();
-    WidgetsBinding.instance.addPostFrameCallback((_) => _scrollToSelected());
-  }
-
-  @override
-  void didUpdateWidget(_AnimatedSemesterSelector oldWidget) {
-    super.didUpdateWidget(oldWidget);
-    if (oldWidget.selectedSemester != widget.selectedSemester) {
-      _scrollToSelected();
-    }
-  }
-
-  @override
-  void dispose() {
-    _scrollController.dispose();
-    super.dispose();
-  }
-
-  void _scrollToSelected() {
-    if (!_scrollController.hasClients) return;
-    final position = _scrollController.position;
-    if (!position.hasContentDimensions) return;
-    final idx = _display.indexOf(widget.selectedSemester);
-    if (idx < 0) return;
-    final target =
-        (idx * _scrollItemWidth) -
-        (position.viewportDimension - _scrollItemWidth) / 2;
-    _scrollController.animateTo(
-      target.clamp(0.0, position.maxScrollExtent),
-      duration: const Duration(milliseconds: 300),
-      curve: Curves.easeOutCubic,
-    );
-  }
-
-  Widget _buildTab(int i, int semNum, int selectedIndex) {
-    return GestureDetector(
-      behavior: HitTestBehavior.opaque,
-      onTap: () => widget.onSemesterChanged(semNum),
-      child: Container(
-        alignment: Alignment.center,
-        padding: const EdgeInsets.symmetric(vertical: 10),
-        child: AnimatedDefaultTextStyle(
-          duration: const Duration(milliseconds: 300),
-          curve: Curves.easeOutCubic,
-          style: TextStyle(
-            color: i == selectedIndex ? Colors.white : Colors.grey.shade600,
-            fontWeight: FontWeight.bold,
-            fontSize: 14,
-          ),
-          child: Text('Semestre $semNum'),
-        ),
-      ),
-    );
-  }
+  final List<int> availableSemesters;
+  final int selectedSemester;
+  final ValueChanged<int> onSemesterChanged;
 
   @override
   Widget build(BuildContext context) {
-    final display = _display;
-    final n = display.length;
-    final selectedIndex = display
-        .indexOf(widget.selectedSemester)
-        .clamp(0, n - 1);
-    final useScroll = n > 3;
-
-    final container = Container(
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: Colors.grey.shade200),
-      ),
-      padding: const EdgeInsets.all(4),
-      child: useScroll
-          ? SingleChildScrollView(
-              controller: _scrollController,
-              scrollDirection: Axis.horizontal,
-              physics: const BouncingScrollPhysics(),
-              child: SizedBox(
-                width: n * _scrollItemWidth,
-                child: Stack(
-                  children: [
-                    AnimatedPositioned(
-                      duration: const Duration(milliseconds: 300),
-                      curve: Curves.easeOutCubic,
-                      left: selectedIndex * _scrollItemWidth,
-                      top: 0,
-                      bottom: 0,
-                      width: _scrollItemWidth,
-                      child: Container(
-                        decoration: BoxDecoration(
-                          color: AppColors.primary,
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                      ),
-                    ),
-                    Row(
-                      children: List.generate(
-                        n,
-                        (i) => SizedBox(
-                          width: _scrollItemWidth,
-                          child: _buildTab(i, display[i], selectedIndex),
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            )
-          : LayoutBuilder(
-              builder: (context, constraints) {
-                final itemWidth = constraints.maxWidth / n;
-                return Stack(
-                  children: [
-                    AnimatedPositioned(
-                      duration: const Duration(milliseconds: 300),
-                      curve: Curves.easeOutCubic,
-                      left: selectedIndex * itemWidth,
-                      top: 0,
-                      bottom: 0,
-                      width: itemWidth,
-                      child: Container(
-                        decoration: BoxDecoration(
-                          color: AppColors.primary,
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                      ),
-                    ),
-                    Row(
-                      children: List.generate(
-                        n,
-                        (i) => Expanded(
-                          child: _buildTab(i, display[i], selectedIndex),
-                        ),
-                      ),
-                    ),
-                  ],
-                );
-              },
-            ),
+    final selected = availableSemesters.contains(selectedSemester)
+        ? selectedSemester
+        : availableSemesters.first;
+    final button = SegmentedButton<int>(
+      segments: [
+        for (final s in availableSemesters)
+          ButtonSegment<int>(value: s, label: Text('S$s')),
+      ],
+      selected: <int>{selected},
+      showSelectedIcon: false,
+      onSelectionChanged: (choice) => onSemesterChanged(choice.first),
     );
 
-    return container;
+    // Beyond four semesters the segments stop fitting a phone's width.
+    if (availableSemesters.length <= 4) return button;
+    return SingleChildScrollView(
+      scrollDirection: Axis.horizontal,
+      child: button,
+    );
   }
 }

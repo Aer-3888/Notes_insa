@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_staggered_animations/flutter_staggered_animations.dart';
-import 'package:shimmer/shimmer.dart';
+
 import '../models.dart';
+import '../theme/campus_context.dart';
+import '../theme/state_view.dart';
+import '../theme/tokens.dart';
 
 class UnitCardGrid extends StatelessWidget {
   final List<TeachingUnit> curriculum;
@@ -10,7 +12,7 @@ class UnitCardGrid extends StatelessWidget {
 
   /// Message to show when there is nothing to display because of a problem
   /// (fetch failure or unreadable data). When null, an empty curriculum shows
-  /// the neutral "Aucune donnée." placeholder instead.
+  /// the neutral placeholder instead.
   final String? errorMessage;
   final VoidCallback? onRetry;
 
@@ -27,13 +29,18 @@ class UnitCardGrid extends StatelessWidget {
   Widget build(BuildContext context) {
     if (isLoading && curriculum.isEmpty) {
       return GridView.builder(
-        padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+        padding: const EdgeInsets.fromLTRB(
+          CampusSpacing.gutter,
+          0,
+          CampusSpacing.gutter,
+          CampusSpacing.gutter,
+        ),
         physics: const NeverScrollableScrollPhysics(),
         gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
           crossAxisCount: 2,
           childAspectRatio: 0.85,
-          crossAxisSpacing: 16,
-          mainAxisSpacing: 16,
+          crossAxisSpacing: CampusSpacing.x4,
+          mainAxisSpacing: CampusSpacing.x4,
         ),
         itemCount: 6,
         itemBuilder: (_, _) => const _SkeletonCard(),
@@ -41,227 +48,139 @@ class UnitCardGrid extends StatelessWidget {
     }
 
     if (curriculum.isEmpty && errorMessage != null) {
-      return _ErrorState(message: errorMessage!, onRetry: onRetry);
-    }
-
-    if (curriculum.isEmpty) {
-      return const Center(
-        child: Text('Aucune donnée.', style: TextStyle(color: Colors.grey)),
-      );
-    }
-
-    return AnimationLimiter(
-      child: GridView.builder(
-        padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
-        gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-          crossAxisCount: 2,
-          childAspectRatio: 0.85,
-          crossAxisSpacing: 16,
-          mainAxisSpacing: 16,
-        ),
-        itemCount: curriculum.length,
-        itemBuilder: (context, index) {
-          final unit = curriculum[index];
-          final color = GradeUtils.getColorForStatus(
-            unit.average,
-            unit.extractedStatus,
-          );
-          final averagePrefix = unit.isAverageEstimated ? '≈' : '';
-          final averageText = unit.average == null
-              ? '-'
-              : '$averagePrefix${unit.average!.toStringAsFixed(2)}';
-
-          return AnimationConfiguration.staggeredGrid(
-            position: index,
-            columnCount: 2,
-            duration: const Duration(milliseconds: 375),
-            child: ScaleAnimation(
-              scale: 0.92,
-              child: FadeInAnimation(
-                child: GestureDetector(
-                  onTap: () => onUnitTap(unit),
-                  child: Container(
-                    decoration: BoxDecoration(
-                      color: Colors.white,
-                      borderRadius: BorderRadius.circular(24),
-                      boxShadow: [
-                        BoxShadow(
-                          color: Colors.black.withValues(alpha: .05),
-                          blurRadius: 10,
-                          offset: const Offset(0, 4),
-                        ),
-                      ],
-                    ),
-                    padding: const EdgeInsets.all(16),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        // Icon and Grade
-                        Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                          children: [
-                            CircleAvatar(
-                              backgroundColor: color.withValues(alpha: .1),
-                              child: Icon(Icons.school, color: color, size: 20),
-                            ),
-                            Text(
-                              averageText,
-                              style: TextStyle(
-                                fontSize: 18,
-                                fontWeight: FontWeight.bold,
-                                color: color,
-                              ),
-                            ),
-                          ],
-                        ),
-                        // Name
-                        Text(
-                          titleCase(unit.name),
-                          style: const TextStyle(
-                            fontSize: 16,
-                            fontWeight: FontWeight.w600,
-                            height: 1.2,
-                          ),
-                          maxLines: 3,
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                        // Progress Bar
-                        Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              unit.statusLabel,
-                              style: TextStyle(
-                                fontSize: 12,
-                                color: Colors.grey.shade500,
-                              ),
-                            ),
-                            const SizedBox(height: 6),
-                            LinearProgressIndicator(
-                              value: (unit.average ?? 0) / 20,
-                              backgroundColor: Colors.grey.shade100,
-                              color: color,
-                              borderRadius: BorderRadius.circular(4),
-                            ),
-                          ],
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-              ),
-            ),
-          );
-        },
-      ),
-    );
-  }
-}
-
-class _ErrorState extends StatelessWidget {
-  final String message;
-  final VoidCallback? onRetry;
-
-  const _ErrorState({required this.message, this.onRetry});
-
-  @override
-  Widget build(BuildContext context) {
-    return Center(
-      child: Padding(
-        padding: const EdgeInsets.all(32),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(Icons.cloud_off, size: 48, color: Colors.grey.shade400),
-            const SizedBox(height: 16),
-            Text(
-              message,
-              textAlign: TextAlign.center,
-              style: TextStyle(color: Colors.grey.shade600, fontSize: 15),
-            ),
-            if (onRetry != null) ...[
-              const SizedBox(height: 20),
-              FilledButton.tonalIcon(
+      return StateView(
+        icon: Icons.cloud_off_outlined,
+        title: 'Notes indisponibles',
+        body: errorMessage,
+        action: onRetry == null
+            ? null
+            : FilledButton.tonalIcon(
                 onPressed: onRetry,
                 icon: const Icon(Icons.refresh),
                 label: const Text('Réessayer'),
               ),
-            ],
-          ],
+      );
+    }
+
+    if (curriculum.isEmpty) {
+      return const StateView(
+        icon: Icons.inbox_outlined,
+        title: 'Aucune note pour ce semestre',
+        body: 'Les notes apparaîtront ici dès que le portail les publiera.',
+      );
+    }
+
+    return GridView.builder(
+      padding: const EdgeInsets.fromLTRB(
+        CampusSpacing.gutter,
+        0,
+        CampusSpacing.gutter,
+        CampusSpacing.gutter,
+      ),
+      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+        crossAxisCount: 2,
+        childAspectRatio: 0.85,
+        crossAxisSpacing: CampusSpacing.x4,
+        mainAxisSpacing: CampusSpacing.x4,
+      ),
+      itemCount: curriculum.length,
+      itemBuilder: (context, index) {
+        final unit = curriculum[index];
+        return _UnitCard(unit: unit, onTap: () => onUnitTap(unit));
+      },
+    );
+  }
+}
+
+class _UnitCard extends StatelessWidget {
+  const _UnitCard({required this.unit, required this.onTap});
+
+  final TeachingUnit unit;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = context.scheme;
+    final attention = GradeUtils.needsAttention(
+      unit.average,
+      unit.extractedStatus,
+    );
+    final averagePrefix = unit.isAverageEstimated ? '≈' : '';
+    final averageText = unit.average == null
+        ? '–'
+        : '$averagePrefix${unit.average!.toStringAsFixed(2)}';
+    final semanticLabel = unit.average == null
+        ? '${titleCase(unit.name)}, pas encore de moyenne'
+        : '${titleCase(unit.name)}, moyenne $averageText sur 20';
+
+    return Semantics(
+      button: true,
+      label: semanticLabel,
+      onTap: onTap,
+      excludeSemantics: true,
+      child: Card(
+        clipBehavior: Clip.antiAlias,
+        child: InkWell(
+          onTap: onTap,
+          child: Padding(
+            padding: const EdgeInsets.all(CampusSpacing.card),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Text(
+                  averageText,
+                  style: context.campusType.displayNumeral.copyWith(
+                    fontSize: 28,
+                    height: 32 / 28,
+                    color: attention ? scheme.error : scheme.onSurface,
+                  ),
+                ),
+                Text(
+                  titleCase(unit.name),
+                  style: context.text.titleMedium,
+                  maxLines: 3,
+                  overflow: TextOverflow.ellipsis,
+                ),
+                Text(
+                  unit.statusLabel,
+                  style: context.text.labelMedium?.copyWith(
+                    color: scheme.onSurfaceVariant,
+                  ),
+                ),
+              ],
+            ),
+          ),
         ),
       ),
     );
   }
 }
 
+/// Static placeholder boxes. A shimmer on a cache-first screen flashes more
+/// often than it reassures.
 class _SkeletonCard extends StatelessWidget {
   const _SkeletonCard();
 
   @override
   Widget build(BuildContext context) {
-    return Shimmer.fromColors(
-      baseColor: Colors.grey.shade300,
-      highlightColor: Colors.grey.shade100,
-      child: Container(
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(24),
-        ),
-        padding: const EdgeInsets.all(16),
+    final fill = context.scheme.surfaceContainerHighest;
+    Widget box(double width, double height) => Container(
+      width: width,
+      height: height,
+      decoration: BoxDecoration(
+        color: fill,
+        borderRadius: CampusRadii.controlRadius,
+      ),
+    );
+
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(CampusSpacing.card),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          children: [
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Container(
-                  width: 40,
-                  height: 40,
-                  decoration: const BoxDecoration(
-                    color: Colors.white,
-                    shape: BoxShape.circle,
-                  ),
-                ),
-                Container(
-                  width: 48,
-                  height: 20,
-                  decoration: BoxDecoration(
-                    color: Colors.white,
-                    borderRadius: BorderRadius.circular(6),
-                  ),
-                ),
-              ],
-            ),
-            Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Container(
-                  width: double.infinity,
-                  height: 14,
-                  color: Colors.white,
-                ),
-                const SizedBox(height: 6),
-                Container(width: 80, height: 14, color: Colors.white),
-              ],
-            ),
-            Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Container(width: 60, height: 12, color: Colors.white),
-                const SizedBox(height: 6),
-                Container(
-                  width: double.infinity,
-                  height: 4,
-                  decoration: BoxDecoration(
-                    color: Colors.white,
-                    borderRadius: BorderRadius.circular(4),
-                  ),
-                ),
-              ],
-            ),
-          ],
+          children: [box(72, 28), box(double.infinity, 16), box(56, 12)],
         ),
       ),
     );

@@ -1,7 +1,4 @@
-import 'package:flutter/material.dart';
-import 'app_colors.dart';
-
-/// Utilities for parsing grade strings and mapping grades to colors.
+/// Utilities for parsing grade strings and judging which ones need attention.
 class GradeUtils {
   static double? parseDouble(String? rawValue) {
     if (rawValue == null) return null;
@@ -21,24 +18,14 @@ class GradeUtils {
     }
   }
 
-  /// Returns a color appropriate for the given grade.
-  static Color getColor(double? grade) {
-    if (grade == null) return Colors.grey;
-    if (grade >= 14) return AppColors.gradeExcellent;
-    if (grade >= 10) return AppColors.gradePassing;
-    return AppColors.gradeWarning;
-  }
-
-  /// Color for a unit or EC that accounts for its validation status when no
-  /// numeric grade is available. With a grade it behaves like [getColor]
-  /// (green, blue, orange by threshold). Without one, a validated item (VAL or
-  /// VALCOMP) reads as passing (blue) rather than grey, and grey is kept only
-  /// for items still in progress (no published status).
-  static Color getColorForStatus(double? grade, String? status) {
-    if (grade != null) return getColor(grade);
+  /// True when a grade or status should be set in the attention colour: below
+  /// 10, or a status that explicitly says the item was not validated. Passing,
+  /// validated and in-progress items all read in the normal ink.
+  static bool needsAttention(double? grade, String? status) {
+    if (grade != null) return grade < 10;
     final code = status?.toUpperCase();
-    if (code == 'VAL' || code == 'VALCOMP') return AppColors.gradePassing;
-    return Colors.grey;
+    if (code == null) return false;
+    return code != 'VAL' && code != 'VALCOMP';
   }
 }
 
