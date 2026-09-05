@@ -244,8 +244,8 @@ class _HistogramPainter extends CustomPainter {
         final top = size.height - labelHeight - barH;
         final rect = RRect.fromRectAndCorners(
           Rect.fromLTWH(barLeft, top, barWidth, barH),
-          topLeft: const Radius.circular(3),
-          topRight: const Radius.circular(3),
+          topLeft: const Radius.circular(CampusRadii.bar),
+          topRight: const Radius.circular(CampusRadii.bar),
         );
         canvas.drawRRect(rect, barPaint);
 

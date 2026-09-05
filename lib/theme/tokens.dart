@@ -246,6 +246,9 @@ abstract final class CampusSpacing {
 }
 
 abstract final class CampusRadii {
+  /// Cap on a chart bar. Smaller than any control radius because a 6 dp wide
+  /// histogram bar rounded to 8 would lose its shape entirely.
+  static const double bar = 3;
   static const double control = 8;
   static const double card = 12;
   static const double sheet = 20;

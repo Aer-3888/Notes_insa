@@ -1,10 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import '../../app_colors.dart';
 import 'dart:convert';
 import 'grades_provider.dart';
 
+// Developer screen. Its terminal palette is deliberate and stays fixed in both
+// themes; it is reachable only after seven taps on the version row.
 // Syntax highlight colors (dark terminal palette)
 const _colorKey = Color(0xFF82AAFF); // blue — JSON keys
 const _colorString = Color(0xFFC3E88D); // green — string values
@@ -124,38 +125,13 @@ class RawJsonViewerScreen extends ConsumerWidget {
 
     return Scaffold(
       appBar: AppBar(
-        toolbarHeight: 84,
-        elevation: 4,
-        shape: const RoundedRectangleBorder(
-          borderRadius: BorderRadius.vertical(bottom: Radius.circular(20)),
-        ),
-        flexibleSpace: Container(
-          decoration: const BoxDecoration(
-            gradient: LinearGradient(
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
-              colors: AppColors.headerGradient,
-            ),
-          ),
-        ),
-        backgroundColor: Colors.transparent,
-        title: const Text(
-          'JSON Brut',
-          style: TextStyle(
-            fontSize: 20,
-            fontWeight: FontWeight.w700,
-            color: Colors.white,
-          ),
-        ),
+        title: const Text('JSON brut'),
         actions: [
           if (!isEmpty)
-            Padding(
-              padding: const EdgeInsets.only(right: 8),
-              child: IconButton(
-                icon: const Icon(Icons.copy, color: Colors.white),
-                onPressed: () => _copyToClipboard(jsonString),
-                tooltip: 'Copier le JSON',
-              ),
+            IconButton(
+              icon: const Icon(Icons.copy),
+              onPressed: () => _copyToClipboard(jsonString),
+              tooltip: 'Copier le JSON',
             ),
         ],
       ),
@@ -193,23 +169,21 @@ class RawJsonViewerScreen extends ConsumerWidget {
                 children: [
                   // Info card
                   Card(
-                    color: AppColors.scaffoldBg,
                     child: Padding(
                       padding: const EdgeInsets.all(12),
                       child: Row(
                         children: [
-                          const Icon(
+                          Icon(
                             Icons.info_outline,
-                            color: AppColors.primary,
+                            color: Theme.of(
+                              context,
+                            ).colorScheme.onSurfaceVariant,
                           ),
                           const SizedBox(width: 12),
                           Text(
-                            'JSON des notes — ${(jsonString.length / 1024).toStringAsFixed(1)} KB',
-                            style: const TextStyle(
-                              fontSize: 13,
-                              color: AppColors.textDark,
-                              fontWeight: FontWeight.w500,
-                            ),
+                            'JSON des notes, '
+                            '${(jsonString.length / 1024).toStringAsFixed(1)} KB',
+                            style: Theme.of(context).textTheme.bodyMedium,
                           ),
                         ],
                       ),

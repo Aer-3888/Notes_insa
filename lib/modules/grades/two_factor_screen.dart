@@ -172,7 +172,7 @@ class _TwoFactorScreenState extends ConsumerState<TwoFactorScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Double Authentification'),
+        title: const Text('Double authentification'),
         actions: [
           IconButton(
             icon: const Icon(Icons.logout),

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import '../app_colors.dart';
+import '../theme/campus_context.dart';
+import '../theme/tokens.dart';
 
 class TwoFactorForm extends StatefulWidget {
   final TextEditingController controller;
@@ -68,26 +69,21 @@ class _TwoFactorFormState extends State<TwoFactorForm> {
         // Header
         Row(
           children: [
-            Container(
-              padding: const EdgeInsets.all(8),
-              decoration: BoxDecoration(
-                color: AppColors.primary.withValues(alpha: .1),
-                borderRadius: BorderRadius.circular(8),
-              ),
-              child: const Icon(Icons.security, color: AppColors.primary),
-            ),
-            const SizedBox(width: 12),
-            const Expanded(
+            Icon(Icons.security, color: context.scheme.onSurfaceVariant),
+            const SizedBox(width: CampusSpacing.x3),
+            Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
                     'Vérification en deux étapes',
-                    style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+                    style: context.text.titleMedium,
                   ),
                   Text(
                     'Un code est requis pour continuer',
-                    style: TextStyle(color: Colors.grey, fontSize: 12),
+                    style: context.text.bodyMedium?.copyWith(
+                      color: context.scheme.onSurfaceVariant,
+                    ),
                   ),
                 ],
               ),
@@ -108,20 +104,6 @@ class _TwoFactorFormState extends State<TwoFactorForm> {
             label: Text(
               widget.emailSent ? 'Email envoyé' : 'Recevoir un code par email',
             ),
-            style: OutlinedButton.styleFrom(
-              padding: const EdgeInsets.all(14),
-              foregroundColor: widget.emailSent
-                  ? AppColors.statusPositive
-                  : AppColors.primary,
-              side: BorderSide(
-                color: widget.emailSent
-                    ? AppColors.statusPositive
-                    : AppColors.primary,
-              ),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(12),
-              ),
-            ),
           ),
           const SizedBox(height: 16),
         ],
@@ -134,7 +116,6 @@ class _TwoFactorFormState extends State<TwoFactorForm> {
           inputFormatters: [FilteringTextInputFormatter.digitsOnly],
           decoration: InputDecoration(
             labelText: 'Code de vérification',
-            border: const OutlineInputBorder(),
             prefixIcon: const Icon(Icons.pin_outlined),
             counterText: '',
             errorText: widget.errorText,
@@ -143,79 +124,72 @@ class _TwoFactorFormState extends State<TwoFactorForm> {
         const SizedBox(height: 16),
 
         // Validate code button
-        ElevatedButton(
+        FilledButton(
           onPressed: (codeReady && !widget.isLoading)
               ? widget.onValidate
               : null,
-          style: ElevatedButton.styleFrom(
-            padding: const EdgeInsets.all(16),
-            backgroundColor: AppColors.primary,
-            disabledBackgroundColor: AppColors.primary.withValues(alpha: .3),
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(12),
-            ),
-          ),
           child: widget.isLoading
-              ? const SizedBox(
+              ? SizedBox(
                   width: 20,
                   height: 20,
                   child: CircularProgressIndicator(
-                    color: Colors.white,
+                    color: context.scheme.onPrimary,
                     strokeWidth: 2,
                   ),
                 )
-              : const Text(
-                  'Valider',
-                  style: TextStyle(color: Colors.white, fontSize: 16),
-                ),
+              : const Text('Valider'),
         ),
 
-        const Padding(
-          padding: EdgeInsets.symmetric(vertical: 20),
+        Padding(
+          padding: const EdgeInsets.symmetric(vertical: CampusSpacing.x5),
           child: Row(
             children: [
-              Expanded(child: Divider()),
+              const Expanded(child: Divider()),
               Padding(
-                padding: EdgeInsets.symmetric(horizontal: 12),
-                child: Text('ou', style: TextStyle(color: Colors.grey)),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: CampusSpacing.x3,
+                ),
+                child: Text(
+                  'ou',
+                  style: context.text.labelMedium?.copyWith(
+                    color: context.scheme.onSurfaceVariant,
+                  ),
+                ),
               ),
-              Expanded(child: Divider()),
+              const Expanded(child: Divider()),
             ],
           ),
         ),
 
         // QR code scan option
-        Text(
-          'Secret OTP',
-          style: TextStyle(
-            color: Colors.grey.shade600,
-            fontWeight: FontWeight.bold,
-          ),
-        ),
+        Text('Secret OTP', style: context.text.titleMedium),
         if (widget.onToggleSaveSecret != null) ...[
           const SizedBox(height: 4),
           Text(
-            'Scannez le QR code 2FA pour éviter de ressaisir un code à chaque connexion.',
-            style: TextStyle(color: Colors.grey.shade500, fontSize: 12),
+            'Scannez le QR code 2FA pour éviter de ressaisir un code à chaque '
+            'connexion.',
+            style: context.text.bodyMedium?.copyWith(
+              color: context.scheme.onSurfaceVariant,
+            ),
           ),
         ],
         const SizedBox(height: 10),
 
         InkWell(
           onTap: widget.isLoading ? null : widget.onScanQr,
-          borderRadius: BorderRadius.circular(12),
+          borderRadius: CampusRadii.cardRadius,
           child: Container(
-            padding: const EdgeInsets.all(16),
+            padding: const EdgeInsets.all(CampusSpacing.card),
             decoration: BoxDecoration(
               color: widget.scannedSecret != null
-                  ? AppColors.statusPositive.withValues(alpha: .1)
-                  : Colors.grey.shade100,
+                  ? context.campus.positiveContainer
+                  : context.scheme.surfaceContainer,
               border: Border.all(
                 color: widget.scannedSecret != null
-                    ? AppColors.statusPositive
-                    : Colors.grey.shade300,
+                    ? context.campus.positive
+                    : context.scheme.outlineVariant,
               ),
-              borderRadius: BorderRadius.circular(12),
+              borderRadius: CampusRadii.cardRadius,
             ),
             child: Row(
               children: [
@@ -224,20 +198,19 @@ class _TwoFactorFormState extends State<TwoFactorForm> {
                       ? Icons.check_circle
                       : Icons.qr_code_scanner,
                   color: widget.scannedSecret != null
-                      ? AppColors.statusPositive
-                      : AppColors.primary,
+                      ? context.campus.positive
+                      : context.scheme.onSurfaceVariant,
                 ),
-                const SizedBox(width: 16),
+                const SizedBox(width: CampusSpacing.x4),
                 Expanded(
                   child: Text(
                     widget.scannedSecret != null
                         ? 'Secret scanné'
                         : 'Scanner le QR code',
-                    style: TextStyle(
+                    style: context.text.titleMedium?.copyWith(
                       color: widget.scannedSecret != null
-                          ? AppColors.statusPositive
-                          : Colors.black87,
-                      fontWeight: FontWeight.bold,
+                          ? context.campus.positive
+                          : context.scheme.onSurface,
                     ),
                   ),
                 ),
@@ -253,41 +226,29 @@ class _TwoFactorFormState extends State<TwoFactorForm> {
             value: widget.saveSecret,
             onChanged: (v) => widget.onToggleSaveSecret!(v ?? false),
             contentPadding: EdgeInsets.zero,
-            title: const Text(
+            title: Text(
               'Mémoriser le secret pour les prochaines connexions',
-              style: TextStyle(fontSize: 13),
+              style: context.text.bodyMedium,
             ),
-            subtitle: const Text(
+            subtitle: Text(
               'Nécessaire pour la mise à jour automatique en arrière-plan.',
-              style: TextStyle(fontSize: 11),
+              style: context.text.labelMedium?.copyWith(
+                color: context.scheme.onSurfaceVariant,
+              ),
             ),
             controlAffinity: ListTileControlAffinity.leading,
-            activeColor: AppColors.primary,
           ),
         ],
 
         // Optional auto-validate button
         if (widget.scannedSecret != null && widget.onAutoValidate != null) ...[
           const SizedBox(height: 8),
-          ElevatedButton.icon(
+          FilledButton.tonalIcon(
             onPressed: widget.isLoading
                 ? null
                 : () => widget.onAutoValidate!(widget.scannedSecret!),
-            icon: const Icon(Icons.auto_fix_high, color: Colors.white),
-            label: const Text(
-              'Valider automatiquement',
-              style: TextStyle(color: Colors.white, fontSize: 16),
-            ),
-            style: ElevatedButton.styleFrom(
-              padding: const EdgeInsets.all(16),
-              backgroundColor: AppColors.statusPositive,
-              disabledBackgroundColor: AppColors.statusPositive.withValues(
-                alpha: .3,
-              ),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(12),
-              ),
-            ),
+            icon: const Icon(Icons.auto_fix_high),
+            label: const Text('Valider automatiquement'),
           ),
         ],
       ],

@@ -1,11 +1,20 @@
+// Camera chrome is dark in both themes by function, not by style: the preview
+// must not be framed by a light surface. Everything outside the viewfinder
+// (sheets, snackbars, buttons) follows the app theme.
 import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:mobile_scanner/mobile_scanner.dart';
-import '../app_colors.dart';
+import '../theme/campus_context.dart';
+import '../theme/tokens.dart';
 import '../utils/google_auth_migration_decoder.dart';
 import '../utils/base32_codec.dart';
+
+// Viewfinder brackets turn this green on a successful scan. It is a fixed
+// value rather than a theme token because it is painted over a live camera
+// feed, not over any app surface.
+const Color _kScanSuccess = Color(0xFF2A7354);
 
 class ScanScreen extends StatefulWidget {
   const ScanScreen({super.key});
@@ -154,15 +163,9 @@ class _ScanScreenState extends State<ScanScreen>
 
   void _showError(String message) {
     if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(message),
-        backgroundColor: Colors.red.shade700,
-        behavior: SnackBarBehavior.floating,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-        margin: const EdgeInsets.fromLTRB(16, 0, 16, 24),
-      ),
-    );
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(SnackBar(content: Text(message)));
   }
 
   void _showAccountSelectionDialog(List<OtpAccount> accounts) {
@@ -170,57 +173,33 @@ class _ScanScreenState extends State<ScanScreen>
 
     showModalBottomSheet<String>(
       context: context,
-      backgroundColor: Colors.transparent,
+      useSafeArea: true,
       isScrollControlled: true,
-      builder: (ctx) => Container(
-        decoration: const BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      builder: (ctx) => Padding(
+        padding: const EdgeInsets.fromLTRB(
+          CampusSpacing.gutter,
+          0,
+          CampusSpacing.gutter,
+          CampusSpacing.x8,
         ),
-        padding: const EdgeInsets.fromLTRB(20, 12, 20, 32),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Container(
-              width: 36,
-              height: 4,
-              margin: const EdgeInsets.only(bottom: 20),
-              decoration: BoxDecoration(
-                color: Colors.grey.shade300,
-                borderRadius: BorderRadius.circular(2),
-              ),
-            ),
-            const Align(
+            Align(
               alignment: Alignment.centerLeft,
-              child: Text(
-                'Sélectionner un compte',
-                style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-              ),
+              child: Text('Sélectionner un compte', style: ctx.text.titleLarge),
             ),
-            const SizedBox(height: 16),
+            const SizedBox(height: CampusSpacing.x4),
             ...accounts.map(
               (account) => ListTile(
                 contentPadding: EdgeInsets.zero,
-                leading: Container(
-                  width: 40,
-                  height: 40,
-                  decoration: BoxDecoration(
-                    color: AppColors.primary.withValues(alpha: 0.1),
-                    borderRadius: BorderRadius.circular(10),
-                  ),
-                  child: const Icon(
-                    Icons.key,
-                    color: AppColors.primary,
-                    size: 20,
-                  ),
-                ),
-                title: Text(
-                  account.name,
-                  style: const TextStyle(fontWeight: FontWeight.w600),
-                ),
+                leading: Icon(Icons.key, color: ctx.scheme.onSurfaceVariant),
+                title: Text(account.name, style: ctx.text.titleMedium),
                 subtitle: Text(
                   account.issuer,
-                  style: TextStyle(color: Colors.grey.shade500, fontSize: 12),
+                  style: ctx.text.bodyMedium?.copyWith(
+                    color: ctx.scheme.onSurfaceVariant,
+                  ),
                 ),
                 onTap: () => Navigator.pop(ctx, account.secret),
               ),
@@ -243,70 +222,41 @@ class _ScanScreenState extends State<ScanScreen>
 
     showModalBottomSheet<String>(
       context: context,
-      backgroundColor: Colors.transparent,
+      useSafeArea: true,
       isScrollControlled: true,
       builder: (ctx) => Padding(
         padding: EdgeInsets.only(bottom: MediaQuery.of(ctx).viewInsets.bottom),
-        child: Container(
-          decoration: const BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(
+            CampusSpacing.gutter,
+            0,
+            CampusSpacing.gutter,
+            CampusSpacing.x8,
           ),
-          padding: const EdgeInsets.fromLTRB(20, 12, 20, 32),
           child: Column(
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Center(
-                child: Container(
-                  width: 36,
-                  height: 4,
-                  margin: const EdgeInsets.only(bottom: 20),
-                  decoration: BoxDecoration(
-                    color: Colors.grey.shade300,
-                    borderRadius: BorderRadius.circular(2),
-                  ),
-                ),
-              ),
-              const Text(
-                'Saisir le secret manuellement',
-                style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-              ),
-              const SizedBox(height: 6),
+              Text('Saisir le secret manuellement', style: ctx.text.titleLarge),
+              const SizedBox(height: CampusSpacing.x2),
               Text(
                 'Entrez le secret base32 fourni par votre service.',
-                style: TextStyle(fontSize: 13, color: Colors.grey.shade500),
+                style: ctx.text.bodyMedium?.copyWith(
+                  color: ctx.scheme.onSurfaceVariant,
+                ),
               ),
-              const SizedBox(height: 20),
+              const SizedBox(height: CampusSpacing.x5),
               TextField(
                 controller: controller,
                 autocorrect: false,
                 textCapitalization: TextCapitalization.characters,
-                style: const TextStyle(
+                // Monospace is meaningful here: this is a machine code the
+                // user is transcribing character by character.
+                style: ctx.text.bodyLarge?.copyWith(
                   fontFamily: 'monospace',
                   letterSpacing: 1.2,
                 ),
-                decoration: InputDecoration(
-                  hintText: 'JBSWY3DPEHPK3PXP',
-                  hintStyle: TextStyle(
-                    color: Colors.grey.shade400,
-                    letterSpacing: 1.2,
-                  ),
-                  filled: true,
-                  fillColor: Colors.grey.shade50,
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(12),
-                    borderSide: BorderSide(color: Colors.grey.shade200),
-                  ),
-                  enabledBorder: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(12),
-                    borderSide: BorderSide(color: Colors.grey.shade200),
-                  ),
-                  focusedBorder: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(12),
-                    borderSide: const BorderSide(color: AppColors.primary),
-                  ),
-                ),
+                decoration: const InputDecoration(hintText: 'JBSWY3DPEHPK3PXP'),
               ),
               const SizedBox(height: 16),
               SizedBox(
@@ -320,16 +270,7 @@ class _ScanScreenState extends State<ScanScreen>
                       _showError('Secret invalide. Vérifiez le format base32.');
                     }
                   },
-                  style: FilledButton.styleFrom(
-                    padding: const EdgeInsets.symmetric(vertical: 14),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                  ),
-                  child: const Text(
-                    'Confirmer',
-                    style: TextStyle(fontSize: 15, fontWeight: FontWeight.w600),
-                  ),
+                  child: const Text('Confirmer'),
                 ),
               ),
             ],
@@ -593,7 +534,7 @@ class _OverlayPainter extends CustomPainter {
       ..fillType = PathFillType.evenOdd;
     canvas.drawPath(path, overlayPaint);
 
-    final bracketColor = isScanned ? AppColors.statusPositive : Colors.white;
+    final bracketColor = isScanned ? _kScanSuccess : Colors.white;
     final outlinePaint = Paint()
       ..color = bracketColor.withValues(alpha: isTracking ? 0.7 : 0.45)
       ..strokeWidth = 1

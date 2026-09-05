@@ -150,12 +150,9 @@ class _Header extends StatelessWidget {
           Semantics(
             label: 'Progression de la configuration',
             value: '${currentIndex + 1} sur $stepCount',
-            child: ClipRRect(
-              borderRadius: BorderRadius.circular(1),
-              child: LinearProgressIndicator(
-                value: (currentIndex + 1) / stepCount,
-                minHeight: 2,
-              ),
+            child: LinearProgressIndicator(
+              value: (currentIndex + 1) / stepCount,
+              minHeight: 2,
             ),
           ),
       ],
