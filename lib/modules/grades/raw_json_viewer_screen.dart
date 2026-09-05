@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'dart:convert';
+import '../../theme/state_view.dart';
 import 'grades_provider.dart';
 
 // Developer screen. Its terminal palette is deliberate and stays fixed in both
@@ -136,31 +137,10 @@ class RawJsonViewerScreen extends ConsumerWidget {
         ],
       ),
       body: isEmpty
-          ? Center(
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Icon(
-                    Icons.inbox_outlined,
-                    size: 80,
-                    color: Colors.grey.shade400,
-                  ),
-                  const SizedBox(height: 16),
-                  Text(
-                    'Aucune donnée disponible',
-                    style: TextStyle(
-                      fontSize: 18,
-                      color: Colors.grey.shade600,
-                      fontWeight: FontWeight.w500,
-                    ),
-                  ),
-                  const SizedBox(height: 8),
-                  Text(
-                    'Connectez-vous pour charger vos notes',
-                    style: TextStyle(fontSize: 14, color: Colors.grey.shade500),
-                  ),
-                ],
-              ),
+          ? const StateView(
+              icon: Icons.inbox_outlined,
+              title: 'Aucune donnée disponible',
+              body: 'Connectez-vous pour charger vos notes.',
             )
           : SingleChildScrollView(
               padding: const EdgeInsets.all(16),
