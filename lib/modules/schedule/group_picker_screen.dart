@@ -1,7 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../../app_colors.dart';
+import '../../theme/campus_context.dart';
+import '../../theme/state_view.dart';
 import 'ade_groups.dart';
 import 'ade_link.dart';
 import 'schedule_provider.dart';
@@ -138,19 +139,8 @@ class _GroupPickerScreenState extends ConsumerState<GroupPickerScreen> {
         );
       },
       child: Scaffold(
-        backgroundColor: AppColors.scaffoldBg,
         appBar: AppBar(
           title: const Text('Choisir un groupe'),
-          foregroundColor: Colors.white,
-          flexibleSpace: const DecoratedBox(
-            decoration: BoxDecoration(
-              gradient: LinearGradient(
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-                colors: AppColors.headerGradient,
-              ),
-            ),
-          ),
           actions: [
             IconButton(
               icon: const Icon(Icons.link),
@@ -166,13 +156,7 @@ class _GroupPickerScreenState extends ConsumerState<GroupPickerScreen> {
                           .set(_selected.toList());
                       if (context.mounted) Navigator.of(context).pop();
                     },
-              child: Text(
-                'OK (${_selected.length})',
-                style: TextStyle(
-                  color: _selected.isEmpty ? Colors.white54 : Colors.white,
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
+              child: Text('Valider (${_selected.length})'),
             ),
           ],
         ),
@@ -189,15 +173,10 @@ class _GroupPickerScreenState extends ConsumerState<GroupPickerScreen> {
                   suffixIcon: _searching
                       ? IconButton(
                           icon: const Icon(Icons.clear),
+                          tooltip: 'Effacer la recherche',
                           onPressed: () => setState(_controller.clear),
                         )
                       : null,
-                  filled: true,
-                  fillColor: Colors.white,
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(12),
-                    borderSide: const BorderSide(color: AppColors.border),
-                  ),
                 ),
               ),
             ),
@@ -239,14 +218,10 @@ class _GroupPickerScreenState extends ConsumerState<GroupPickerScreen> {
   Widget _buildList() {
     final rows = _rows;
     if (rows.isEmpty) {
-      return const Center(
-        child: Padding(
-          padding: EdgeInsets.all(24),
-          child: Text(
-            'Aucun résultat.',
-            style: TextStyle(color: AppColors.textSecondary),
-          ),
-        ),
+      return const StateView(
+        icon: Icons.search_off_outlined,
+        title: 'Aucun r\u00e9sultat',
+        body: 'Essayez un autre nom de groupe, par exemple S7-INFO.',
       );
     }
     return ListView.builder(
@@ -257,19 +232,23 @@ class _GroupPickerScreenState extends ConsumerState<GroupPickerScreen> {
         final expandable =
             !_searching && AdeGroups.hasChildren(_categoryRows, g.id);
         return ListTile(
-          dense: true,
           leading: Checkbox(value: selected, onChanged: (_) => _toggle(g)),
           title: Text(g.name),
           // A parent is selectable in its own right: picking S7-INFO gives the
           // whole promotion's timetable, which is what many students want.
           subtitle: expandable
-              ? const Text(
+              ? Text(
                   'Contient des sous-groupes',
-                  style: TextStyle(fontSize: 11),
+                  style: context.text.labelMedium?.copyWith(
+                    color: context.scheme.onSurfaceVariant,
+                  ),
                 )
               : null,
           trailing: expandable
-              ? const Icon(Icons.chevron_right, color: AppColors.textMuted)
+              ? Icon(
+                  Icons.chevron_right,
+                  color: context.scheme.onSurfaceVariant,
+                )
               : null,
           onTap: expandable
               ? () => setState(() => _parentId = g.id)
@@ -300,7 +279,11 @@ class _Breadcrumb extends StatelessWidget {
       children: [
         TextButton(onPressed: onRoot, child: const Text('Tout')),
         for (final g in path) ...[
-          const Icon(Icons.chevron_right, size: 16, color: AppColors.textMuted),
+          Icon(
+            Icons.chevron_right,
+            size: 16,
+            color: context.scheme.onSurfaceVariant,
+          ),
           TextButton(onPressed: () => onTap(g), child: Text(g.name)),
         ],
       ],

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
-import '../../../../app_colors.dart';
+import '../../../../theme/campus_context.dart';
+import '../../../../theme/tokens.dart';
 import '../widgets/slide_layout.dart';
 
 class NotificationsSlide extends StatelessWidget {
@@ -31,48 +32,37 @@ class NotificationsSlide extends StatelessWidget {
       onPrimary: onEnable,
       secondaryLabel: 'Peut-être plus tard',
       onSecondary: onSkip,
-      content: Container(
-        padding: const EdgeInsets.all(16),
-        decoration: BoxDecoration(
-          color: Colors.grey.shade50,
-          border: Border.all(color: Colors.grey.shade200),
-          borderRadius: BorderRadius.circular(12),
-        ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              children: [
-                Container(
-                  padding: const EdgeInsets.all(8),
-                  decoration: BoxDecoration(
-                    color: AppColors.primary.withValues(alpha: 0.1),
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                  child: const Icon(
+      content: Card(
+        child: Padding(
+          padding: const EdgeInsets.all(CampusSpacing.card),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  Icon(
                     Icons.notifications_outlined,
-                    color: AppColors.primary,
                     size: 20,
+                    color: context.scheme.onSurfaceVariant,
                   ),
+                  const SizedBox(width: CampusSpacing.x3),
+                  Text('Campus INSA', style: context.text.titleMedium),
+                ],
+              ),
+              const Divider(height: CampusSpacing.x5),
+              Text(
+                'Nouvelle note : Mathématiques',
+                style: context.text.bodyLarge,
+              ),
+              const SizedBox(height: CampusSpacing.x1),
+              Text(
+                '14 / 20',
+                style: context.text.bodyMedium?.copyWith(
+                  color: context.scheme.onSurfaceVariant,
                 ),
-                const SizedBox(width: 12),
-                const Text(
-                  'Campus INSA',
-                  style: TextStyle(fontWeight: FontWeight.bold),
-                ),
-              ],
-            ),
-            Divider(height: 20, color: Colors.grey.shade200),
-            const Text(
-              'Nouvelle note : Mathématiques',
-              style: TextStyle(fontWeight: FontWeight.w500),
-            ),
-            const SizedBox(height: 4),
-            Text(
-              '14 / 20',
-              style: TextStyle(fontSize: 13, color: Colors.grey.shade600),
-            ),
-          ],
+              ),
+            ],
+          ),
         ),
       ),
     );

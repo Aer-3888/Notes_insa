@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
-import '../../../../app_colors.dart';
+import '../../../../theme/campus_context.dart';
+import '../../../../theme/tokens.dart';
 import '../widgets/slide_layout.dart';
 
 class ParticipationSlide extends StatelessWidget {
@@ -43,7 +44,7 @@ class ParticipationSlide extends StatelessWidget {
               'Semestre et année académique',
             ],
           ),
-          Divider(height: 32, color: AppColors.border),
+          Divider(height: CampusSpacing.x8),
           _DataSection(
             label: 'Jamais partagé',
             positive: false,
@@ -79,12 +80,10 @@ class _DataSection extends StatelessWidget {
         children: [
           Text(
             label,
-            style: TextStyle(
-              fontSize: 13,
-              fontWeight: FontWeight.w600,
+            style: context.text.labelMedium?.copyWith(
               color: positive
-                  ? AppColors.statusPositive
-                  : AppColors.textSecondary,
+                  ? context.campus.positive
+                  : context.scheme.onSurfaceVariant,
             ),
           ),
           const SizedBox(height: 10),
@@ -94,15 +93,13 @@ class _DataSection extends StatelessWidget {
               children: [
                 Icon(
                   positive ? Icons.check_circle_outline : Icons.cancel_outlined,
-                  size: 16,
+                  size: 18,
                   color: positive
-                      ? AppColors.statusPositive
-                      : AppColors.textSecondary,
+                      ? context.campus.positive
+                      : context.scheme.onSurfaceVariant,
                 ),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: Text(item, style: const TextStyle(fontSize: 13)),
-                ),
+                const SizedBox(width: CampusSpacing.x2),
+                Expanded(child: Text(item, style: context.text.bodyMedium)),
               ],
             ),
           ],

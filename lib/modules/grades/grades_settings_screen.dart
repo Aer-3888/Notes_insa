@@ -2,8 +2,9 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:permission_handler/permission_handler.dart';
-import '../../app_colors.dart';
 import '../../providers/settings_provider.dart';
+import '../../theme/campus_context.dart';
+import '../../theme/tokens.dart';
 import 'grades_provider.dart';
 import '../../services/averages_service.dart';
 
@@ -21,404 +22,232 @@ class GradesSettingsScreen extends ConsumerWidget {
     final availableIntervals = ref.watch(availableIntervalsProvider);
 
     return Scaffold(
-      appBar: AppBar(
-        toolbarHeight: 84,
-        elevation: 4,
-        shape: const RoundedRectangleBorder(
-          borderRadius: BorderRadius.vertical(bottom: Radius.circular(20)),
-        ),
-        flexibleSpace: Container(
-          decoration: const BoxDecoration(
-            gradient: LinearGradient(
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
-              colors: AppColors.headerGradient,
-            ),
-          ),
-        ),
-        backgroundColor: Colors.transparent,
-        title: const Text(
-          'Paramètres',
-          style: TextStyle(
-            fontSize: 20,
-            fontWeight: FontWeight.w700,
-            color: Colors.white,
-          ),
-        ),
-      ),
+      appBar: AppBar(title: const Text('Synchronisation et partage')),
       body: settingsState.isLoading
           ? const Center(child: CircularProgressIndicator())
           : ListView(
-              padding: const EdgeInsets.all(16.0),
+              padding: const EdgeInsets.symmetric(vertical: CampusSpacing.x2),
               children: [
-                // Notification permission card
-                const _NotificationPermissionCard(),
-                const SizedBox(height: 12),
+                const _NotificationPermissionTile(),
+                const Divider(),
 
-                // Sharing consent card
-                Card(
-                  elevation: 2,
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  child: Padding(
-                    padding: const EdgeInsets.all(16.0),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Row(
-                          children: [
-                            const Icon(
-                              Icons.people_outline,
-                              color: AppColors.primary,
-                              size: 26,
-                            ),
-                            const SizedBox(width: 12),
-                            Expanded(
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  const Text(
-                                    'Partage anonyme',
-                                    style: TextStyle(
-                                      fontSize: 18,
-                                      fontWeight: FontWeight.bold,
-                                      color: AppColors.textDark,
-                                    ),
+                // Sharing consent
+                Padding(
+                  padding: const EdgeInsets.all(CampusSpacing.gutter),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          Icon(
+                            Icons.people_outline,
+                            color: context.scheme.onSurfaceVariant,
+                          ),
+                          const SizedBox(width: CampusSpacing.x3),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  'Partage anonyme',
+                                  style: context.text.titleMedium,
+                                ),
+                                Text(
+                                  'Contribuer aux moyennes de promo',
+                                  style: context.text.bodyMedium?.copyWith(
+                                    color: context.scheme.onSurfaceVariant,
                                   ),
-                                  const SizedBox(height: 4),
-                                  Text(
-                                    'Contribuer aux moyennes de promo',
-                                    style: TextStyle(
-                                      fontSize: 14,
-                                      color: Colors.grey.shade600,
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                            Transform.scale(
-                              scale: 0.85,
-                              child: Switch(
-                                value: settingsState.sharingConsent,
-                                onChanged: (value) {
-                                  ref
-                                      .read(settingsProvider.notifier)
-                                      .setSharingConsent(value);
-                                },
-                                activeThumbColor: AppColors.statusPositive,
-                                activeTrackColor: AppColors.statusPositive
-                                    .withValues(alpha: 0.4),
-                              ),
-                            ),
-                          ],
-                        ),
-                        if (!settingsState.sharingConsent) ...[
-                          const SizedBox(height: 8),
-                          Text(
-                            'Vos notes ne sont pas partagées.',
-                            style: TextStyle(
-                              fontSize: 12,
-                              color: Colors.grey.shade500,
+                                ),
+                              ],
                             ),
                           ),
+                          Switch(
+                            value: settingsState.sharingConsent,
+                            onChanged: (value) {
+                              ref
+                                  .read(settingsProvider.notifier)
+                                  .setSharingConsent(value);
+                            },
+                          ),
                         ],
+                      ),
+                      if (!settingsState.sharingConsent) ...[
+                        const SizedBox(height: CampusSpacing.x2),
+                        Text(
+                          'Vos notes ne sont pas partagées.',
+                          style: context.text.labelMedium?.copyWith(
+                            color: context.scheme.onSurfaceVariant,
+                          ),
+                        ),
                       ],
-                    ),
+                    ],
                   ),
                 ),
 
-                // Force send data card
-                if (settingsState.sharingConsent) ...[
-                  const SizedBox(height: 12),
-                  Card(
-                    elevation: 2,
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12),
+                // Force send data
+                if (settingsState.sharingConsent)
+                  ListTile(
+                    leading: const Icon(Icons.cloud_upload_outlined),
+                    title: const Text('Forcer l’envoi des données'),
+                    subtitle: const Text(
+                      'Mettre à jour manuellement vos moyennes',
                     ),
-                    child: InkWell(
-                      onTap: () async {
-                        final gradesJson = ref.read(gradesProvider).jsonData;
-                        if (gradesJson == '{}' || gradesJson.isEmpty) {
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(
-                              content: Text('Aucune donnée à envoyer'),
-                            ),
-                          );
-                          return;
-                        }
+                    trailing: const Icon(Icons.chevron_right),
+                    onTap: () => unawaited(_forceSend(context, ref)),
+                  ),
+                const Divider(),
 
-                        // Show loading
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(
-                            content: Text('Envoi des données en cours...'),
-                            duration: Duration(seconds: 1),
+                // Background fetch
+                Padding(
+                  padding: const EdgeInsets.all(CampusSpacing.gutter),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  'Intervalle de mise à jour',
+                                  style: context.text.titleMedium,
+                                ),
+                                Text(
+                                  'Fréquence de vérification des nouvelles notes',
+                                  style: context.text.bodyMedium?.copyWith(
+                                    color: context.scheme.onSurfaceVariant,
+                                  ),
+                                ),
+                              ],
+                            ),
                           ),
-                        );
-
-                        try {
-                          await AveragesService.submitAllSemesters(gradesJson);
-
-                          if (context.mounted) {
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              const SnackBar(
-                                content: Text('Données envoyées avec succès'),
-                                backgroundColor: AppColors.statusPositive,
-                              ),
-                            );
-                          }
-                        } catch (e) {
-                          if (context.mounted) {
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              SnackBar(
-                                content: Text('Erreur : ${e.toString()}'),
-                                backgroundColor: Colors.red.shade700,
-                              ),
-                            );
-                          }
-                        }
-                      },
-                      borderRadius: BorderRadius.circular(12),
-                      child: const Padding(
-                        padding: EdgeInsets.all(16.0),
-                        child: Row(
-                          children: [
-                            Icon(
-                              Icons.cloud_upload_outlined,
-                              color: AppColors.primary,
-                              size: 26,
-                            ),
-                            SizedBox(width: 12),
-                            Expanded(
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Text(
-                                    'Forcer l\'envoi des données',
-                                    style: TextStyle(
-                                      fontSize: 16,
-                                      fontWeight: FontWeight.bold,
-                                      color: AppColors.textDark,
+                          Switch(
+                            value: settingsState.fetchEnabled,
+                            onChanged: (enabled) async {
+                              try {
+                                await ref
+                                    .read(settingsProvider.notifier)
+                                    .setFetchEnabled(enabled);
+                              } catch (_) {
+                                if (!context.mounted) return;
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  const SnackBar(
+                                    content: Text(
+                                      'Impossible de modifier la mise à jour en arrière-plan.',
                                     ),
                                   ),
-                                  SizedBox(height: 4),
-                                  Text(
-                                    'Mettre à jour manuellement vos moyennes',
-                                    style: TextStyle(
-                                      fontSize: 13,
-                                      color: Colors.grey,
-                                    ),
+                                );
+                              }
+                            },
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: CampusSpacing.x5),
+                      IgnorePointer(
+                        ignoring: !settingsState.fetchEnabled,
+                        child: _IntervalSelector(
+                          intervals: availableIntervals,
+                          selected: settingsState.fetchInterval,
+                          enabled: settingsState.fetchEnabled,
+                          onChanged: (v) async {
+                            try {
+                              await ref
+                                  .read(settingsProvider.notifier)
+                                  .setFetchInterval(v);
+                            } catch (_) {
+                              if (!context.mounted) return;
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                const SnackBar(
+                                  content: Text(
+                                    'Impossible de modifier la fréquence de mise à jour.',
                                   ),
-                                ],
-                              ),
-                            ),
-                            Icon(Icons.chevron_right, color: Colors.grey),
-                          ],
+                                ),
+                              );
+                            }
+                          },
                         ),
                       ),
-                    ),
-                  ),
-                ],
-
-                const SizedBox(height: 12),
-
-                // Background fetch card
-                Card(
-                  elevation: 2,
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  child: Padding(
-                    padding: const EdgeInsets.all(16.0),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Row(
-                          children: [
-                            Expanded(
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  const Text(
-                                    'Intervalle de mise à jour',
-                                    style: TextStyle(
-                                      fontSize: 18,
-                                      fontWeight: FontWeight.bold,
-                                      color: AppColors.textDark,
-                                    ),
-                                  ),
-                                  const SizedBox(height: 4),
-                                  Text(
-                                    'Fréquence de vérification des nouvelles notes',
-                                    style: TextStyle(
-                                      fontSize: 14,
-                                      color: Colors.grey.shade600,
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                            Transform.scale(
-                              scale: 0.85,
-                              child: Switch(
-                                value: settingsState.fetchEnabled,
-                                onChanged: (enabled) async {
-                                  try {
-                                    await ref
-                                        .read(settingsProvider.notifier)
-                                        .setFetchEnabled(enabled);
-                                  } catch (_) {
-                                    if (!context.mounted) return;
-                                    ScaffoldMessenger.of(context).showSnackBar(
-                                      const SnackBar(
-                                        content: Text(
-                                          'Impossible de modifier la mise à jour en arrière-plan.',
-                                        ),
-                                      ),
-                                    );
-                                  }
-                                },
-                                activeThumbColor: AppColors.statusPositive,
-                                activeTrackColor: AppColors.statusPositive
-                                    .withValues(alpha: 0.4),
-                              ),
-                            ),
-                          ],
-                        ),
-                        const SizedBox(height: 20),
-                        Opacity(
-                          opacity: settingsState.fetchEnabled ? 1.0 : 0.4,
-                          child: IgnorePointer(
-                            ignoring: !settingsState.fetchEnabled,
-                            child: _IntervalSelector(
-                              intervals: availableIntervals,
-                              selected: settingsState.fetchInterval,
-                              onChanged: (v) async {
-                                try {
-                                  await ref
-                                      .read(settingsProvider.notifier)
-                                      .setFetchInterval(v);
-                                } catch (_) {
-                                  if (!context.mounted) return;
-                                  ScaffoldMessenger.of(context).showSnackBar(
-                                    const SnackBar(
-                                      content: Text(
-                                        'Impossible de modifier la fréquence de mise à jour.',
-                                      ),
-                                    ),
-                                  );
-                                }
-                              },
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
+                    ],
                   ),
                 ),
               ],
             ),
     );
   }
+
+  Future<void> _forceSend(BuildContext context, WidgetRef ref) async {
+    final messenger = ScaffoldMessenger.of(context);
+    final gradesJson = ref.read(gradesProvider).jsonData;
+    if (gradesJson == '{}' || gradesJson.isEmpty) {
+      messenger.showSnackBar(
+        const SnackBar(content: Text('Aucune donnée à envoyer')),
+      );
+      return;
+    }
+
+    messenger.showSnackBar(
+      const SnackBar(
+        content: Text('Envoi des données…'),
+        duration: Duration(seconds: 1),
+      ),
+    );
+
+    try {
+      await AveragesService.submitAllSemesters(gradesJson);
+      messenger.showSnackBar(const SnackBar(content: Text('Données envoyées')));
+    } catch (_) {
+      // The exception text is for the log, not the user: it names internals
+      // they cannot act on.
+      messenger.showSnackBar(
+        const SnackBar(content: Text('Envoi impossible. Réessayez plus tard.')),
+      );
+    }
+  }
 }
 
 class _IntervalSelector extends StatelessWidget {
   final List<int> intervals;
   final int selected;
+  final bool enabled;
   final ValueChanged<int> onChanged;
 
   const _IntervalSelector({
     required this.intervals,
     required this.selected,
+    required this.enabled,
     required this.onChanged,
   });
 
   @override
   Widget build(BuildContext context) {
-    final n = intervals.length;
-    final rawIdx = intervals.indexOf(selected);
-    final selectedIndex = rawIdx < 0 ? 0 : rawIdx;
-
-    return Container(
-      decoration: BoxDecoration(
-        color: Colors.grey.shade100,
-        borderRadius: BorderRadius.circular(16),
-      ),
-      padding: const EdgeInsets.all(4),
-      child: LayoutBuilder(
-        builder: (context, constraints) {
-          final itemWidth = constraints.maxWidth / n;
-
-          return Stack(
-            children: [
-              // Pill animates independently — does not rebuild gesture detectors
-              AnimatedPositioned(
-                duration: const Duration(milliseconds: 300),
-                curve: Curves.easeOutCubic,
-                left: selectedIndex * itemWidth,
-                top: 0,
-                bottom: 0,
-                width: itemWidth,
-                child: Container(
-                  decoration: BoxDecoration(
-                    color: AppColors.primary,
-                    borderRadius: BorderRadius.circular(12),
-                    boxShadow: [
-                      BoxShadow(
-                        color: AppColors.primary.withValues(alpha: 0.25),
-                        blurRadius: 8,
-                        offset: const Offset(0, 2),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-              // Stable gesture detectors — never rebuilt during animation
-              Row(
-                children: List.generate(
-                  n,
-                  (i) => Expanded(
-                    child: GestureDetector(
-                      behavior: HitTestBehavior.opaque,
-                      onTap: () => onChanged(intervals[i]),
-                      child: Container(
-                        alignment: Alignment.center,
-                        padding: const EdgeInsets.symmetric(vertical: 14),
-                        child: AnimatedDefaultTextStyle(
-                          duration: const Duration(milliseconds: 300),
-                          curve: Curves.easeOutCubic,
-                          style: TextStyle(
-                            color: i == selectedIndex
-                                ? Colors.white
-                                : Colors.grey.shade600,
-                            fontWeight: FontWeight.bold,
-                            fontSize: 15,
-                          ),
-                          child: Text(_intervalLabel(intervals[i])),
-                        ),
-                      ),
-                    ),
-                  ),
-                ),
-              ),
-            ],
-          );
-        },
-      ),
+    final value = intervals.contains(selected) ? selected : intervals.first;
+    return SegmentedButton<int>(
+      segments: [
+        for (final i in intervals)
+          ButtonSegment<int>(
+            value: i,
+            label: Text(_intervalLabel(i)),
+            enabled: enabled,
+          ),
+      ],
+      selected: <int>{value},
+      showSelectedIcon: false,
+      onSelectionChanged: (choice) => onChanged(choice.first),
     );
   }
 }
 
-class _NotificationPermissionCard extends StatefulWidget {
-  const _NotificationPermissionCard();
+class _NotificationPermissionTile extends StatefulWidget {
+  const _NotificationPermissionTile();
 
   @override
-  State<_NotificationPermissionCard> createState() =>
-      _NotificationPermissionCardState();
+  State<_NotificationPermissionTile> createState() =>
+      _NotificationPermissionTileState();
 }
 
-class _NotificationPermissionCardState
-    extends State<_NotificationPermissionCard>
+class _NotificationPermissionTileState
+    extends State<_NotificationPermissionTile>
     with WidgetsBindingObserver {
   PermissionStatus? _status;
 
@@ -450,69 +279,32 @@ class _NotificationPermissionCardState
     final isUnknown = _status == null;
     final isGranted = _status?.isGranted ?? false;
 
-    return Card(
-      elevation: 2,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Row(
-          children: [
-            Icon(
-              isUnknown
-                  ? Icons.notifications_outlined
-                  : isGranted
-                  ? Icons.notifications_active
-                  : Icons.notifications_off,
-              color: isUnknown
-                  ? Colors.grey.shade400
-                  : isGranted
-                  ? AppColors.statusPositive
-                  : Colors.orange.shade700,
-              size: 28,
-            ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const Text(
-                    'Notifications',
-                    style: TextStyle(
-                      fontSize: 18,
-                      fontWeight: FontWeight.bold,
-                      color: AppColors.textDark,
-                    ),
-                  ),
-                  const SizedBox(height: 4),
-                  Text(
-                    isUnknown
-                        ? '...'
-                        : isGranted
-                        ? 'Activées'
-                        : 'Désactivées',
-                    style: TextStyle(
-                      fontSize: 14,
-                      color: isUnknown
-                          ? Colors.grey.shade400
-                          : isGranted
-                          ? AppColors.statusPositive
-                          : Colors.orange.shade700,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            if (!isUnknown && !isGranted)
-              TextButton(
-                onPressed: () async {
-                  await openAppSettings();
-                  unawaited(_checkPermission());
-                },
-                child: const Text('Activer'),
-              ),
-          ],
-        ),
+    return ListTile(
+      leading: Icon(
+        isUnknown
+            ? Icons.notifications_outlined
+            : isGranted
+            ? Icons.notifications_active
+            : Icons.notifications_off,
+        color: isUnknown
+            ? context.scheme.onSurfaceVariant
+            : isGranted
+            ? context.campus.positive
+            : context.scheme.error,
       ),
+      title: const Text('Notifications'),
+      // While the status is unknown the row simply has no subtitle, rather
+      // than showing a placeholder that reads as broken.
+      subtitle: isUnknown ? null : Text(isGranted ? 'Activées' : 'Désactivées'),
+      trailing: (!isUnknown && !isGranted)
+          ? TextButton(
+              onPressed: () async {
+                await openAppSettings();
+                unawaited(_checkPermission());
+              },
+              child: const Text('Activer'),
+            )
+          : null,
     );
   }
 }

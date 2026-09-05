@@ -4,7 +4,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:permission_handler/permission_handler.dart';
-import '../../../app_colors.dart';
 import '../../../constants.dart';
 import '../../../providers/auth_providers.dart';
 import '../grades_provider.dart';
@@ -15,7 +14,6 @@ import '../../../services/notification_service.dart';
 import '../../../background_tasks.dart';
 import '../../../screens/scan_screen.dart';
 import 'onboarding_enums.dart';
-import 'onboarding_theme.dart';
 import 'slides/credentials_slide.dart';
 import 'slides/manual_code_slide.dart';
 import 'slides/notifications_slide.dart';
@@ -307,22 +305,18 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return Theme(
-      data: buildOnboardingTheme(Theme.of(context)),
-      child: PopScope(
-        canPop: _currentIndex == 0,
-        onPopInvokedWithResult: (didPop, _) {
-          if (!didPop) _goBack();
-        },
-        child: Scaffold(
-          backgroundColor: AppColors.onboardingBg,
-          body: SafeArea(
-            child: PageView.builder(
-              controller: _pageController,
-              physics: const NeverScrollableScrollPhysics(),
-              itemCount: _steps.length,
-              itemBuilder: (_, i) => _buildSlide(_steps[i]),
-            ),
+    return PopScope(
+      canPop: _currentIndex == 0,
+      onPopInvokedWithResult: (didPop, _) {
+        if (!didPop) _goBack();
+      },
+      child: Scaffold(
+        body: SafeArea(
+          child: PageView.builder(
+            controller: _pageController,
+            physics: const NeverScrollableScrollPhysics(),
+            itemCount: _steps.length,
+            itemBuilder: (_, i) => _buildSlide(_steps[i]),
           ),
         ),
       ),

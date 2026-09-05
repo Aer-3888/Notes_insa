@@ -3,7 +3,6 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../../app_colors.dart';
 import '../../modules/grades/grades_provider.dart';
 import '../../modules/grades/onboarding/onboarding_screen.dart';
 import '../../providers/auth_providers.dart';
@@ -109,7 +108,9 @@ class _PinScreenState extends ConsumerState<PinScreen> {
     }
     if (!_error) return null;
     if (_remainingAttempts != null && _remainingAttempts! > 0) {
-      return 'Code PIN incorrect ($_remainingAttempts tentative(s) restante(s))';
+      final n = _remainingAttempts!;
+      final word = n == 1 ? 'tentative restante' : 'tentatives restantes';
+      return 'Code PIN incorrect, $n $word';
     }
     return 'Code PIN incorrect';
   }
@@ -117,26 +118,15 @@ class _PinScreenState extends ConsumerState<PinScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: AppColors.scaffoldBg,
       body: Center(
         child: Padding(
           padding: const EdgeInsets.all(40),
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              const Icon(
-                Icons.pin_outlined,
-                size: 72,
-                color: AppColors.primary,
-              ),
-              const SizedBox(height: 16),
               Text(
                 _upgradeMode ? 'Renforcez votre code' : 'Code PIN requis',
-                style: const TextStyle(
-                  fontSize: 24,
-                  fontWeight: FontWeight.bold,
-                  color: AppColors.primary,
-                ),
+                style: Theme.of(context).textTheme.headlineMedium,
               ),
               const SizedBox(height: 8),
               Text(
@@ -144,7 +134,9 @@ class _PinScreenState extends ConsumerState<PinScreen> {
                     ? 'Choisissez un nouveau code PIN de 6 chiffres minimum.'
                     : 'Entrez votre code PIN pour accéder à vos notes',
                 textAlign: TextAlign.center,
-                style: TextStyle(color: Colors.grey.shade600),
+                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                  color: Theme.of(context).colorScheme.onSurfaceVariant,
+                ),
               ),
               const SizedBox(height: 32),
               if (_upgradeMode) ...[
@@ -154,13 +146,14 @@ class _PinScreenState extends ConsumerState<PinScreen> {
                   keyboardType: TextInputType.number,
                   maxLength: 8,
                   textAlign: TextAlign.center,
-                  style: const TextStyle(fontSize: 24, letterSpacing: 8),
+                  style: Theme.of(
+                    context,
+                  ).textTheme.headlineMedium?.copyWith(letterSpacing: 8),
                   onChanged: (_) {
                     if (_upgradeError) setState(() => _upgradeError = false);
                   },
                   decoration: const InputDecoration(
                     labelText: 'Nouveau code PIN',
-                    border: OutlineInputBorder(),
                     counterText: '',
                   ),
                 ),
@@ -171,14 +164,15 @@ class _PinScreenState extends ConsumerState<PinScreen> {
                   keyboardType: TextInputType.number,
                   maxLength: 8,
                   textAlign: TextAlign.center,
-                  style: const TextStyle(fontSize: 24, letterSpacing: 8),
+                  style: Theme.of(
+                    context,
+                  ).textTheme.headlineMedium?.copyWith(letterSpacing: 8),
                   onChanged: (_) {
                     if (_upgradeError) setState(() => _upgradeError = false);
                   },
                   onSubmitted: (_) => _submitUpgrade(),
                   decoration: InputDecoration(
                     labelText: 'Confirmer le code PIN',
-                    border: const OutlineInputBorder(),
                     counterText: '',
                     errorText: _upgradeError
                         ? 'Les codes ne correspondent pas ou sont trop courts'
@@ -193,13 +187,14 @@ class _PinScreenState extends ConsumerState<PinScreen> {
                   keyboardType: TextInputType.number,
                   maxLength: 8,
                   textAlign: TextAlign.center,
-                  style: const TextStyle(fontSize: 24, letterSpacing: 8),
+                  style: Theme.of(
+                    context,
+                  ).textTheme.headlineMedium?.copyWith(letterSpacing: 8),
                   onChanged: (_) {
                     if (_error) setState(() => _error = false);
                   },
                   onSubmitted: (_) => _verify(),
                   decoration: InputDecoration(
-                    border: const OutlineInputBorder(),
                     counterText: '',
                     errorText: _errorText,
                   ),
@@ -207,19 +202,11 @@ class _PinScreenState extends ConsumerState<PinScreen> {
               const SizedBox(height: 24),
               SizedBox(
                 width: double.infinity,
-                child: ElevatedButton(
+                child: FilledButton(
                   onPressed: _upgradeMode
                       ? _submitUpgrade
                       : (_lockout == null ? _verify : null),
-                  style: ElevatedButton.styleFrom(
-                    padding: const EdgeInsets.symmetric(vertical: 16),
-                    backgroundColor: AppColors.primary,
-                    foregroundColor: Colors.white,
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                  ),
-                  child: const Text('Valider', style: TextStyle(fontSize: 16)),
+                  child: const Text('Valider'),
                 ),
               ),
               if (!_upgradeMode) ...[

@@ -1,8 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:notes_insa/app_colors.dart';
-import 'package:notes_insa/modules/grades/onboarding/onboarding_theme.dart';
 import 'package:notes_insa/modules/grades/onboarding/slides/credentials_slide.dart';
+import 'package:notes_insa/theme/campus_theme.dart';
 
 void main() {
   testWidgets('login stays usable on a compact phone viewport', (tester) async {
@@ -18,9 +17,8 @@ void main() {
 
     await tester.pumpWidget(
       MaterialApp(
-        theme: buildOnboardingTheme(ThemeData(useMaterial3: true)),
+        theme: campusTheme(Brightness.light),
         home: Scaffold(
-          backgroundColor: AppColors.onboardingBg,
           body: SafeArea(
             child: CredentialsSlide(
               userController: username,
@@ -63,9 +61,8 @@ void main() {
 
     await tester.pumpWidget(
       MaterialApp(
-        theme: buildOnboardingTheme(ThemeData(useMaterial3: true)),
+        theme: campusTheme(Brightness.light),
         home: Scaffold(
-          backgroundColor: AppColors.onboardingBg,
           body: SafeArea(
             child: CredentialsSlide(
               userController: username,

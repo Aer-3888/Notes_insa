@@ -1,7 +1,5 @@
 import 'package:flutter/material.dart';
 
-import '../../app_colors.dart';
-
 // Full-screen cover shown whenever the app is not in the foreground, so the OS
 // task-switcher snapshot never reveals user data. Purely visual — the
 // biometric/PIN lock route (LockController + gradesUnlockedProvider) is what
@@ -50,30 +48,19 @@ class _PrivacyCoverState extends State<PrivacyCover>
   }
 }
 
-// The opaque branded curtain itself — mirrors the splash screen.
+// The opaque curtain itself. It reads the theme rather than a fixed colour so
+// backgrounding a dark-themed app does not flash a light panel.
 class _PrivacyCurtain extends StatelessWidget {
   const _PrivacyCurtain();
 
   @override
   Widget build(BuildContext context) {
-    return const ColoredBox(
-      color: AppColors.scaffoldBg,
+    return ColoredBox(
+      color: Theme.of(context).colorScheme.surface,
       child: Center(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(Icons.school, size: 72, color: AppColors.primary),
-            SizedBox(height: 16),
-            Text(
-              'Campus INSA',
-              style: TextStyle(
-                color: AppColors.primary,
-                fontSize: 24,
-                fontWeight: FontWeight.bold,
-                letterSpacing: 1.2,
-              ),
-            ),
-          ],
+        child: Text(
+          'Campus INSA',
+          style: Theme.of(context).textTheme.headlineMedium,
         ),
       ),
     );

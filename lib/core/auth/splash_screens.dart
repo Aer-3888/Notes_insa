@@ -3,7 +3,6 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../../app_colors.dart';
 import '../../modules/grades/grades_provider.dart';
 import '../../modules/grades/onboarding/onboarding_screen.dart';
 
@@ -13,7 +12,6 @@ class LogoutProgressScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return const Scaffold(
-      backgroundColor: AppColors.scaffoldBg,
       body: Center(
         child: Column(
           mainAxisSize: MainAxisSize.min,
@@ -36,23 +34,16 @@ class LogoutFailedScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: AppColors.scaffoldBg,
       body: Center(
         child: Padding(
           padding: const EdgeInsets.all(24),
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              const Icon(
-                Icons.lock_outline,
-                size: 56,
-                color: AppColors.primary,
-              ),
-              const SizedBox(height: 20),
-              const Text(
+              Text(
                 'La déconnexion n’a pas pu être terminée.',
                 textAlign: TextAlign.center,
-                style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+                style: Theme.of(context).textTheme.titleLarge,
               ),
               const SizedBox(height: 10),
               const Text(
@@ -77,25 +68,9 @@ class SplashScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return const Scaffold(
-      backgroundColor: AppColors.scaffoldBg,
       body: Align(
         alignment: Alignment(0, -0.65),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(Icons.school, size: 72, color: AppColors.primary),
-            SizedBox(height: 16),
-            Text(
-              'Campus INSA',
-              style: TextStyle(
-                color: AppColors.primary,
-                fontSize: 24,
-                fontWeight: FontWeight.bold,
-                letterSpacing: 1.2,
-              ),
-            ),
-          ],
-        ),
+        child: Column(mainAxisSize: MainAxisSize.min, children: [_Wordmark()]),
       ),
     );
   }
@@ -133,47 +108,30 @@ class _AuthenticatingSplashState extends ConsumerState<AuthenticatingSplash> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: AppColors.scaffoldBg,
       body: Center(
         child: Padding(
           padding: const EdgeInsets.symmetric(horizontal: 40),
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              const Icon(Icons.school, size: 72, color: AppColors.primary),
-              const SizedBox(height: 16),
-              const Text(
-                'Campus INSA',
-                style: TextStyle(
-                  color: AppColors.primary,
-                  fontSize: 24,
-                  fontWeight: FontWeight.bold,
-                  letterSpacing: 1.2,
-                ),
-              ),
+              const _Wordmark(),
               const SizedBox(height: 24),
-              const CircularProgressIndicator(color: AppColors.primary),
+              const CircularProgressIndicator(),
               if (_showEscape) ...[
                 const SizedBox(height: 32),
                 Text(
                   'La connexion prend plus de temps que prévu.',
                   textAlign: TextAlign.center,
-                  style: TextStyle(color: Colors.grey.shade600),
+                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                    color: Theme.of(context).colorScheme.onSurfaceVariant,
+                  ),
                 ),
                 const SizedBox(height: 16),
                 SizedBox(
                   width: double.infinity,
-                  child: ElevatedButton.icon(
+                  child: FilledButton.icon(
                     icon: const Icon(Icons.refresh),
                     label: const Text('Réessayer'),
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: AppColors.primary,
-                      foregroundColor: Colors.white,
-                      padding: const EdgeInsets.symmetric(vertical: 14),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                    ),
                     onPressed: () {
                       setState(() => _showEscape = false);
                       _timer?.cancel();
@@ -213,3 +171,13 @@ class _AuthenticatingSplashState extends ConsumerState<AuthenticatingSplash> {
 // Handles the full biometric flow on a single screen — no navigation transitions
 // between waiting / failed states. Uses pushAndRemoveUntil on success or
 // "connect another way" so the back button can never loop back here.
+
+/// The app's name, set in the theme's display face. Replaces the mortarboard
+/// icon that belonged to the grades-only app.
+class _Wordmark extends StatelessWidget {
+  const _Wordmark();
+
+  @override
+  Widget build(BuildContext context) =>
+      Text('Campus INSA', style: Theme.of(context).textTheme.headlineMedium);
+}

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
-import '../../../../app_colors.dart';
+import '../../../../theme/campus_context.dart';
+import '../../../../theme/tokens.dart';
 import '../widgets/slide_layout.dart';
 
 class TotpScanSlide extends StatelessWidget {
@@ -57,24 +58,24 @@ class TotpScanSlide extends StatelessWidget {
             button: true,
             selected: scannedSecret != null,
             child: AnimatedContainer(
-              duration: const Duration(milliseconds: 150),
+              duration: CampusMotion.of(context, CampusMotion.fast),
               width: double.infinity,
               decoration: BoxDecoration(
                 color: scannedSecret != null
-                    ? AppColors.statusPositive.withValues(alpha: 0.05)
-                    : Colors.grey.shade50,
+                    ? context.campus.positiveContainer
+                    : context.scheme.surfaceContainer,
                 border: Border.all(
                   color: scannedSecret != null
-                      ? AppColors.statusPositive
-                      : Colors.grey.shade300,
+                      ? context.campus.positive
+                      : context.scheme.outlineVariant,
                 ),
-                borderRadius: BorderRadius.circular(12),
+                borderRadius: CampusRadii.cardRadius,
               ),
               child: Material(
                 color: Colors.transparent,
                 child: InkWell(
                   onTap: isLoading ? null : onScan,
-                  borderRadius: BorderRadius.circular(12),
+                  borderRadius: CampusRadii.cardRadius,
                   child: Padding(
                     padding: const EdgeInsets.symmetric(
                       vertical: 18,
@@ -87,8 +88,8 @@ class TotpScanSlide extends StatelessWidget {
                               ? Icons.check_circle_outline
                               : Icons.qr_code_scanner,
                           color: scannedSecret != null
-                              ? AppColors.statusPositive
-                              : AppColors.primary,
+                              ? context.campus.positive
+                              : context.scheme.onSurfaceVariant,
                           size: 28,
                         ),
                         const SizedBox(width: 14),
@@ -97,12 +98,10 @@ class TotpScanSlide extends StatelessWidget {
                             scannedSecret != null
                                 ? 'QR code reconnu'
                                 : 'Ouvrir le scanner',
-                            style: TextStyle(
-                              fontWeight: FontWeight.w600,
-                              fontSize: 15,
+                            style: context.text.titleMedium?.copyWith(
                               color: scannedSecret != null
-                                  ? AppColors.statusPositive
-                                  : AppColors.textDark,
+                                  ? context.campus.positive
+                                  : context.scheme.onSurface,
                             ),
                           ),
                         ),
@@ -111,8 +110,8 @@ class TotpScanSlide extends StatelessWidget {
                               ? Icons.check_rounded
                               : Icons.arrow_forward_rounded,
                           color: scannedSecret != null
-                              ? AppColors.statusPositive
-                              : AppColors.textSecondary,
+                              ? context.campus.positive
+                              : context.scheme.onSurfaceVariant,
                           size: 20,
                         ),
                       ],
@@ -124,40 +123,30 @@ class TotpScanSlide extends StatelessWidget {
           ),
           if (scannedSecret != null) ...[
             const SizedBox(height: 16),
-            const Divider(color: AppColors.border),
+            const Divider(),
             Padding(
               padding: const EdgeInsets.symmetric(vertical: 8),
               child: Row(
                 children: [
-                  const Expanded(
+                  Expanded(
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
                           'Mémoriser le secret',
-                          style: TextStyle(
-                            fontWeight: FontWeight.w600,
-                            fontSize: 14,
-                          ),
+                          style: context.text.titleMedium,
                         ),
-                        SizedBox(height: 3),
                         Text(
                           'Permet la reconnexion automatique en arrière-plan',
-                          style: TextStyle(
-                            fontSize: 12,
-                            height: 1.35,
-                            color: AppColors.textSecondary,
+                          style: context.text.bodyMedium?.copyWith(
+                            color: context.scheme.onSurfaceVariant,
                           ),
                         ),
                       ],
                     ),
                   ),
-                  const SizedBox(width: 12),
-                  Switch(
-                    value: saveOtpSecret,
-                    onChanged: onToggleSave,
-                    activeThumbColor: AppColors.primary,
-                  ),
+                  const SizedBox(width: CampusSpacing.x3),
+                  Switch(value: saveOtpSecret, onChanged: onToggleSave),
                 ],
               ),
             ),
@@ -181,21 +170,13 @@ class _Instruction extends StatelessWidget {
       children: [
         SizedBox(
           width: 24,
-          child: Text(
-            '$number.',
-            style: const TextStyle(
-              color: AppColors.primary,
-              fontWeight: FontWeight.w700,
-            ),
-          ),
+          child: Text('$number.', style: context.text.titleMedium),
         ),
         Expanded(
           child: Text(
             text,
-            style: const TextStyle(
-              color: AppColors.textSecondary,
-              fontSize: 14,
-              height: 1.4,
+            style: context.text.bodyMedium?.copyWith(
+              color: context.scheme.onSurfaceVariant,
             ),
           ),
         ),

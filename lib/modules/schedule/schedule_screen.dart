@@ -1,10 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../../app_colors.dart';
 import '../../core/freshness.dart' as freshness;
 import '../../core/module_cache.dart';
 import '../../core/time.dart';
+import '../../theme/campus_context.dart';
+import '../../theme/state_view.dart';
+import '../../theme/tokens.dart';
 import 'group_picker_screen.dart';
 import 'schedule_event.dart';
 import 'schedule_provider.dart';
@@ -71,19 +73,8 @@ class _ScheduleScreenState extends ConsumerState<ScheduleScreen> {
     final async = ref.watch(scheduleProvider);
 
     return Scaffold(
-      backgroundColor: AppColors.scaffoldBg,
       appBar: AppBar(
         title: const Text('Emploi du temps'),
-        foregroundColor: Colors.white,
-        flexibleSpace: const DecoratedBox(
-          decoration: BoxDecoration(
-            gradient: LinearGradient(
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
-              colors: AppColors.headerGradient,
-            ),
-          ),
-        ),
         actions: [
           IconButton(
             icon: const Icon(Icons.group_outlined),
@@ -97,17 +88,34 @@ class _ScheduleScreenState extends ConsumerState<ScheduleScreen> {
         ],
       ),
       body: ids.isEmpty
-          ? _EmptyState(
-              onPick: () => Navigator.of(context).push(
-                MaterialPageRoute<void>(
-                  builder: (_) => const GroupPickerScreen(),
+          ? StateView(
+              icon: Icons.group_outlined,
+              title: 'Choisissez votre groupe',
+              body:
+                  'Votre emploi du temps s\u2019affichera ici, m\u00eame hors ligne.',
+              action: FilledButton(
+                onPressed: () => Navigator.of(context).push(
+                  MaterialPageRoute<void>(
+                    builder: (_) => const GroupPickerScreen(),
+                  ),
                 ),
+                child: const Text('Choisir mon groupe'),
               ),
             )
           : async.when(
               loading: () => const Center(child: CircularProgressIndicator()),
-              error: (_, _) =>
-                  const Center(child: Text('Emploi du temps indisponible.')),
+              error: (_, _) => StateView(
+                icon: Icons.cloud_off_outlined,
+                title: 'Emploi du temps indisponible',
+                body:
+                    'Impossible de joindre ADE. V\u00e9rifiez la connexion, '
+                    'puis r\u00e9essayez.',
+                action: FilledButton.tonalIcon(
+                  onPressed: () => ref.invalidate(scheduleProvider),
+                  icon: const Icon(Icons.refresh),
+                  label: const Text('R\u00e9essayer'),
+                ),
+              ),
               data: (entry) => _DayView(
                 entry: entry,
                 day: _day,
@@ -117,37 +125,6 @@ class _ScheduleScreenState extends ConsumerState<ScheduleScreen> {
             ),
     );
   }
-}
-
-class _EmptyState extends StatelessWidget {
-  const _EmptyState({required this.onPick});
-
-  final VoidCallback onPick;
-
-  @override
-  Widget build(BuildContext context) => Center(
-    child: Padding(
-      padding: const EdgeInsets.all(32),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          const Icon(
-            Icons.calendar_month_outlined,
-            size: 56,
-            color: AppColors.textMuted,
-          ),
-          const SizedBox(height: 16),
-          const Text(
-            'Choisissez votre groupe pour voir votre emploi du temps.',
-            textAlign: TextAlign.center,
-            style: TextStyle(color: AppColors.textSecondary),
-          ),
-          const SizedBox(height: 20),
-          FilledButton(onPressed: onPick, child: const Text('Choisir')),
-        ],
-      ),
-    ),
-  );
 }
 
 class _DayView extends StatelessWidget {
@@ -172,7 +149,7 @@ class _DayView extends StatelessWidget {
     return Column(
       children: [
         SizedBox(
-          height: 64,
+          height: 72,
           child: Row(
             children: [
               for (var i = 0; i < 7; i++)
@@ -182,38 +159,47 @@ class _DayView extends StatelessWidget {
                     final selected = sameDay(d, day);
                     final has = events.any((e) => sameDay(e.start, d));
                     return Expanded(
-                      child: InkWell(
-                        onTap: () => onDayChanged(d),
-                        child: Column(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            Text(
-                              _weekdays[i].substring(0, 3),
-                              style: const TextStyle(
-                                fontSize: 11,
-                                color: AppColors.textMuted,
-                              ),
-                            ),
-                            const SizedBox(height: 4),
-                            CircleAvatar(
-                              radius: 14,
-                              backgroundColor: selected
-                                  ? AppColors.primary
-                                  : Colors.transparent,
-                              child: Text(
-                                '${d.day}',
-                                style: TextStyle(
-                                  fontSize: 13,
-                                  color: selected
-                                      ? Colors.white
-                                      : AppColors.textDark,
-                                  fontWeight: has
-                                      ? FontWeight.w700
-                                      : FontWeight.normal,
+                      child: Semantics(
+                        button: true,
+                        selected: selected,
+                        label: '${_weekdays[i]} ${d.day}',
+                        excludeSemantics: true,
+                        child: InkWell(
+                          onTap: () => onDayChanged(d),
+                          child: Column(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Text(
+                                _weekdays[i].substring(0, 3),
+                                style: context.text.labelMedium?.copyWith(
+                                  color: context.scheme.onSurfaceVariant,
                                 ),
                               ),
-                            ),
-                          ],
+                              const SizedBox(height: CampusSpacing.x1),
+                              Container(
+                                width: CampusSpacing.touchTarget,
+                                height: CampusSpacing.x8,
+                                alignment: Alignment.center,
+                                decoration: BoxDecoration(
+                                  color: selected
+                                      ? context.campus.now
+                                      : Colors.transparent,
+                                  borderRadius: CampusRadii.controlRadius,
+                                ),
+                                child: Text(
+                                  '${d.day}',
+                                  style: context.campusType.numeral.copyWith(
+                                    color: selected
+                                        ? context.campus.onNow
+                                        : context.scheme.onSurface,
+                                    fontWeight: has
+                                        ? FontWeight.w700
+                                        : FontWeight.w400,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
                         ),
                       ),
                     );
@@ -236,17 +222,21 @@ class _DayView extends StatelessWidget {
                       const SizedBox(height: 60),
                       Center(
                         child: Text(
-                          'Rien de prévu ${_dayLabel(day)}.',
-                          style: const TextStyle(
-                            color: AppColors.textSecondary,
+                          'Rien de pr\u00e9vu ${_dayLabel(day)}.',
+                          style: context.text.bodyMedium?.copyWith(
+                            color: context.scheme.onSurfaceVariant,
                           ),
                         ),
                       ),
                     ],
                   )
-                : ListView.builder(
-                    padding: const EdgeInsets.all(12),
+                : ListView.separated(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: CampusSpacing.gutter,
+                      vertical: CampusSpacing.x2,
+                    ),
                     itemCount: today.length,
+                    separatorBuilder: (_, _) => const Divider(),
                     itemBuilder: (_, i) => _EventCard(event: today[i]),
                   ),
           ),
@@ -255,7 +245,9 @@ class _DayView extends StatelessWidget {
           padding: const EdgeInsets.symmetric(vertical: 6),
           child: Text(
             scheduleFreshnessLabel(entry),
-            style: const TextStyle(fontSize: 11, color: AppColors.textMuted),
+            style: context.text.labelMedium?.copyWith(
+              color: context.scheme.onSurfaceVariant,
+            ),
           ),
         ),
       ],
@@ -270,86 +262,68 @@ class _EventCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      margin: const EdgeInsets.only(bottom: 10),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: AppColors.border),
-      ),
-      child: Padding(
-        padding: const EdgeInsets.all(14),
-        child: Row(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Column(
+    final scheme = context.scheme;
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: CampusSpacing.x2),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          SizedBox(
+            width: 56,
+            child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(
-                  _hm(event.start),
-                  style: const TextStyle(
-                    fontWeight: FontWeight.w700,
-                    color: AppColors.primary,
-                  ),
-                ),
+                Text(_hm(event.start), style: context.campusType.numeral),
                 Text(
                   _hm(event.end),
-                  style: const TextStyle(
-                    fontSize: 12,
-                    color: AppColors.textMuted,
+                  style: context.text.bodyMedium?.copyWith(
+                    color: scheme.onSurfaceVariant,
                   ),
                 ),
               ],
             ),
-            const SizedBox(width: 14),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    event.module ?? event.title,
-                    style: const TextStyle(
-                      fontWeight: FontWeight.w600,
-                      color: AppColors.textDark,
-                    ),
-                  ),
-                  if (event.room != null) ...[
-                    const SizedBox(height: 4),
-                    Row(
-                      children: [
-                        const Icon(
-                          Icons.place_outlined,
-                          size: 14,
-                          color: AppColors.textMuted,
-                        ),
-                        const SizedBox(width: 4),
-                        Expanded(
-                          child: Text(
-                            event.room!,
-                            style: const TextStyle(
-                              fontSize: 12,
-                              color: AppColors.textSecondary,
-                            ),
+          ),
+          const SizedBox(width: CampusSpacing.x4),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  event.module ?? event.title,
+                  style: context.text.titleMedium,
+                ),
+                if (event.room != null) ...[
+                  const SizedBox(height: CampusSpacing.x1),
+                  Row(
+                    children: [
+                      Icon(
+                        Icons.place_outlined,
+                        size: 18,
+                        color: scheme.onSurfaceVariant,
+                      ),
+                      const SizedBox(width: CampusSpacing.x1),
+                      Expanded(
+                        child: Text(
+                          event.room!,
+                          style: context.text.bodyMedium?.copyWith(
+                            color: scheme.onSurfaceVariant,
                           ),
                         ),
-                      ],
-                    ),
-                  ],
-                  if (event.teachers.isNotEmpty) ...[
-                    const SizedBox(height: 2),
-                    Text(
-                      event.teachers.join(', '),
-                      style: const TextStyle(
-                        fontSize: 12,
-                        color: AppColors.textSecondary,
                       ),
-                    ),
-                  ],
+                    ],
+                  ),
                 ],
-              ),
+                if (event.teachers.isNotEmpty)
+                  Text(
+                    event.teachers.join(', '),
+                    style: context.text.bodyMedium?.copyWith(
+                      color: scheme.onSurfaceVariant,
+                    ),
+                  ),
+              ],
             ),
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }

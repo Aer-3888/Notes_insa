@@ -3,7 +3,6 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../../app_colors.dart';
 import '../../modules/grades/grades_provider.dart';
 import '../../modules/grades/onboarding/onboarding_screen.dart';
 import '../../providers/auth_providers.dart';
@@ -108,7 +107,9 @@ class _BiometricScreenState extends ConsumerState<BiometricScreen>
         _failed = true;
         _authenticating = false;
       });
-      unawaited(_shakeController.forward(from: 0.0));
+      if (!MediaQuery.disableAnimationsOf(context)) {
+        unawaited(_shakeController.forward(from: 0.0));
+      }
     }
   }
 
@@ -128,7 +129,6 @@ class _BiometricScreenState extends ConsumerState<BiometricScreen>
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: AppColors.scaffoldBg,
       body: Align(
         alignment: _failed ? Alignment.center : const Alignment(0, -0.65),
         child: Padding(
@@ -142,43 +142,36 @@ class _BiometricScreenState extends ConsumerState<BiometricScreen>
                   offset: Offset(_failed ? _shakeAnimation.value : 0.0, 0),
                   child: child,
                 ),
-                child: Icon(
-                  _failed ? Icons.fingerprint : Icons.school,
-                  size: 72,
-                  color: _failed ? Colors.grey.shade400 : AppColors.primary,
-                ),
+                child: _failed
+                    ? Icon(
+                        Icons.fingerprint,
+                        size: 48,
+                        color: Theme.of(context).colorScheme.onSurfaceVariant,
+                      )
+                    : const SizedBox.shrink(),
               ),
               const SizedBox(height: 16),
               Text(
                 _failed ? 'Authentification échouée' : 'Campus INSA',
-                style: TextStyle(
-                  fontSize: _failed ? 20 : 24,
-                  fontWeight: FontWeight.bold,
-                  color: _failed ? Colors.grey.shade700 : AppColors.primary,
-                  letterSpacing: 1.2,
-                ),
+                style: _failed
+                    ? Theme.of(context).textTheme.titleLarge
+                    : Theme.of(context).textTheme.headlineMedium,
               ),
               if (_failed) ...[
                 const SizedBox(height: 8),
                 Text(
                   'La vérification biométrique a été annulée ou a échoué.',
                   textAlign: TextAlign.center,
-                  style: TextStyle(color: Colors.grey.shade600),
+                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                    color: Theme.of(context).colorScheme.onSurfaceVariant,
+                  ),
                 ),
                 const SizedBox(height: 32),
                 SizedBox(
                   width: double.infinity,
-                  child: ElevatedButton.icon(
+                  child: FilledButton.icon(
                     icon: const Icon(Icons.fingerprint),
                     label: const Text('Réessayer'),
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: AppColors.primary,
-                      foregroundColor: Colors.white,
-                      padding: const EdgeInsets.symmetric(vertical: 14),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                    ),
                     onPressed: _authenticate,
                   ),
                 ),
@@ -189,12 +182,6 @@ class _BiometricScreenState extends ConsumerState<BiometricScreen>
                     child: OutlinedButton.icon(
                       icon: const Icon(Icons.pin_outlined),
                       label: const Text('Utiliser le code PIN'),
-                      style: OutlinedButton.styleFrom(
-                        padding: const EdgeInsets.symmetric(vertical: 14),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                      ),
                       onPressed: () =>
                           ref.read(gradesProvider.notifier).setPinRequired(),
                     ),

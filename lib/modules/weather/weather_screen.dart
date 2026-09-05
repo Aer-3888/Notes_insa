@@ -1,45 +1,47 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../../app_colors.dart';
-import '../../core/freshness.dart' as freshness;
-import '../../core/module_cache.dart';
-import 'weather_model.dart';
+import '../../core/freshness.dart';
+import '../../theme/campus_context.dart';
+import '../../theme/state_view.dart';
+import '../../theme/tokens.dart';
 import 'weather_provider.dart';
 
-String freshnessLabel(CachedEntry<WeatherSnapshot> entry) =>
-    freshness.freshnessLabel(entry.refreshState, entry.cachedAt);
-
-/// One-line summary for the hub. Renders a fixed-height box while the cache
-/// resolves so the grid below it does not jump.
+/// One-line summary for the home screen. Sizes to its content so it survives
+/// a large text scale.
 class WeatherStrip extends ConsumerWidget {
   const WeatherStrip({super.key});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final snapshot = ref.watch(weatherProvider).value?.data;
-    return SizedBox(
-      height: 34,
-      child: snapshot == null
-          ? const SizedBox.shrink()
-          : Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 20),
-              child: Row(
-                children: [
-                  const Icon(
-                    Icons.wb_sunny_outlined,
-                    size: 18,
-                    color: AppColors.primary,
-                  ),
-                  const SizedBox(width: 8),
-                  Text(
-                    '${snapshot.temperatureC.round()}°C  •  '
-                    '${snapshot.low.round()}° / ${snapshot.high.round()}°',
-                    style: const TextStyle(color: AppColors.textSecondary),
-                  ),
-                ],
-              ),
+    if (snapshot == null) return const SizedBox.shrink();
+    return Padding(
+      padding: const EdgeInsets.symmetric(
+        horizontal: CampusSpacing.gutter,
+        vertical: CampusSpacing.x1,
+      ),
+      child: Row(
+        children: [
+          Icon(
+            Icons.thermostat_outlined,
+            size: 18,
+            color: context.scheme.onSurfaceVariant,
+          ),
+          const SizedBox(width: CampusSpacing.x2),
+          Text(
+            '${snapshot.temperatureC.round()} °C',
+            style: context.campusType.numeral,
+          ),
+          const SizedBox(width: CampusSpacing.x2),
+          Text(
+            '${snapshot.low.round()}° / ${snapshot.high.round()}°',
+            style: context.text.bodyMedium?.copyWith(
+              color: context.scheme.onSurfaceVariant,
             ),
+          ),
+        ],
+      ),
     );
   }
 }
@@ -51,71 +53,81 @@ class WeatherScreen extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final async = ref.watch(weatherProvider);
     return Scaffold(
-      backgroundColor: AppColors.scaffoldBg,
-      appBar: AppBar(
-        title: const Text('Météo'),
-        foregroundColor: Colors.white,
-        flexibleSpace: const DecoratedBox(
-          decoration: BoxDecoration(
-            gradient: LinearGradient(
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
-              colors: AppColors.headerGradient,
-            ),
-          ),
-        ),
-      ),
+      appBar: AppBar(title: const Text('Météo')),
       body: async.when(
         loading: () => const Center(child: CircularProgressIndicator()),
-        error: (_, _) =>
-            const Center(child: Text('Météo indisponible pour le moment.')),
+        error: (_, _) => StateView(
+          icon: Icons.cloud_off_outlined,
+          title: 'Météo indisponible',
+          body:
+              'Impossible de joindre le service météo. Vérifiez la connexion, '
+              'puis réessayez.',
+          action: FilledButton.tonalIcon(
+            onPressed: () => ref.invalidate(weatherProvider),
+            icon: const Icon(Icons.refresh),
+            label: const Text('Réessayer'),
+          ),
+        ),
         data: (entry) {
           final snapshot = entry.data;
           if (snapshot == null) {
-            return Center(child: Text(freshnessLabel(entry)));
+            return StateView(
+              icon: Icons.cloud_off_outlined,
+              title: 'Météo indisponible',
+              body: freshnessLabel(entry.refreshState, entry.cachedAt),
+              action: FilledButton.tonalIcon(
+                onPressed: () => ref.invalidate(weatherProvider),
+                icon: const Icon(Icons.refresh),
+                label: const Text('Réessayer'),
+              ),
+            );
           }
           return ListView(
-            padding: const EdgeInsets.all(16),
+            padding: const EdgeInsets.all(CampusSpacing.gutter),
             children: [
               Text(
-                '${snapshot.temperatureC.round()}°C',
-                style: const TextStyle(
-                  fontSize: 48,
-                  fontWeight: FontWeight.w600,
-                  color: AppColors.textDark,
-                ),
+                '${snapshot.temperatureC.round()} °C',
+                style: context.campusType.displayNumeral,
               ),
               Text(
-                'Min ${snapshot.low.round()}°  •  Max ${snapshot.high.round()}°',
-                style: const TextStyle(color: AppColors.textSecondary),
+                'Min ${snapshot.low.round()}°, max ${snapshot.high.round()}°',
+                style: context.text.bodyMedium?.copyWith(
+                  color: context.scheme.onSurfaceVariant,
+                ),
               ),
-              const SizedBox(height: 24),
-              SizedBox(
-                height: 90,
-                child: ListView(
-                  scrollDirection: Axis.horizontal,
+              const SizedBox(height: CampusSpacing.x6),
+              SingleChildScrollView(
+                scrollDirection: Axis.horizontal,
+                child: Row(
                   children: [
                     for (final h in snapshot.hourly.take(12))
                       Padding(
-                        padding: const EdgeInsets.only(right: 18),
+                        padding: const EdgeInsets.only(right: CampusSpacing.x5),
                         child: Column(
                           mainAxisSize: MainAxisSize.min,
                           children: [
-                            Text('${h.time.hour}h'),
-                            const SizedBox(height: 8),
-                            Text('${h.temperatureC.round()}°'),
+                            Text(
+                              '${h.time.hour} h',
+                              style: context.text.labelMedium?.copyWith(
+                                color: context.scheme.onSurfaceVariant,
+                              ),
+                            ),
+                            const SizedBox(height: CampusSpacing.x2),
+                            Text(
+                              '${h.temperatureC.round()}°',
+                              style: context.campusType.numeral,
+                            ),
                           ],
                         ),
                       ),
                   ],
                 ),
               ),
-              const SizedBox(height: 24),
+              const SizedBox(height: CampusSpacing.x6),
               Text(
-                freshnessLabel(entry),
-                style: const TextStyle(
-                  fontSize: 12,
-                  color: AppColors.textMuted,
+                freshnessLabel(entry.refreshState, entry.cachedAt),
+                style: context.text.labelMedium?.copyWith(
+                  color: context.scheme.onSurfaceVariant,
                 ),
               ),
             ],

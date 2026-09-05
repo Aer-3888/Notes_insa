@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
-import '../../../../app_colors.dart';
+import '../../../../theme/campus_context.dart';
+import '../../../../theme/tokens.dart';
 
 class SlideLayout extends StatelessWidget {
   final int stepCount;
@@ -58,24 +59,13 @@ class SlideLayout extends StatelessWidget {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       const SizedBox(height: 32),
-                      Text(
-                        title,
-                        style: const TextStyle(
-                          fontSize: 32,
-                          fontWeight: FontWeight.w700,
-                          letterSpacing: -0.7,
-                          height: 1.12,
-                          color: AppColors.textDark,
-                        ),
-                      ),
+                      Text(title, style: context.text.headlineMedium),
                       if (subtitle != null) ...[
                         const SizedBox(height: 12),
                         Text(
                           subtitle!,
-                          style: const TextStyle(
-                            fontSize: 16,
-                            height: 1.45,
-                            color: AppColors.textSecondary,
+                          style: context.text.bodyLarge?.copyWith(
+                            color: context.scheme.onSurfaceVariant,
                           ),
                         ),
                       ],
@@ -100,14 +90,7 @@ class SlideLayout extends StatelessWidget {
                 Center(
                   child: TextButton(
                     onPressed: onSecondary,
-                    child: Text(
-                      secondaryLabel!,
-                      style: const TextStyle(
-                        color: AppColors.textSecondary,
-                        fontSize: 14,
-                        fontWeight: FontWeight.w500,
-                      ),
-                    ),
+                    child: Text(secondaryLabel!),
                   ),
                 )
               else
@@ -148,7 +131,6 @@ class _Header extends StatelessWidget {
                 IconButton(
                   icon: const Icon(Icons.arrow_back_rounded),
                   onPressed: onBack,
-                  color: AppColors.textDark,
                   tooltip: 'Retour',
                 ),
               ],
@@ -157,10 +139,8 @@ class _Header extends StatelessWidget {
                 Text(
                   '${currentIndex + 1} / $stepCount',
                   semanticsLabel: 'Étape ${currentIndex + 1} sur $stepCount',
-                  style: const TextStyle(
-                    color: AppColors.textSecondary,
-                    fontSize: 13,
-                    fontWeight: FontWeight.w600,
+                  style: context.text.labelMedium?.copyWith(
+                    color: context.scheme.onSurfaceVariant,
                   ),
                 ),
             ],
@@ -175,8 +155,6 @@ class _Header extends StatelessWidget {
               child: LinearProgressIndicator(
                 value: (currentIndex + 1) / stepCount,
                 minHeight: 2,
-                backgroundColor: AppColors.border,
-                color: AppColors.primary,
               ),
             ),
           ),
@@ -196,28 +174,28 @@ class _ErrorMessage extends StatelessWidget {
       liveRegion: true,
       child: Container(
         width: double.infinity,
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+        padding: const EdgeInsets.symmetric(
+          horizontal: CampusSpacing.x4,
+          vertical: CampusSpacing.x3,
+        ),
         decoration: BoxDecoration(
-          color: AppColors.errorSurface,
-          borderRadius: BorderRadius.circular(8),
+          color: context.scheme.errorContainer,
+          borderRadius: CampusRadii.controlRadius,
         ),
         child: Row(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Icon(
+            Icon(
               Icons.error_outline_rounded,
-              size: 19,
-              color: AppColors.error,
+              size: 20,
+              color: context.scheme.onErrorContainer,
             ),
-            const SizedBox(width: 10),
+            const SizedBox(width: CampusSpacing.x3),
             Expanded(
               child: Text(
                 message,
-                style: const TextStyle(
-                  color: AppColors.error,
-                  fontSize: 13,
-                  height: 1.35,
-                  fontWeight: FontWeight.w500,
+                style: context.text.bodyMedium?.copyWith(
+                  color: context.scheme.onErrorContainer,
                 ),
               ),
             ),
@@ -243,33 +221,19 @@ class _PrimaryButton extends StatelessWidget {
   Widget build(BuildContext context) {
     return SizedBox(
       width: double.infinity,
-      height: 54,
+      height: CampusSpacing.touchTarget,
       child: FilledButton(
         onPressed: isLoading ? null : onTap,
-        style: FilledButton.styleFrom(
-          backgroundColor: AppColors.primary,
-          disabledBackgroundColor: AppColors.primary.withValues(alpha: 0.4),
-          foregroundColor: Colors.white,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(10),
-          ),
-        ),
         child: isLoading
-            ? const SizedBox(
+            ? SizedBox(
                 width: 20,
                 height: 20,
                 child: CircularProgressIndicator(
-                  color: Colors.white,
+                  color: context.scheme.onPrimary,
                   strokeWidth: 2,
                 ),
               )
-            : Text(
-                label,
-                style: const TextStyle(
-                  fontSize: 16,
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
+            : Text(label),
       ),
     );
   }

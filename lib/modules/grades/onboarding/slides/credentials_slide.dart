@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
-import '../../../../app_colors.dart';
+import '../../../../theme/campus_context.dart';
+import '../../../../theme/tokens.dart';
 import '../../../../components/credentials_fields.dart';
 import '../widgets/slide_layout.dart';
 
@@ -67,22 +68,21 @@ class _CredentialsSlideState extends State<CredentialsSlide> {
             onSubmit: canSubmit ? widget.onConnect : null,
           ),
           const SizedBox(height: 28),
-          const Row(
+          Row(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Icon(
                 Icons.lock_outline_rounded,
                 size: 18,
-                color: AppColors.textSecondary,
+                color: context.scheme.onSurfaceVariant,
               ),
-              SizedBox(width: 10),
+              const SizedBox(width: CampusSpacing.x3),
               Expanded(
                 child: Text(
-                  'Vos identifiants sont enregistrés dans le stockage sécurisé de l’appareil.',
-                  style: TextStyle(
-                    color: AppColors.textSecondary,
-                    fontSize: 13,
-                    height: 1.4,
+                  'Vos identifiants sont enregistrés dans le stockage '
+                  'sécurisé de l’appareil.',
+                  style: context.text.bodyMedium?.copyWith(
+                    color: context.scheme.onSurfaceVariant,
                   ),
                 ),
               ),

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
-import '../../../../app_colors.dart';
+import '../../../../theme/campus_context.dart';
+import '../../../../theme/tokens.dart';
 import '../onboarding_enums.dart';
 import '../widgets/slide_layout.dart';
 
@@ -86,18 +87,18 @@ class _MethodOption extends StatelessWidget {
       button: true,
       selected: selected,
       child: AnimatedContainer(
-        duration: const Duration(milliseconds: 150),
+        duration: CampusMotion.of(context, CampusMotion.fast),
         decoration: BoxDecoration(
           color: selected
-              ? AppColors.primary.withValues(alpha: 0.08)
+              ? context.scheme.surfaceContainer
               : Colors.transparent,
-          borderRadius: BorderRadius.circular(10),
+          borderRadius: CampusRadii.controlRadius,
         ),
         child: Material(
           color: Colors.transparent,
           child: InkWell(
             onTap: onTap,
-            borderRadius: BorderRadius.circular(10),
+            borderRadius: CampusRadii.controlRadius,
             child: Padding(
               padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 16),
               child: Row(
@@ -108,8 +109,8 @@ class _MethodOption extends StatelessWidget {
                         ? Icons.radio_button_checked
                         : Icons.radio_button_unchecked,
                     color: selected
-                        ? AppColors.primary
-                        : AppColors.textSecondary,
+                        ? context.scheme.onSurface
+                        : context.scheme.onSurfaceVariant,
                     size: 21,
                   ),
                   const SizedBox(width: 14),
@@ -123,29 +124,21 @@ class _MethodOption extends StatelessWidget {
                               icon,
                               size: 18,
                               color: selected
-                                  ? AppColors.primary
-                                  : AppColors.textSecondary,
+                                  ? context.scheme.onSurface
+                                  : context.scheme.onSurfaceVariant,
                             ),
                             const SizedBox(width: 8),
                             Expanded(
                               child: Text(
                                 title,
-                                style: TextStyle(
-                                  fontWeight: FontWeight.bold,
-                                  fontSize: 15,
-                                  color: selected
-                                      ? AppColors.primary
-                                      : AppColors.textDark,
-                                ),
+                                style: context.text.titleMedium,
                               ),
                             ),
                             if (recommendation != null)
                               Text(
                                 recommendation!,
-                                style: const TextStyle(
-                                  color: AppColors.primary,
-                                  fontSize: 11,
-                                  fontWeight: FontWeight.w600,
+                                style: context.text.labelMedium?.copyWith(
+                                  color: context.scheme.onSurfaceVariant,
                                 ),
                               ),
                           ],
@@ -153,10 +146,8 @@ class _MethodOption extends StatelessWidget {
                         const SizedBox(height: 6),
                         Text(
                           description,
-                          style: const TextStyle(
-                            fontSize: 13,
-                            height: 1.4,
-                            color: AppColors.textSecondary,
+                          style: context.text.bodyMedium?.copyWith(
+                            color: context.scheme.onSurfaceVariant,
                           ),
                         ),
                       ],

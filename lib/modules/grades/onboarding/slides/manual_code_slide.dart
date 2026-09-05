@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import '../../../../app_colors.dart';
+import '../../../../theme/campus_context.dart';
 import '../widgets/slide_layout.dart';
 
 class ManualCodeSlide extends StatefulWidget {
@@ -69,34 +69,12 @@ class _ManualCodeSlideState extends State<ManualCodeSlide> {
                 widget.emailSent
                     ? Icons.check_circle_outline
                     : Icons.email_outlined,
-                color: widget.emailSent
-                    ? AppColors.statusPositive
-                    : AppColors.primary,
                 size: 18,
               ),
               label: Text(
                 widget.emailSent
                     ? 'Email envoyé'
                     : 'Recevoir un code par email',
-                style: TextStyle(
-                  color: widget.emailSent
-                      ? AppColors.statusPositive
-                      : AppColors.primary,
-                ),
-              ),
-              style: OutlinedButton.styleFrom(
-                side: BorderSide(
-                  color: widget.emailSent
-                      ? AppColors.statusPositive
-                      : AppColors.primary,
-                ),
-                padding: const EdgeInsets.symmetric(
-                  vertical: 14,
-                  horizontal: 16,
-                ),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12),
-                ),
               ),
             ),
           ),
@@ -107,13 +85,12 @@ class _ManualCodeSlideState extends State<ManualCodeSlide> {
             maxLength: 8,
             textAlign: TextAlign.center,
             inputFormatters: [FilteringTextInputFormatter.digitsOnly],
-            style: const TextStyle(fontSize: 24, letterSpacing: 6),
+            style: context.text.headlineMedium?.copyWith(letterSpacing: 6),
             onSubmitted: (_) {
               if (codeReady) widget.onValidate();
             },
             decoration: const InputDecoration(
               labelText: 'Code de vérification',
-              border: OutlineInputBorder(),
               counterText: '',
             ),
           ),

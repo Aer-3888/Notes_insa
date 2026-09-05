@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../../app_colors.dart';
 import '../../modules/grades/grades_provider.dart';
 import 'biometric_screen.dart';
 import 'pin_screen.dart';
@@ -15,7 +14,10 @@ class LockBarrier extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => SizedBox.expand(
-    child: ColoredBox(color: AppColors.scaffoldBg, child: child),
+    child: ColoredBox(
+      color: Theme.of(context).colorScheme.surface,
+      child: child,
+    ),
   );
 }
 

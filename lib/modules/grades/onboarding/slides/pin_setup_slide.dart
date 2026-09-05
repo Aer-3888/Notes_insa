@@ -85,7 +85,6 @@ class _PinSetupSlideState extends State<PinSetupSlide> {
             onChanged: (_) => setState(() => _pinMismatch = false),
             decoration: const InputDecoration(
               labelText: 'Code PIN (6–8 chiffres)',
-              border: OutlineInputBorder(),
               counterText: '',
             ),
           ),
@@ -102,7 +101,6 @@ class _PinSetupSlideState extends State<PinSetupSlide> {
             onChanged: (_) => setState(() => _pinMismatch = false),
             decoration: InputDecoration(
               labelText: 'Confirmer le code PIN',
-              border: const OutlineInputBorder(),
               counterText: '',
               errorText: _pinMismatch
                   ? 'Les codes PIN ne correspondent pas ou sont trop courts'
