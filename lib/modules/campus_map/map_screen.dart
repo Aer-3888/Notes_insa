@@ -10,14 +10,19 @@ import 'campus_places.dart';
 /// buildings until the interactive map ships. The list becomes the search
 /// layer over the map later.
 class MapScreen extends ConsumerStatefulWidget {
-  const MapScreen({super.key});
+  const MapScreen({super.key, this.initialQuery});
+
+  /// Pre-fills the search, so another screen can point at one place.
+  final String? initialQuery;
 
   @override
   ConsumerState<MapScreen> createState() => _MapScreenState();
 }
 
 class _MapScreenState extends ConsumerState<MapScreen> {
-  final _query = TextEditingController();
+  late final TextEditingController _query = TextEditingController(
+    text: widget.initialQuery ?? '',
+  );
 
   @override
   void dispose() {

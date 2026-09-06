@@ -11,6 +11,7 @@ import '../../theme/state_view.dart';
 import '../../theme/tokens.dart';
 import 'group_picker_screen.dart';
 import 'schedule_day_index.dart';
+import 'event_sheet.dart';
 import 'schedule_event.dart';
 import 'schedule_grid.dart';
 import 'schedule_metrics.dart';
@@ -196,8 +197,7 @@ class _ScheduleScreenState extends ConsumerState<ScheduleScreen> {
                     showStrip: mode.showsStrip,
                     onDayTap: (d) => setState(() => _day = d),
                     onShiftDays: _shiftDays,
-                    // Real handler arrives in Task 8.
-                    onTapEvent: (_) {},
+                    onTapEvent: (e) => showEventSheet(context, e),
                   ),
                   // The month body arrives in Task 9; until then it renders
                   // the timeline, so the screen is never broken.
