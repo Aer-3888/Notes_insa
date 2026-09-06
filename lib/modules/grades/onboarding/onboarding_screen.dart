@@ -227,8 +227,11 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
   // ─── TOTP ────────────────────────────────────────────────────────────────────
 
   Future<void> _scanQr() async {
+    // The camera fills the screen, so it goes above the shell rather than
+    // inside the tab that opened it.
     final secret = await Navigator.of(
       context,
+      rootNavigator: true,
     ).push<String>(MaterialPageRoute(builder: (_) => const ScanScreen()));
     if (secret != null && mounted) setState(() => _scannedSecret = secret);
   }

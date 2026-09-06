@@ -124,8 +124,11 @@ class _TwoFactorScreenState extends ConsumerState<TwoFactorScreen> {
   }
 
   Future<void> _scanQr() async {
+    // The camera fills the screen, so it goes above the shell rather than
+    // inside the tab that opened it.
     final secret = await Navigator.of(
       context,
+      rootNavigator: true,
     ).push<String>(MaterialPageRoute(builder: (_) => const ScanScreen()));
     if (secret != null && mounted) {
       setState(() => _scannedSecret = secret);
@@ -201,7 +204,7 @@ class _TwoFactorScreenState extends ConsumerState<TwoFactorScreen> {
             ),
             const SizedBox(height: 24),
             TextButton(
-              onPressed: () => Navigator.of(context).push(
+              onPressed: () => Navigator.of(context, rootNavigator: true).push(
                 MaterialPageRoute(builder: (_) => const OnboardingScreen()),
               ),
               child: const Text('Se connecter autrement'),

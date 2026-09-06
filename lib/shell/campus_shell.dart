@@ -46,6 +46,14 @@ class _CampusShellState extends ConsumerState<CampusShell>
   /// who never logs in, so unvisited destinations render nothing until chosen.
   final Set<int> _visited = <int>{_homeIndex};
 
+  /// One navigator per destination, so a page opened from a tab stays inside
+  /// it and the bar never disappears. Full-screen takeovers (lock, camera,
+  /// login) opt out with `rootNavigator: true`.
+  final List<GlobalKey<NavigatorState>> _tabNavigators =
+      <GlobalKey<NavigatorState>>[
+        for (var i = 0; i < 5; i++) GlobalKey<NavigatorState>(),
+      ];
+
   // Same channel as the native method calls; used only to receive notification
   // deep-link routes posted by MainActivity (see EXTRA_NOTIF_ROUTE there).
   static const _routeChannel = MethodChannel('com.aer.notes_insa/grades');
@@ -188,9 +196,28 @@ class _CampusShellState extends ConsumerState<CampusShell>
     _ensureLockIfNeeded();
   }
 
-  Widget _bodyFor(int index) {
+  /// Selects the destination a module owns. The hub's cards go through this
+  /// rather than pushing the module, so the bar always agrees with the screen.
+  void _openModule(String id) {
+    final index = _destinations.indexWhere((d) => d.module?.id == id);
+    if (index >= 0) _select(index);
+  }
+
+  /// Wraps a destination in its own navigator, built on first visit so an
+  /// unvisited tab still costs nothing.
+  Widget _destinationFor(int index) {
     if (!_visited.contains(index)) return const SizedBox.shrink();
-    if (index == _homeIndex) return const HomeHubScreen();
+    return Navigator(
+      key: _tabNavigators[index],
+      onGenerateRoute: (settings) => MaterialPageRoute<void>(
+        settings: settings,
+        builder: (_) => _bodyFor(index),
+      ),
+    );
+  }
+
+  Widget _bodyFor(int index) {
+    if (index == _homeIndex) return HomeHubScreen(onOpenModule: _openModule);
     if (index == _settingsIndex) return const AppSettingsScreen();
 
     final module = _destinations[index].module;
@@ -218,16 +245,28 @@ class _CampusShellState extends ConsumerState<CampusShell>
       );
     }
 
+    // Back is handled here rather than by `canPop`, which is evaluated at build
+    // time and would go stale the moment a tab pushes a page.
     return PopScope(
-      canPop: _index == _homeIndex,
+      canPop: false,
       onPopInvokedWithResult: (didPop, _) {
-        if (!didPop) _select(_homeIndex);
+        if (didPop) return;
+        final tab = _tabNavigators[_index].currentState;
+        if (tab != null && tab.canPop()) {
+          tab.pop();
+          return;
+        }
+        if (_index != _homeIndex) {
+          _select(_homeIndex);
+          return;
+        }
+        SystemNavigator.pop();
       },
       child: Scaffold(
         body: IndexedStack(
           index: _index,
           children: <Widget>[
-            for (var i = 0; i < _destinations.length; i++) _bodyFor(i),
+            for (var i = 0; i < _destinations.length; i++) _destinationFor(i),
           ],
         ),
         bottomNavigationBar: NavigationBar(

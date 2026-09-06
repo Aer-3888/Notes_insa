@@ -11,7 +11,11 @@ import 'module_card.dart';
 /// the Aujourd'hui timeline; the app bar stays. Settings is a bottom
 /// destination, not an app-bar action.
 class HomeHubScreen extends ConsumerWidget {
-  const HomeHubScreen({super.key});
+  const HomeHubScreen({super.key, this.onOpenModule});
+
+  /// Called with a module id when a card is tapped. The shell selects that
+  /// destination instead of pushing the module inside Aujourd'hui.
+  final void Function(String moduleId)? onOpenModule;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -33,9 +37,7 @@ class HomeHubScreen extends ConsumerWidget {
                 for (final module in kCampusModules.whereType<ReadyModule>())
                   ModuleCard(
                     module: module,
-                    onTap: () => Navigator.of(
-                      context,
-                    ).push(MaterialPageRoute<void>(builder: module.builder)),
+                    onTap: () => onOpenModule?.call(module.id),
                   ),
               ],
             ),
