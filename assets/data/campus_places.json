@@ -10,6 +10,7 @@
   { "code": "4", "name": "Amphi D", "kind": "amphi" },
   { "code": "4", "name": "Cafétéria", "kind": "ru" },
   { "code": "5", "name": "Amphi André Bonnin", "kind": "amphi" },
+  { "code": "12", "name": "Amphi M. DRISSI", "kind": "amphi" },
   { "code": "5", "name": "Centre multimédia", "kind": "service" },
   { "code": "5", "name": "Centre de ressources informatiques", "kind": "service" },
   { "code": "6", "name": "Département SRC et laboratoire IETR", "kind": "batiment" },

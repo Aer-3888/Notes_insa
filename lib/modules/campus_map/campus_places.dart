@@ -57,14 +57,14 @@ class CampusPlace {
   }
 
   bool matches(String query) {
-    final q = _fold(query);
+    final q = foldForSearch(query);
     if (q.isEmpty) return true;
-    return _fold(name).contains(q) || _fold(code).contains(q);
+    return foldForSearch(name).contains(q) || foldForSearch(code).contains(q);
   }
 }
 
 /// Lower-cases and strips the accents students will not bother typing.
-String _fold(String s) {
+String foldForSearch(String s) {
   const from = 'àâäéèêëîïôöùûüç';
   const to = 'aaaeeeeiioouuuc';
   final out = StringBuffer();
