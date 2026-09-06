@@ -1,3 +1,5 @@
+import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
 
 import '../../theme/campus_context.dart';
@@ -24,11 +26,13 @@ const double _hourHeight = 64;
 /// cannot reliably tap is worse than one a few minutes too tall.
 const double _minBlockHeight = 48;
 
-/// The time grid behind Jour, 3 jours and Semaine.
-///
-/// The three modes differ only in how many days are passed in, which is why
-/// there is one of these rather than three widgets.
-class ScheduleGrid extends StatelessWidget {
+/// Narrowest a column may be. Below this a block cannot hold its module name,
+/// so the grid scrolls sideways instead of drawing bare bars.
+const double _minColumnWidth = 104;
+
+/// The time grid behind Jour, 3 jours and Semaine. The modes differ only in
+/// how many days are passed in.
+class ScheduleGrid extends StatefulWidget {
   const ScheduleGrid({
     required this.index,
     required this.days,
@@ -49,7 +53,37 @@ class ScheduleGrid extends StatelessWidget {
   static const double gutterWidth = 40;
 
   @override
+  State<ScheduleGrid> createState() => _ScheduleGridState();
+}
+
+class _ScheduleGridState extends State<ScheduleGrid> {
+  final ScrollController _headings = ScrollController();
+  final ScrollController _columns = ScrollController();
+
+  @override
+  void initState() {
+    super.initState();
+    _columns.addListener(_followColumns);
+  }
+
+  @override
+  void dispose() {
+    _columns
+      ..removeListener(_followColumns)
+      ..dispose();
+    _headings.dispose();
+    super.dispose();
+  }
+
+  void _followColumns() {
+    if (_headings.hasClients) _headings.jumpTo(_columns.offset);
+  }
+
+  @override
   Widget build(BuildContext context) {
+    final index = widget.index;
+    final days = widget.days;
+    final now = widget.now;
     var first = 24;
     var last = 0;
     for (final day in days) {
@@ -73,54 +107,107 @@ class ScheduleGrid extends StatelessWidget {
     // One column needs no heading: the page header already names that day.
     final headed = days.length > 1;
 
-    return Column(
-      children: <Widget>[
-        if (headed)
-          _HeadingRow(
-            days: days,
-            gutterWidth: gutterWidth * scale,
-            today: now,
-            onPickDay: onPickDay,
-          ),
-        Expanded(
-          child: SingleChildScrollView(
-            child: SizedBox(
-              height: bodyHeight,
-              child: Row(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  _Gutter(
-                    firstHour: first,
-                    lastHour: last,
-                    hourHeight: hourHeight,
-                    width: gutterWidth * scale,
-                  ),
-                  for (var i = 0; i < days.length; i++) ...<Widget>[
-                    if (i > 0) const ScheduleColumnRule(),
-                    Expanded(
-                      child: _DayColumn(
-                        events: index.eventsOn(days[i]),
-                        firstHour: first,
-                        hourHeight: hourHeight,
-                        minBlockHeight: _minBlockHeight * scale,
-                        now: _nowFor(days[i]),
-                        onTapEvent: onTapEvent,
+    final gutter = ScheduleGrid.gutterWidth * scale;
+
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final rules = (days.length - 1).toDouble();
+        final free = constraints.maxWidth - gutter - rules;
+        final columnWidth = math.max(
+          _minColumnWidth * scale,
+          free / days.length,
+        );
+        final trackWidth = columnWidth * days.length + rules;
+        // A track that fits must not claim horizontal drags: the screen reads
+        // those as "next period".
+        final physics = trackWidth > constraints.maxWidth - gutter
+            ? const ClampingScrollPhysics()
+            : const NeverScrollableScrollPhysics();
+
+        return Column(
+          children: <Widget>[
+            if (headed)
+              Row(
+                children: <Widget>[
+                  SizedBox(width: gutter),
+                  Expanded(
+                    child: SingleChildScrollView(
+                      scrollDirection: Axis.horizontal,
+                      controller: _headings,
+                      physics: const NeverScrollableScrollPhysics(),
+                      child: SizedBox(
+                        width: trackWidth,
+                        child: _HeadingRow(
+                          days: days,
+                          columnWidth: columnWidth,
+                          today: now,
+                          onPickDay: widget.onPickDay,
+                        ),
                       ),
                     ),
-                  ],
+                  ),
                 ],
               ),
+            Expanded(
+              child: SingleChildScrollView(
+                child: SizedBox(
+                  height: bodyHeight,
+                  child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: <Widget>[
+                      _Gutter(
+                        firstHour: first,
+                        lastHour: last,
+                        hourHeight: hourHeight,
+                        width: gutter,
+                      ),
+                      Expanded(
+                        child: SingleChildScrollView(
+                          scrollDirection: Axis.horizontal,
+                          controller: _columns,
+                          physics: physics,
+                          child: SizedBox(
+                            width: trackWidth,
+                            child: Row(
+                              crossAxisAlignment: CrossAxisAlignment.stretch,
+                              children: <Widget>[
+                                for (
+                                  var i = 0;
+                                  i < days.length;
+                                  i++
+                                ) ...<Widget>[
+                                  if (i > 0) const ScheduleColumnRule(),
+                                  SizedBox(
+                                    width: columnWidth,
+                                    child: _DayColumn(
+                                      events: index.eventsOn(days[i]),
+                                      firstHour: first,
+                                      hourHeight: hourHeight,
+                                      minBlockHeight: _minBlockHeight * scale,
+                                      now: _nowFor(days[i]),
+                                      onTapEvent: widget.onTapEvent,
+                                    ),
+                                  ),
+                                ],
+                              ],
+                            ),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
             ),
-          ),
-        ),
-      ],
+          ],
+        );
+      },
     );
   }
 
-  /// Non-null only for the column that is actually today, so the line is drawn
-  /// once rather than in every column.
+  /// Non-null only for today's column, so the line is drawn once.
   DateTime? _nowFor(DateTime day) {
-    final n = now;
+    final n = widget.now;
     if (n == null) return null;
     return n.year == day.year && n.month == day.month && n.day == day.day
         ? n
@@ -140,13 +227,13 @@ class ScheduleColumnRule extends StatelessWidget {
 class _HeadingRow extends StatelessWidget {
   const _HeadingRow({
     required this.days,
-    required this.gutterWidth,
+    required this.columnWidth,
     required this.today,
     required this.onPickDay,
   });
 
   final List<DateTime> days;
-  final double gutterWidth;
+  final double columnWidth;
   final DateTime? today;
   final ValueChanged<DateTime>? onPickDay;
 
@@ -165,15 +252,17 @@ class _HeadingRow extends StatelessWidget {
     ),
     child: Row(
       children: <Widget>[
-        SizedBox(width: gutterWidth),
-        for (final day in days)
-          Expanded(
+        for (var i = 0; i < days.length; i++) ...<Widget>[
+          if (i > 0) const SizedBox(width: 1),
+          SizedBox(
+            width: columnWidth,
             child: ScheduleDayHeading(
-              day: day,
-              isToday: _isToday(day),
-              onTap: onPickDay == null ? null : () => onPickDay!(day),
+              day: days[i],
+              isToday: _isToday(days[i]),
+              onTap: onPickDay == null ? null : () => onPickDay!(days[i]),
             ),
           ),
+        ],
       ],
     ),
   );

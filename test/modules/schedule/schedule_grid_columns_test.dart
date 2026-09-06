@@ -65,12 +65,14 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
-  testWidgets('seven columns on a 384 dp phone carry no label', (tester) async {
-    // 344 dp of body over seven columns is 49.1 dp, and the shortest real
-    // module name needs 55.7 dp.
+  testWidgets('seven columns keep their labels by scrolling instead', (
+    tester,
+  ) async {
+    // 344 dp over seven columns would be 49.1 dp and the shortest real module
+    // name needs 55.7 dp, so the week widens its columns and scrolls.
     await pump(tester, 7);
     expect(find.byType(GridBlock), findsOneWidget);
-    expect(find.text('Algèbre 3'), findsNothing);
+    expect(find.text('Algèbre 3'), findsOneWidget);
     expect(tester.takeException(), isNull);
   });
 
