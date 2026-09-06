@@ -32,10 +32,9 @@ String conditionLabel(int code) => switch (code) {
 /// Every WMO code from 51 up is precipitation; fog and cloud stay below it.
 bool _isWet(int code) => code >= 51;
 
-/// The one sentence shown on the home row and under the temperature.
-///
-/// Timing comes from the hourly codes, never from a probability, so the phrase
-/// only ever promises what the forecast actually says.
+/// The one sentence on the home row and under the temperature. Timing comes
+/// from the hourly codes, never a probability, so it promises only what is
+/// forecast.
 String weatherPhrase(WeatherSnapshot snapshot, DateTime now) {
   final hours = upcomingHours(snapshot, now);
   if (hours.isEmpty) return conditionLabel(snapshot.weatherCode);

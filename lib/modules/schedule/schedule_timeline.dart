@@ -5,34 +5,7 @@ import '../../theme/now_line.dart';
 import '../../theme/tokens.dart';
 import 'schedule_day_index.dart';
 import 'schedule_event.dart';
-
-const List<String> _weekdays = <String>[
-  'lundi',
-  'mardi',
-  'mercredi',
-  'jeudi',
-  'vendredi',
-  'samedi',
-  'dimanche',
-];
-
-const List<String> _months = <String>[
-  'janvier',
-  'février',
-  'mars',
-  'avril',
-  'mai',
-  'juin',
-  'juillet',
-  'août',
-  'septembre',
-  'octobre',
-  'novembre',
-  'décembre',
-];
-
-String frenchDayLabel(DateTime d) =>
-    '${_weekdays[d.weekday - 1]} ${d.day} ${_months[d.month - 1]}';
+import 'schedule_period.dart';
 
 String _hm(DateTime d) =>
     '${d.hour.toString().padLeft(2, '0')}:${d.minute.toString().padLeft(2, '0')}';

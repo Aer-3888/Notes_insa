@@ -124,8 +124,7 @@ class _TwoFactorScreenState extends ConsumerState<TwoFactorScreen> {
   }
 
   Future<void> _scanQr() async {
-    // The camera fills the screen, so it goes above the shell rather than
-    // inside the tab that opened it.
+    // The camera fills the screen, so it goes above the shell.
     final secret = await Navigator.of(
       context,
       rootNavigator: true,

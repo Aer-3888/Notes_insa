@@ -22,9 +22,8 @@ enum ScheduleViewMode {
   /// Columns the grid draws. Zero for the modes that are not a grid.
   final int dayColumns;
 
-  /// The strip is an overview, so it is redundant where the body already is
-  /// one.
-  bool get showsStrip => this == liste || this == jour || this == troisJours;
+  /// Redundant wherever the grid draws its own dated columns.
+  bool get showsStrip => this == liste || this == jour;
 }
 
 /// The chosen mode, remembered across launches. Losing a chosen default is

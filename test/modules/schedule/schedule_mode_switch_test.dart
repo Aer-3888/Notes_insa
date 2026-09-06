@@ -93,7 +93,7 @@ void main() {
     for (final entry in <String, bool>{
       'Liste': true,
       'Jour': true,
-      '3 jours': true,
+      '3 jours': false,
       'Semaine': false,
       'Mois': false,
     }.entries) {

@@ -27,7 +27,7 @@ void main() {
   test('the strip shows only where the body is not already the overview', () {
     expect(ScheduleViewMode.liste.showsStrip, isTrue);
     expect(ScheduleViewMode.jour.showsStrip, isTrue);
-    expect(ScheduleViewMode.troisJours.showsStrip, isTrue);
+    expect(ScheduleViewMode.troisJours.showsStrip, isFalse);
     expect(ScheduleViewMode.semaine.showsStrip, isFalse);
     expect(ScheduleViewMode.mois.showsStrip, isFalse);
   });

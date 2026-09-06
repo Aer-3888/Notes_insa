@@ -7,8 +7,7 @@ import 'weather_format.dart';
 import 'weather_icons.dart';
 import 'weather_model.dart';
 
-/// The weather page without its plumbing: everything it draws comes from the
-/// arguments, so it renders the same in a test as it does offline.
+/// The page without its plumbing: everything it draws is an argument.
 class WeatherBody extends StatelessWidget {
   const WeatherBody({
     super.key,

@@ -18,8 +18,7 @@ String millimetresLabel(double mm) =>
 
 String hourLabel(DateTime time) => '${time.hour}${nbsp}h';
 
-/// Screen readers get words, not glyphs: `15 °` is read as "quinze degré
-/// signe" by TalkBack unless the label spells it out.
+/// TalkBack reads `15 °` as "quinze degré signe" unless it is spelled out.
 String spokenDegrees(double celsius) {
   final rounded = _round(celsius);
   final unit = rounded.abs() <= 1 ? 'degré' : 'degrés';

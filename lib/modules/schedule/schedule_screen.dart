@@ -16,6 +16,8 @@ import 'event_sheet.dart';
 import 'schedule_event.dart';
 import 'schedule_grid.dart';
 import 'schedule_metrics.dart';
+import 'schedule_period.dart';
+import 'schedule_period_header.dart';
 import 'schedule_provider.dart';
 import 'schedule_view_mode.dart';
 import 'schedule_timeline.dart';
@@ -63,8 +65,15 @@ class _ScheduleScreenState extends ConsumerState<ScheduleScreen> {
     if (day != _day) setState(() => _day = day);
   }
 
-  void _jumpTo(DateTime day) {
-    final offset = _metrics?.offsetOfDay(_clampToRange(day));
+  /// Liste derives `_day` from scroll position, so it moves by scrolling; the
+  /// grids own `_day` and set it. Every day change goes through here.
+  void _goTo(DateTime day) {
+    final target = _clampToRange(DateTime(day.year, day.month, day.day));
+    if (ref.read(scheduleViewModeProvider) != ScheduleViewMode.liste) {
+      setState(() => _day = target);
+      return;
+    }
+    final offset = _metrics?.offsetOfDay(target);
     if (offset == null || !_controller.hasClients) return;
     unawaited(
       _controller.animateTo(
@@ -74,6 +83,9 @@ class _ScheduleScreenState extends ConsumerState<ScheduleScreen> {
       ),
     );
   }
+
+  void _shiftPeriod(int direction) =>
+      _goTo(shiftPeriod(ref.read(scheduleViewModeProvider), _day, direction));
 
   /// Semaine starts on Monday; 3 jours starts on the current day, which is
   /// what makes it read as "the next few days" rather than a fixed page.
@@ -94,10 +106,13 @@ class _ScheduleScreenState extends ConsumerState<ScheduleScreen> {
     return day;
   }
 
-  /// Swiping the strip moves a whole week, which vertical scrolling would take
-  /// many flings to cover.
-  void _shiftDays(int days) =>
-      _jumpTo(DateTime(_day.year, _day.month, _day.day + days));
+  /// Opens one day on its own, from a month cell or a grid column heading.
+  void _openDay(DateTime day) {
+    _goTo(day);
+    unawaited(
+      ref.read(scheduleViewModeProvider.notifier).set(ScheduleViewMode.jour),
+    );
+  }
 
   static DateTime _today() {
     final now = campusNow();
@@ -187,7 +202,7 @@ class _ScheduleScreenState extends ConsumerState<ScheduleScreen> {
                   index,
                   (row) => scheduleRowHeight(context, row),
                 );
-                return switch (mode) {
+                final body = switch (mode) {
                   ScheduleViewMode.jour ||
                   ScheduleViewMode.troisJours ||
                   ScheduleViewMode.semaine => _GridView(
@@ -196,22 +211,16 @@ class _ScheduleScreenState extends ConsumerState<ScheduleScreen> {
                     index: index,
                     days: _daysFor(mode),
                     showStrip: mode.showsStrip,
-                    onDayTap: (d) => setState(() => _day = d),
-                    onShiftDays: _shiftDays,
+                    onDayTap: _goTo,
+                    onShiftPeriod: _shiftPeriod,
+                    onPickDay: _openDay,
                     onTapEvent: (e) => showEventSheet(context, e),
                   ),
                   ScheduleViewMode.mois => MonthGrid(
                     index: index,
                     month: _day,
                     today: campusNow(),
-                    onPickDay: (d) {
-                      setState(() => _day = d);
-                      unawaited(
-                        ref
-                            .read(scheduleViewModeProvider.notifier)
-                            .set(ScheduleViewMode.jour),
-                      );
-                    },
+                    onPickDay: _openDay,
                   ),
                   _ => _DayView(
                     entry: entry,
@@ -219,10 +228,22 @@ class _ScheduleScreenState extends ConsumerState<ScheduleScreen> {
                     index: index,
                     controller: _controller,
                     showStrip: mode.showsStrip,
-                    onDayTap: _jumpTo,
-                    onWeekShift: _shiftDays,
+                    onDayTap: _goTo,
+                    onShiftPeriod: _shiftPeriod,
                   ),
                 };
+                return Column(
+                  children: <Widget>[
+                    SchedulePeriodHeader(
+                      mode: mode,
+                      day: _day,
+                      today: campusNow(),
+                      onShift: _shiftPeriod,
+                      onToday: () => _goTo(_today()),
+                    ),
+                    Expanded(child: body),
+                  ],
+                );
               },
             ),
     );
@@ -237,7 +258,7 @@ class _DayView extends StatelessWidget {
     required this.controller,
     required this.showStrip,
     required this.onDayTap,
-    required this.onWeekShift,
+    required this.onShiftPeriod,
   });
 
   final CachedEntry<List<ScheduleEvent>> entry;
@@ -246,7 +267,7 @@ class _DayView extends StatelessWidget {
   final ScrollController controller;
   final bool showStrip;
   final ValueChanged<DateTime> onDayTap;
-  final ValueChanged<int> onWeekShift;
+  final ValueChanged<int> onShiftPeriod;
 
   @override
   Widget build(BuildContext context) {
@@ -257,7 +278,7 @@ class _DayView extends StatelessWidget {
             onHorizontalDragEnd: (details) {
               final velocity = details.primaryVelocity ?? 0;
               if (velocity.abs() < 200) return;
-              onWeekShift(velocity < 0 ? 7 : -7);
+              onShiftPeriod(velocity < 0 ? 1 : -1);
             },
             child: WeekStrip(
               index: index,
@@ -297,7 +318,8 @@ class _GridView extends StatelessWidget {
     required this.days,
     required this.showStrip,
     required this.onDayTap,
-    required this.onShiftDays,
+    required this.onShiftPeriod,
+    required this.onPickDay,
     required this.onTapEvent,
   });
 
@@ -307,7 +329,8 @@ class _GridView extends StatelessWidget {
   final List<DateTime> days;
   final bool showStrip;
   final ValueChanged<DateTime> onDayTap;
-  final ValueChanged<int> onShiftDays;
+  final ValueChanged<int> onShiftPeriod;
+  final ValueChanged<DateTime> onPickDay;
   final ValueChanged<ScheduleEvent> onTapEvent;
 
   @override
@@ -324,16 +347,16 @@ class _GridView extends StatelessWidget {
           ),
         Expanded(
           child: GestureDetector(
-            // Pages by whatever the mode shows: one day, three, or a week.
             onHorizontalDragEnd: (details) {
               final velocity = details.primaryVelocity ?? 0;
               if (velocity.abs() < 200) return;
-              onShiftDays(velocity < 0 ? days.length : -days.length);
+              onShiftPeriod(velocity < 0 ? 1 : -1);
             },
             child: ScheduleGrid(
               index: index,
               days: days,
               now: campusNow(),
+              onPickDay: onPickDay,
               onTapEvent: onTapEvent,
             ),
           ),

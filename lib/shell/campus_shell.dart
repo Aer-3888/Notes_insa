@@ -46,9 +46,8 @@ class _CampusShellState extends ConsumerState<CampusShell>
   /// who never logs in, so unvisited destinations render nothing until chosen.
   final Set<int> _visited = <int>{_homeIndex};
 
-  /// One navigator per destination, so a page opened from a tab stays inside
-  /// it and the bar never disappears. Full-screen takeovers (lock, camera,
-  /// login) opt out with `rootNavigator: true`.
+  /// One per destination, so a page opened from a tab stays under the bar.
+  /// Takeovers opt out with `rootNavigator: true`.
   final List<GlobalKey<NavigatorState>> _tabNavigators =
       <GlobalKey<NavigatorState>>[
         for (var i = 0; i < 5; i++) GlobalKey<NavigatorState>(),
@@ -196,15 +195,13 @@ class _CampusShellState extends ConsumerState<CampusShell>
     _ensureLockIfNeeded();
   }
 
-  /// Selects the destination a module owns. The hub's cards go through this
-  /// rather than pushing the module, so the bar always agrees with the screen.
+  /// The hub's cards select a destination rather than pushing the module.
   void _openModule(String id) {
     final index = _destinations.indexWhere((d) => d.module?.id == id);
     if (index >= 0) _select(index);
   }
 
-  /// Wraps a destination in its own navigator, built on first visit so an
-  /// unvisited tab still costs nothing.
+  /// Built on first visit, so an unvisited tab still costs nothing.
   Widget _destinationFor(int index) {
     if (!_visited.contains(index)) return const SizedBox.shrink();
     return Navigator(
@@ -245,8 +242,7 @@ class _CampusShellState extends ConsumerState<CampusShell>
       );
     }
 
-    // Back is handled here rather than by `canPop`, which is evaluated at build
-    // time and would go stale the moment a tab pushes a page.
+    // Not `canPop`: it is read at build time and goes stale on a tab push.
     return PopScope(
       canPop: false,
       onPopInvokedWithResult: (didPop, _) {
