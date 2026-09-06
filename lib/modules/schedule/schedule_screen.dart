@@ -73,6 +73,19 @@ class _ScheduleScreenState extends ConsumerState<ScheduleScreen> {
     );
   }
 
+  /// Semaine starts on Monday; 3 jours starts on the current day, which is
+  /// what makes it read as "the next few days" rather than a fixed page.
+  List<DateTime> _daysFor(ScheduleViewMode mode) {
+    if (mode.dayColumns <= 1) return <DateTime>[_day];
+    final start = mode == ScheduleViewMode.semaine
+        ? DateTime(_day.year, _day.month, _day.day - (_day.weekday - 1))
+        : _day;
+    return <DateTime>[
+      for (var i = 0; i < mode.dayColumns; i++)
+        DateTime(start.year, start.month, start.day + i),
+    ];
+  }
+
   DateTime _clampToRange(DateTime day) {
     if (day.isBefore(_rangeStart)) return _rangeStart;
     if (day.isAfter(_rangeEnd)) return _rangeEnd;
@@ -173,11 +186,13 @@ class _ScheduleScreenState extends ConsumerState<ScheduleScreen> {
                   (row) => scheduleRowHeight(context, row),
                 );
                 return switch (mode) {
-                  ScheduleViewMode.jour => _GridView(
+                  ScheduleViewMode.jour ||
+                  ScheduleViewMode.troisJours ||
+                  ScheduleViewMode.semaine => _GridView(
                     entry: entry,
                     day: _day,
                     index: index,
-                    days: <DateTime>[_day],
+                    days: _daysFor(mode),
                     showStrip: mode.showsStrip,
                     onDayTap: (d) => setState(() => _day = d),
                     onShiftDays: _shiftDays,
@@ -191,6 +206,7 @@ class _ScheduleScreenState extends ConsumerState<ScheduleScreen> {
                     day: _day,
                     index: index,
                     controller: _controller,
+                    showStrip: mode.showsStrip,
                     onDayTap: _jumpTo,
                     onWeekShift: _shiftDays,
                   ),
@@ -207,6 +223,7 @@ class _DayView extends StatelessWidget {
     required this.day,
     required this.index,
     required this.controller,
+    required this.showStrip,
     required this.onDayTap,
     required this.onWeekShift,
   });
@@ -215,6 +232,7 @@ class _DayView extends StatelessWidget {
   final DateTime day;
   final ScheduleDayIndex index;
   final ScrollController controller;
+  final bool showStrip;
   final ValueChanged<DateTime> onDayTap;
   final ValueChanged<int> onWeekShift;
 
@@ -222,20 +240,21 @@ class _DayView extends StatelessWidget {
   Widget build(BuildContext context) {
     return Column(
       children: [
-        GestureDetector(
-          onHorizontalDragEnd: (details) {
-            final velocity = details.primaryVelocity ?? 0;
-            if (velocity.abs() < 200) return;
-            onWeekShift(velocity < 0 ? 7 : -7);
-          },
-          child: WeekStrip(
-            index: index,
-            weekOf: day,
-            currentDay: day,
-            today: campusNow(),
-            onDayTap: onDayTap,
+        if (showStrip)
+          GestureDetector(
+            onHorizontalDragEnd: (details) {
+              final velocity = details.primaryVelocity ?? 0;
+              if (velocity.abs() < 200) return;
+              onWeekShift(velocity < 0 ? 7 : -7);
+            },
+            child: WeekStrip(
+              index: index,
+              weekOf: day,
+              currentDay: day,
+              today: campusNow(),
+              onDayTap: onDayTap,
+            ),
           ),
-        ),
         const Divider(height: 1),
         Expanded(
           child: ScheduleTimeline(
