@@ -10,6 +10,7 @@ import '../../theme/campus_context.dart';
 import '../../theme/state_view.dart';
 import '../../theme/tokens.dart';
 import 'group_picker_screen.dart';
+import 'month_grid.dart';
 import 'schedule_day_index.dart';
 import 'event_sheet.dart';
 import 'schedule_event.dart';
@@ -199,8 +200,19 @@ class _ScheduleScreenState extends ConsumerState<ScheduleScreen> {
                     onShiftDays: _shiftDays,
                     onTapEvent: (e) => showEventSheet(context, e),
                   ),
-                  // The month body arrives in Task 9; until then it renders
-                  // the timeline, so the screen is never broken.
+                  ScheduleViewMode.mois => MonthGrid(
+                    index: index,
+                    month: _day,
+                    today: campusNow(),
+                    onPickDay: (d) {
+                      setState(() => _day = d);
+                      unawaited(
+                        ref
+                            .read(scheduleViewModeProvider.notifier)
+                            .set(ScheduleViewMode.jour),
+                      );
+                    },
+                  ),
                   _ => _DayView(
                     entry: entry,
                     day: _day,
