@@ -14,6 +14,7 @@ import 'schedule_day_index.dart';
 import 'schedule_event.dart';
 import 'schedule_metrics.dart';
 import 'schedule_provider.dart';
+import 'schedule_view_mode.dart';
 import 'schedule_timeline.dart';
 import 'week_strip.dart';
 
@@ -96,10 +97,27 @@ class _ScheduleScreenState extends ConsumerState<ScheduleScreen> {
   Widget build(BuildContext context) {
     final ids = ref.watch(selectedGroupsProvider);
     final async = ref.watch(scheduleProvider);
+    final mode = ref.watch(scheduleViewModeProvider);
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Emploi du temps'),
+        title: PopupMenuButton<ScheduleViewMode>(
+          tooltip: 'Changer d’affichage',
+          initialValue: mode,
+          onSelected: (m) =>
+              unawaited(ref.read(scheduleViewModeProvider.notifier).set(m)),
+          itemBuilder: (context) => <PopupMenuEntry<ScheduleViewMode>>[
+            for (final m in ScheduleViewMode.values)
+              PopupMenuItem<ScheduleViewMode>(value: m, child: Text(m.label)),
+          ],
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(mode.label, style: context.text.titleLarge),
+              const Icon(Icons.arrow_drop_down),
+            ],
+          ),
+        ),
         actions: [
           IconButton(
             icon: const Icon(Icons.group_outlined),
@@ -153,14 +171,19 @@ class _ScheduleScreenState extends ConsumerState<ScheduleScreen> {
                   index,
                   (row) => scheduleRowHeight(context, row),
                 );
-                return _DayView(
-                  entry: entry,
-                  day: _day,
-                  index: index,
-                  controller: _controller,
-                  onDayTap: _jumpTo,
-                  onWeekShift: _shiftWeek,
-                );
+                return switch (mode) {
+                  // Grid and month bodies arrive in Tasks 6, 7 and 9. Until
+                  // then every mode renders the timeline, so the screen is
+                  // never broken between tasks.
+                  _ => _DayView(
+                    entry: entry,
+                    day: _day,
+                    index: index,
+                    controller: _controller,
+                    onDayTap: _jumpTo,
+                    onWeekShift: _shiftWeek,
+                  ),
+                };
               },
             ),
     );
