@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../theme/campus_context.dart';
 import '../../theme/tokens.dart';
+import 'event_lanes.dart';
 import 'module_palette.dart';
 import 'schedule_day_index.dart';
 import 'schedule_event.dart';
@@ -197,7 +198,7 @@ class _DayColumn extends StatelessWidget {
   Widget _track(BuildContext context) {
     if (events.isEmpty) return const SizedBox.shrink();
     final span = (lastHour - firstHour) * 60;
-    final placements = _overlapLanes();
+    final placements = assignLanes(events);
     return LayoutBuilder(
       builder: (context, constraints) => Stack(
         children: <Widget>[
@@ -213,7 +214,7 @@ class _DayColumn extends StatelessWidget {
     BoxConstraints constraints,
     ScheduleEvent event,
     int span,
-    ({int lane, int lanes}) placement,
+    EventLane placement,
   ) {
     final startMinutes =
         (event.start.hour - firstHour) * 60 + event.start.minute;
@@ -236,27 +237,6 @@ class _DayColumn extends StatelessWidget {
             context.scheme.onSurfaceVariant,
       ),
     );
-  }
-
-  /// Parallel classes split the column, so a student in several groups sees
-  /// both rather than one hiding the other.
-  List<({int lane, int lanes})> _overlapLanes() {
-    final result = <({int lane, int lanes})>[];
-    for (var i = 0; i < events.length; i++) {
-      var lane = 0;
-      var lanes = 1;
-      for (var j = 0; j < events.length; j++) {
-        if (i == j) continue;
-        final overlaps =
-            events[i].start.isBefore(events[j].end) &&
-            events[j].start.isBefore(events[i].end);
-        if (!overlaps) continue;
-        lanes++;
-        if (events[j].start.isBefore(events[i].start)) lane++;
-      }
-      result.add((lane: lane, lanes: lanes));
-    }
-    return result;
   }
 
   String _semanticsLabel() {
