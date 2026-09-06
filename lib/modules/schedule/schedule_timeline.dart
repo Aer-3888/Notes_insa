@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../theme/campus_context.dart';
+import '../../theme/now_line.dart';
 import '../../theme/tokens.dart';
 import 'schedule_day_index.dart';
 import 'schedule_event.dart';
@@ -98,11 +99,23 @@ class ScheduleTimeline extends StatelessWidget {
       day: row.day,
       isToday: _isToday(row.day),
     ),
-    ScheduleRowKind.event => ScheduleEventRow(event: row.event!),
-    ScheduleRowKind.gap => _GapRow(from: row.from!, to: row.to!),
+    ScheduleRowKind.event => ScheduleEventRow(
+      event: row.event!,
+      inProgress: _nowFallsIn(row.event!.start, row.event!.end),
+    ),
+    ScheduleRowKind.gap => _GapRow(
+      from: row.from!,
+      to: row.to!,
+      showNow: _nowFallsIn(row.from!, row.to!),
+    ),
     ScheduleRowKind.emptyDay => const _EmptyDayRow(),
     ScheduleRowKind.rangeEnd => const _RangeEndRow(),
   };
+
+  bool _nowFallsIn(DateTime from, DateTime to) {
+    final n = now;
+    return n != null && !n.isBefore(from) && n.isBefore(to);
+  }
 
   bool _isToday(DateTime day) {
     final n = now;
@@ -140,9 +153,17 @@ class _DayHeader extends StatelessWidget {
 
 /// Public so the height-invariance test can find it by type.
 class ScheduleEventRow extends StatelessWidget {
-  const ScheduleEventRow({required this.event, super.key});
+  const ScheduleEventRow({
+    required this.event,
+    this.inProgress = false,
+    super.key,
+  });
 
   final ScheduleEvent event;
+
+  /// True when now falls inside this class. Shown beside the module name, not
+  /// on a line of its own, so the row height never changes.
+  final bool inProgress;
 
   @override
   Widget build(BuildContext context) {
@@ -187,11 +208,24 @@ class ScheduleEventRow extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(
-                  event.module ?? event.title,
-                  style: context.text.titleMedium,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
+                Row(
+                  children: [
+                    Expanded(
+                      child: Text(
+                        event.module ?? event.title,
+                        style: context.text.titleMedium,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                    if (inProgress)
+                      Text(
+                        'en cours',
+                        style: context.text.labelMedium?.copyWith(
+                          color: context.campus.now,
+                        ),
+                      ),
+                  ],
                 ),
                 const SizedBox(height: CampusSpacing.x1),
                 Text(
@@ -212,29 +246,34 @@ class ScheduleEventRow extends StatelessWidget {
 }
 
 class _GapRow extends StatelessWidget {
-  const _GapRow({required this.from, required this.to});
+  const _GapRow({required this.from, required this.to, this.showNow = false});
 
   final DateTime from;
   final DateTime to;
+  final bool showNow;
 
   @override
   Widget build(BuildContext context) => Padding(
     padding: const EdgeInsets.symmetric(horizontal: CampusSpacing.gutter),
-    child: Row(
-      children: [
-        const Expanded(child: Divider()),
-        Padding(
-          padding: const EdgeInsets.symmetric(horizontal: CampusSpacing.x3),
-          child: Text(
-            frenchGapLabel(to.difference(from)),
-            style: context.text.labelMedium?.copyWith(
-              color: context.scheme.onSurfaceVariant,
-            ),
+    child: showNow
+        ? const Center(child: NowLine())
+        : Row(
+            children: [
+              const Expanded(child: Divider()),
+              Padding(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: CampusSpacing.x3,
+                ),
+                child: Text(
+                  frenchGapLabel(to.difference(from)),
+                  style: context.text.labelMedium?.copyWith(
+                    color: context.scheme.onSurfaceVariant,
+                  ),
+                ),
+              ),
+              const Expanded(child: Divider()),
+            ],
           ),
-        ),
-        const Expanded(child: Divider()),
-      ],
-    ),
   );
 }
 
