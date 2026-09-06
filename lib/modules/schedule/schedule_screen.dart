@@ -8,8 +8,10 @@ import '../../theme/campus_context.dart';
 import '../../theme/state_view.dart';
 import '../../theme/tokens.dart';
 import 'group_picker_screen.dart';
+import 'schedule_day_index.dart';
 import 'schedule_event.dart';
 import 'schedule_provider.dart';
+import 'schedule_timeline.dart';
 
 const List<String> _weekdays = [
   'lundi',
@@ -21,32 +23,11 @@ const List<String> _weekdays = [
   'dimanche',
 ];
 
-const List<String> _months = [
-  'janvier',
-  'février',
-  'mars',
-  'avril',
-  'mai',
-  'juin',
-  'juillet',
-  'août',
-  'septembre',
-  'octobre',
-  'novembre',
-  'décembre',
-];
-
-String _dayLabel(DateTime d) =>
-    '${_weekdays[d.weekday - 1]} ${d.day} ${_months[d.month - 1]}';
-
-String _hm(DateTime d) =>
-    '${d.hour.toString().padLeft(2, '0')}:${d.minute.toString().padLeft(2, '0')}';
-
 String scheduleFreshnessLabel(CachedEntry<List<ScheduleEvent>> entry) =>
     freshness.freshnessLabel(entry.refreshState, entry.cachedAt);
 
-/// Day view with a week strip. A seven-column grid of small text does not
-/// survive contact with a phone, so days are swiped instead.
+/// A continuous timeline of the loaded window under a week strip. Days follow
+/// one another, so the end of a day is never a dead end.
 class ScheduleScreen extends ConsumerStatefulWidget {
   const ScheduleScreen({super.key});
 
@@ -56,13 +37,29 @@ class ScheduleScreen extends ConsumerStatefulWidget {
 
 class _ScheduleScreenState extends ConsumerState<ScheduleScreen> {
   late DateTime _day;
+  final ScrollController _controller = ScrollController();
 
   @override
   void initState() {
     super.initState();
-    final now = campusNow();
-    _day = DateTime(now.year, now.month, now.day);
+    _day = _today();
   }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  static DateTime _today() {
+    final now = campusNow();
+    return DateTime(now.year, now.month, now.day);
+  }
+
+  /// The window the provider actually fetches, so the timeline never scrolls
+  /// into days the feed does not cover.
+  DateTime get _rangeStart => _today().subtract(kScheduleLookback);
+  DateTime get _rangeEnd => _today().add(kScheduleLookahead);
 
   bool _sameDay(DateTime a, DateTime b) =>
       a.year == b.year && a.month == b.month && a.day == b.day;
@@ -119,6 +116,12 @@ class _ScheduleScreenState extends ConsumerState<ScheduleScreen> {
               data: (entry) => _DayView(
                 entry: entry,
                 day: _day,
+                index: ScheduleDayIndex.build(
+                  events: entry.data ?? const <ScheduleEvent>[],
+                  from: _rangeStart,
+                  to: _rangeEnd,
+                ),
+                controller: _controller,
                 onDayChanged: (d) => setState(() => _day = d),
                 sameDay: _sameDay,
               ),
@@ -131,19 +134,22 @@ class _DayView extends StatelessWidget {
   const _DayView({
     required this.entry,
     required this.day,
+    required this.index,
+    required this.controller,
     required this.onDayChanged,
     required this.sameDay,
   });
 
   final CachedEntry<List<ScheduleEvent>> entry;
   final DateTime day;
+  final ScheduleDayIndex index;
+  final ScrollController controller;
   final ValueChanged<DateTime> onDayChanged;
   final bool Function(DateTime, DateTime) sameDay;
 
   @override
   Widget build(BuildContext context) {
     final events = entry.data ?? const <ScheduleEvent>[];
-    final today = events.where((e) => sameDay(e.start, day)).toList();
     final monday = day.subtract(Duration(days: day.weekday - 1));
 
     return Column(
@@ -210,35 +216,10 @@ class _DayView extends StatelessWidget {
         ),
         const Divider(height: 1),
         Expanded(
-          child: GestureDetector(
-            onHorizontalDragEnd: (d) {
-              final v = d.primaryVelocity ?? 0;
-              if (v < -200) onDayChanged(day.add(const Duration(days: 1)));
-              if (v > 200) onDayChanged(day.subtract(const Duration(days: 1)));
-            },
-            child: today.isEmpty
-                ? ListView(
-                    children: [
-                      const SizedBox(height: 60),
-                      Center(
-                        child: Text(
-                          'Rien de pr\u00e9vu ${_dayLabel(day)}.',
-                          style: context.text.bodyMedium?.copyWith(
-                            color: context.scheme.onSurfaceVariant,
-                          ),
-                        ),
-                      ),
-                    ],
-                  )
-                : ListView.separated(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: CampusSpacing.gutter,
-                      vertical: CampusSpacing.x2,
-                    ),
-                    itemCount: today.length,
-                    separatorBuilder: (_, _) => const Divider(),
-                    itemBuilder: (_, i) => _EventCard(event: today[i]),
-                  ),
+          child: ScheduleTimeline(
+            index: index,
+            controller: controller,
+            now: campusNow(),
           ),
         ),
         Padding(
@@ -251,80 +232,6 @@ class _DayView extends StatelessWidget {
           ),
         ),
       ],
-    );
-  }
-}
-
-class _EventCard extends StatelessWidget {
-  const _EventCard({required this.event});
-
-  final ScheduleEvent event;
-
-  @override
-  Widget build(BuildContext context) {
-    final scheme = context.scheme;
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: CampusSpacing.x2),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          SizedBox(
-            width: 56,
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(_hm(event.start), style: context.campusType.numeral),
-                Text(
-                  _hm(event.end),
-                  style: context.text.bodyMedium?.copyWith(
-                    color: scheme.onSurfaceVariant,
-                  ),
-                ),
-              ],
-            ),
-          ),
-          const SizedBox(width: CampusSpacing.x4),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  event.module ?? event.title,
-                  style: context.text.titleMedium,
-                ),
-                if (event.room != null) ...[
-                  const SizedBox(height: CampusSpacing.x1),
-                  Row(
-                    children: [
-                      Icon(
-                        Icons.place_outlined,
-                        size: 18,
-                        color: scheme.onSurfaceVariant,
-                      ),
-                      const SizedBox(width: CampusSpacing.x1),
-                      Expanded(
-                        child: Text(
-                          event.room!,
-                          style: context.text.bodyMedium?.copyWith(
-                            color: scheme.onSurfaceVariant,
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                ],
-                if (event.teachers.isNotEmpty)
-                  Text(
-                    event.teachers.join(', '),
-                    style: context.text.bodyMedium?.copyWith(
-                      color: scheme.onSurfaceVariant,
-                    ),
-                  ),
-              ],
-            ),
-          ),
-        ],
-      ),
     );
   }
 }
