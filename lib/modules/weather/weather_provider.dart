@@ -9,7 +9,7 @@ import 'weather_model.dart';
 import 'weather_service.dart';
 
 const String kWeatherModuleId = 'meteo';
-const int kWeatherSchemaVersion = 1;
+const int kWeatherSchemaVersion = 2;
 
 /// Cache-first weather. Emits the cached snapshot immediately so the screen
 /// paints without waiting on the network, then the refreshed one.

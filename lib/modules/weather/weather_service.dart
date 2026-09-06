@@ -17,9 +17,12 @@ class WeatherService {
   static final Uri endpoint = Uri.parse(
     'https://api.open-meteo.com/v1/forecast'
     '?latitude=$kCampusLat&longitude=$kCampusLon'
-    '&current=temperature_2m,weather_code'
-    '&daily=temperature_2m_max,temperature_2m_min'
-    '&hourly=temperature_2m&forecast_days=1&timezone=Europe%2FParis',
+    '&current=temperature_2m,apparent_temperature,weather_code,wind_speed_10m'
+    '&daily=temperature_2m_max,temperature_2m_min,precipitation_sum,'
+    'uv_index_max,sunrise,sunset'
+    '&hourly=temperature_2m,weather_code,precipitation_probability,'
+    'wind_speed_10m'
+    '&forecast_days=2&timezone=Europe%2FParis',
   );
 
   Future<WeatherSnapshot> fetch() async {
