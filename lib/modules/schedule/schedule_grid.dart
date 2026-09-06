@@ -17,6 +17,12 @@ const int _fallbackLastHour = 18;
 /// generous enough to read rather than squeezed to fit a screen.
 const double _hourHeight = 64;
 
+/// A 30 minute class is 32 dp at the hour height above, under the 48 dp
+/// minimum target (CP-10). Short blocks are floored to it and so run slightly
+/// past their real end, which is what platform calendars do: a block you
+/// cannot reliably tap is worse than one a few minutes too tall.
+const double _minBlockHeight = 48;
+
 /// The time grid behind Jour, 3 jours and Semaine.
 ///
 /// The three modes differ only in how many days are passed in, which is why
@@ -77,6 +83,7 @@ class ScheduleGrid extends StatelessWidget {
                   events: index.eventsOn(day),
                   firstHour: first,
                   hourHeight: hourHeight,
+                  minBlockHeight: _minBlockHeight * scale,
                   now: _nowFor(day),
                   onTapEvent: onTapEvent,
                 ),
@@ -143,6 +150,7 @@ class _DayColumn extends StatelessWidget {
     required this.events,
     required this.firstHour,
     required this.hourHeight,
+    required this.minBlockHeight,
     required this.now,
     required this.onTapEvent,
   });
@@ -150,6 +158,7 @@ class _DayColumn extends StatelessWidget {
   final List<ScheduleEvent> events;
   final int firstHour;
   final double hourHeight;
+  final double minBlockHeight;
   final DateTime? now;
   final ValueChanged<ScheduleEvent> onTapEvent;
 
@@ -166,7 +175,7 @@ class _DayColumn extends StatelessWidget {
             Positioned(
               top: _offsetOf(events[i].start),
               height: (_offsetOf(events[i].end) - _offsetOf(events[i].start))
-                  .clamp(2.0, double.infinity),
+                  .clamp(minBlockHeight, double.infinity),
               left: lanes[i].lane * (constraints.maxWidth / lanes[i].lanes),
               width: constraints.maxWidth / lanes[i].lanes,
               child: GridBlock(

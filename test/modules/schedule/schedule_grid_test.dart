@@ -123,4 +123,40 @@ void main() {
         .toList();
     expect(sizes.first, lessThan(sizes.last));
   });
+
+  testWidgets('a 30 minute class is still a 48 dp touch target', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(384, 800);
+    tester.view.devicePixelRatio = 1.0;
+    addTearDown(tester.view.reset);
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: campusTheme(Brightness.light),
+        home: Scaffold(
+          body: ScheduleGrid(
+            index: ScheduleDayIndex.build(
+              events: <ScheduleEvent>[
+                _event(
+                  'Distribution calculatrice',
+                  DateTime(2026, 9, 7, 11, 30),
+                  DateTime(2026, 9, 7, 12),
+                ),
+              ],
+              from: monday,
+              to: monday,
+            ),
+            days: <DateTime>[monday],
+            onTapEvent: (_) {},
+          ),
+        ),
+      ),
+    );
+    await tester.pump();
+    // Proportionally this is 32 dp, which CP-10 would fail.
+    expect(
+      tester.getSize(find.byType(GridBlock)).height,
+      greaterThanOrEqualTo(48),
+    );
+  });
 }

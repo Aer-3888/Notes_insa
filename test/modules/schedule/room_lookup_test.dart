@@ -7,7 +7,8 @@ const _places = <CampusPlace>[
   CampusPlace(code: '3', name: 'Amphi B', kind: PlaceKind.amphi),
   CampusPlace(code: '3', name: 'Amphi C', kind: PlaceKind.amphi),
   CampusPlace(code: '5', name: 'Amphi André Bonnin', kind: PlaceKind.amphi),
-  CampusPlace(code: '12', name: 'Amphi M. DRISSI', kind: PlaceKind.amphi),
+  // Amphi D, renamed in 2022. Building 4, verified against the campus plan.
+  CampusPlace(code: '4', name: 'Amphi M. DRISSI', kind: PlaceKind.amphi),
 ];
 
 void main() {
