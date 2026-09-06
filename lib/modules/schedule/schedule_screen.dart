@@ -6,22 +6,12 @@ import '../../core/module_cache.dart';
 import '../../core/time.dart';
 import '../../theme/campus_context.dart';
 import '../../theme/state_view.dart';
-import '../../theme/tokens.dart';
 import 'group_picker_screen.dart';
 import 'schedule_day_index.dart';
 import 'schedule_event.dart';
 import 'schedule_provider.dart';
 import 'schedule_timeline.dart';
-
-const List<String> _weekdays = [
-  'lundi',
-  'mardi',
-  'mercredi',
-  'jeudi',
-  'vendredi',
-  'samedi',
-  'dimanche',
-];
+import 'week_strip.dart';
 
 String scheduleFreshnessLabel(CachedEntry<List<ScheduleEvent>> entry) =>
     freshness.freshnessLabel(entry.refreshState, entry.cachedAt);
@@ -149,70 +139,14 @@ class _DayView extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final events = entry.data ?? const <ScheduleEvent>[];
-    final monday = day.subtract(Duration(days: day.weekday - 1));
-
     return Column(
       children: [
-        SizedBox(
-          height: 72,
-          child: Row(
-            children: [
-              for (var i = 0; i < 7; i++)
-                Builder(
-                  builder: (_) {
-                    final d = monday.add(Duration(days: i));
-                    final selected = sameDay(d, day);
-                    final has = events.any((e) => sameDay(e.start, d));
-                    return Expanded(
-                      child: Semantics(
-                        button: true,
-                        selected: selected,
-                        label: '${_weekdays[i]} ${d.day}',
-                        excludeSemantics: true,
-                        child: InkWell(
-                          onTap: () => onDayChanged(d),
-                          child: Column(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: [
-                              Text(
-                                _weekdays[i].substring(0, 3),
-                                style: context.text.labelMedium?.copyWith(
-                                  color: context.scheme.onSurfaceVariant,
-                                ),
-                              ),
-                              const SizedBox(height: CampusSpacing.x1),
-                              Container(
-                                width: CampusSpacing.touchTarget,
-                                height: CampusSpacing.x8,
-                                alignment: Alignment.center,
-                                decoration: BoxDecoration(
-                                  color: selected
-                                      ? context.campus.now
-                                      : Colors.transparent,
-                                  borderRadius: CampusRadii.controlRadius,
-                                ),
-                                child: Text(
-                                  '${d.day}',
-                                  style: context.campusType.numeral.copyWith(
-                                    color: selected
-                                        ? context.campus.onNow
-                                        : context.scheme.onSurface,
-                                    fontWeight: has
-                                        ? FontWeight.w700
-                                        : FontWeight.w400,
-                                  ),
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ),
-                    );
-                  },
-                ),
-            ],
-          ),
+        WeekStrip(
+          index: index,
+          weekOf: day,
+          currentDay: day,
+          today: campusNow(),
+          onDayTap: onDayChanged,
         ),
         const Divider(height: 1),
         Expanded(
