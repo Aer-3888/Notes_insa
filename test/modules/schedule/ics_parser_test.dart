@@ -111,4 +111,17 @@ void main() {
   test('throws FormatException when the payload is not a calendar', () {
     expect(() => parseAdeIcs('<html>login</html>'), throwsFormatException);
   });
+
+  test('interior whitespace in a room is collapsed', () {
+    const ics =
+        'BEGIN:VCALENDAR\r\n'
+        'BEGIN:VEVENT\r\n'
+        'DTSTART:20260908T081500Z\r\n'
+        'DTEND:20260908T101500Z\r\n'
+        'SUMMARY:Algebre 3\r\n'
+        'LOCATION:Amphi C   (V)\r\n'
+        'END:VEVENT\r\n'
+        'END:VCALENDAR\r\n';
+    expect(parseAdeIcs(ics).single.room, 'Amphi C (V)');
+  });
 }

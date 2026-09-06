@@ -83,7 +83,7 @@ String _unescape(String v) => v
     .replaceAll(r'\\', r'\');
 
 String? _clean(String? raw) {
-  final v = _unescape(raw ?? '').trim();
+  final v = _unescape(raw ?? '').replaceAll(RegExp(r'\s+'), ' ').trim();
   return v.isEmpty ? null : v;
 }
 
