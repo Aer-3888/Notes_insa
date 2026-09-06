@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -6,9 +8,11 @@ import '../../core/module_cache.dart';
 import '../../core/time.dart';
 import '../../theme/campus_context.dart';
 import '../../theme/state_view.dart';
+import '../../theme/tokens.dart';
 import 'group_picker_screen.dart';
 import 'schedule_day_index.dart';
 import 'schedule_event.dart';
+import 'schedule_metrics.dart';
 import 'schedule_provider.dart';
 import 'schedule_timeline.dart';
 import 'week_strip.dart';
@@ -29,17 +33,54 @@ class _ScheduleScreenState extends ConsumerState<ScheduleScreen> {
   late DateTime _day;
   final ScrollController _controller = ScrollController();
 
+  ScheduleMetrics? _metrics;
+
   @override
   void initState() {
     super.initState();
     _day = _today();
+    _controller.addListener(_onScroll);
   }
 
   @override
   void dispose() {
-    _controller.dispose();
+    _controller
+      ..removeListener(_onScroll)
+      ..dispose();
     super.dispose();
   }
+
+  /// The current day is derived from scroll position, never set directly, so
+  /// the strip and the timeline cannot disagree about which day is showing.
+  void _onScroll() {
+    final metrics = _metrics;
+    if (metrics == null || !_controller.hasClients) return;
+    final day = metrics.dayAtOffset(_controller.offset);
+    if (day != _day) setState(() => _day = day);
+  }
+
+  void _jumpTo(DateTime day) {
+    final offset = _metrics?.offsetOfDay(_clampToRange(day));
+    if (offset == null || !_controller.hasClients) return;
+    unawaited(
+      _controller.animateTo(
+        offset,
+        duration: CampusMotion.of(context, CampusMotion.enter),
+        curve: CampusMotion.standard,
+      ),
+    );
+  }
+
+  DateTime _clampToRange(DateTime day) {
+    if (day.isBefore(_rangeStart)) return _rangeStart;
+    if (day.isAfter(_rangeEnd)) return _rangeEnd;
+    return day;
+  }
+
+  /// Swiping the strip moves a whole week, which vertical scrolling would take
+  /// many flings to cover.
+  void _shiftWeek(int days) =>
+      _jumpTo(DateTime(_day.year, _day.month, _day.day + days));
 
   static DateTime _today() {
     final now = campusNow();
@@ -50,9 +91,6 @@ class _ScheduleScreenState extends ConsumerState<ScheduleScreen> {
   /// into days the feed does not cover.
   DateTime get _rangeStart => _today().subtract(kScheduleLookback);
   DateTime get _rangeEnd => _today().add(kScheduleLookahead);
-
-  bool _sameDay(DateTime a, DateTime b) =>
-      a.year == b.year && a.month == b.month && a.day == b.day;
 
   @override
   Widget build(BuildContext context) {
@@ -103,18 +141,27 @@ class _ScheduleScreenState extends ConsumerState<ScheduleScreen> {
                   label: const Text('R\u00e9essayer'),
                 ),
               ),
-              data: (entry) => _DayView(
-                entry: entry,
-                day: _day,
-                index: ScheduleDayIndex.build(
+              data: (entry) {
+                final index = ScheduleDayIndex.build(
                   events: entry.data ?? const <ScheduleEvent>[],
                   from: _rangeStart,
                   to: _rangeEnd,
-                ),
-                controller: _controller,
-                onDayChanged: (d) => setState(() => _day = d),
-                sameDay: _sameDay,
-              ),
+                );
+                // Both surfaces measure with the same function, or the strip
+                // drifts from the list.
+                _metrics = ScheduleMetrics(
+                  index,
+                  (row) => scheduleRowHeight(context, row),
+                );
+                return _DayView(
+                  entry: entry,
+                  day: _day,
+                  index: index,
+                  controller: _controller,
+                  onDayTap: _jumpTo,
+                  onWeekShift: _shiftWeek,
+                );
+              },
             ),
     );
   }
@@ -126,27 +173,34 @@ class _DayView extends StatelessWidget {
     required this.day,
     required this.index,
     required this.controller,
-    required this.onDayChanged,
-    required this.sameDay,
+    required this.onDayTap,
+    required this.onWeekShift,
   });
 
   final CachedEntry<List<ScheduleEvent>> entry;
   final DateTime day;
   final ScheduleDayIndex index;
   final ScrollController controller;
-  final ValueChanged<DateTime> onDayChanged;
-  final bool Function(DateTime, DateTime) sameDay;
+  final ValueChanged<DateTime> onDayTap;
+  final ValueChanged<int> onWeekShift;
 
   @override
   Widget build(BuildContext context) {
     return Column(
       children: [
-        WeekStrip(
-          index: index,
-          weekOf: day,
-          currentDay: day,
-          today: campusNow(),
-          onDayTap: onDayChanged,
+        GestureDetector(
+          onHorizontalDragEnd: (details) {
+            final velocity = details.primaryVelocity ?? 0;
+            if (velocity.abs() < 200) return;
+            onWeekShift(velocity < 0 ? 7 : -7);
+          },
+          child: WeekStrip(
+            index: index,
+            weekOf: day,
+            currentDay: day,
+            today: campusNow(),
+            onDayTap: onDayTap,
+          ),
         ),
         const Divider(height: 1),
         Expanded(
