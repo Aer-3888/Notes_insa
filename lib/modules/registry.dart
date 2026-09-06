@@ -13,11 +13,18 @@ sealed class CampusModule {
     required this.id,
     required this.label,
     required this.icon,
-  });
+    String? shortLabel,
+  }) : _shortLabel = shortLabel;
 
   final String id;
   final String label;
   final IconData icon;
+
+  final String? _shortLabel;
+
+  /// Label for the bottom bar, where five destinations leave about 72 dp each.
+  /// Falls back to [label] when it already fits.
+  String get barLabel => _shortLabel ?? label;
 }
 
 /// A module with an implementation behind it. Every module in the registry is
@@ -28,6 +35,7 @@ final class ReadyModule extends CampusModule {
     required super.label,
     required super.icon,
     required this.builder,
+    super.shortLabel,
     this.requiresCas = false,
   });
 
@@ -41,6 +49,7 @@ const List<CampusModule> kCampusModules = <CampusModule>[
   ReadyModule(
     id: 'edt',
     label: 'Emploi du temps',
+    shortLabel: 'Cours',
     icon: Icons.calendar_month_outlined,
     builder: _schedule,
   ),

@@ -15,6 +15,7 @@ import '../modules/registry.dart';
 import '../providers/auth_providers.dart';
 import '../services/notification_service.dart';
 import '../services/worker_sync_service.dart';
+import 'app_settings_screen.dart';
 import 'home_hub_screen.dart';
 
 /// Root of the app. Opens on the campus hub with no account; only modules that
@@ -32,9 +33,11 @@ class _CampusShellState extends ConsumerState<CampusShell>
   PendingDeepLinkController? _deepLinks;
   LockController? _lock;
 
-  /// Aujourd'hui is the first destination so system back always lands on it.
-  static const int _homeIndex = 0;
-  static const int _notesIndex = 2;
+  /// Aujourd'hui sits at the centre of the bar; it is where the app opens and
+  /// where system back always lands.
+  static const int _homeIndex = 2;
+  static const int _notesIndex = 1;
+  static const int _settingsIndex = 4;
 
   int _index = _homeIndex;
 
@@ -47,18 +50,23 @@ class _CampusShellState extends ConsumerState<CampusShell>
   // deep-link routes posted by MainActivity (see EXTRA_NOTIF_ROUTE there).
   static const _routeChannel = MethodChannel('com.aer.notes_insa/grades');
 
-  /// The four bottom destinations, in bar order. Labels and icons come from the
+  /// The five bottom destinations, in bar order. Labels and icons come from the
   /// registry where a module owns them, so the bar and the hub cannot disagree.
-  /// Aujourd'hui is a shell surface and names itself.
+  /// Aujourd'hui and Réglages are shell surfaces and name themselves.
   static final List<_Destination> _destinations = <_Destination>[
+    _Destination.module('edt'),
+    _Destination.module('notes'),
     const _Destination(
       icon: Icons.today_outlined,
       selectedIcon: Icons.today,
       label: 'Aujourd’hui',
     ),
-    _Destination.module('edt'),
-    _Destination.module('notes'),
     _Destination.module('carte'),
+    const _Destination(
+      icon: Icons.settings_outlined,
+      selectedIcon: Icons.settings,
+      label: 'Réglages',
+    ),
   ];
 
   @override
@@ -183,6 +191,7 @@ class _CampusShellState extends ConsumerState<CampusShell>
   Widget _bodyFor(int index) {
     if (!_visited.contains(index)) return const SizedBox.shrink();
     if (index == _homeIndex) return const HomeHubScreen();
+    if (index == _settingsIndex) return const AppSettingsScreen();
 
     final module = _destinations[index].module;
     return switch (module) {
@@ -250,7 +259,7 @@ class _Destination {
 
   factory _Destination.module(String id) {
     final m = kCampusModules.firstWhere((m) => m.id == id);
-    return _Destination(icon: m.icon, label: m.label, module: m);
+    return _Destination(icon: m.icon, label: m.barLabel, module: m);
   }
 
   final IconData icon;

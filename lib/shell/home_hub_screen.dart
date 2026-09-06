@@ -5,31 +5,18 @@ import '../modules/registry.dart';
 import '../modules/schedule/next_course_card.dart';
 import '../modules/weather/weather_screen.dart';
 import '../theme/tokens.dart';
-import 'app_settings_screen.dart';
 import 'module_card.dart';
 
 /// B1 hub: the day's essentials above a module grid. B2 replaces the grid with
-/// the Aujourd'hui timeline; the app bar and settings action stay.
+/// the Aujourd'hui timeline; the app bar stays. Settings is a bottom
+/// destination, not an app-bar action.
 class HomeHubScreen extends ConsumerWidget {
   const HomeHubScreen({super.key});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Aujourd’hui'),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.settings_outlined),
-            tooltip: 'Paramètres',
-            onPressed: () => Navigator.of(context).push(
-              MaterialPageRoute<void>(
-                builder: (_) => const AppSettingsScreen(),
-              ),
-            ),
-          ),
-        ],
-      ),
+      appBar: AppBar(title: const Text('Aujourd’hui')),
       body: Column(
         children: [
           const SizedBox(height: CampusSpacing.x2),
