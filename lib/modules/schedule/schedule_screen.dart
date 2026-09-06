@@ -12,6 +12,7 @@ import '../../theme/tokens.dart';
 import 'group_picker_screen.dart';
 import 'schedule_day_index.dart';
 import 'schedule_event.dart';
+import 'schedule_grid.dart';
 import 'schedule_metrics.dart';
 import 'schedule_provider.dart';
 import 'schedule_view_mode.dart';
@@ -80,7 +81,7 @@ class _ScheduleScreenState extends ConsumerState<ScheduleScreen> {
 
   /// Swiping the strip moves a whole week, which vertical scrolling would take
   /// many flings to cover.
-  void _shiftWeek(int days) =>
+  void _shiftDays(int days) =>
       _jumpTo(DateTime(_day.year, _day.month, _day.day + days));
 
   static DateTime _today() {
@@ -172,16 +173,26 @@ class _ScheduleScreenState extends ConsumerState<ScheduleScreen> {
                   (row) => scheduleRowHeight(context, row),
                 );
                 return switch (mode) {
-                  // Grid and month bodies arrive in Tasks 6, 7 and 9. Until
-                  // then every mode renders the timeline, so the screen is
-                  // never broken between tasks.
+                  ScheduleViewMode.jour => _GridView(
+                    entry: entry,
+                    day: _day,
+                    index: index,
+                    days: <DateTime>[_day],
+                    showStrip: mode.showsStrip,
+                    onDayTap: (d) => setState(() => _day = d),
+                    onShiftDays: _shiftDays,
+                    // Real handler arrives in Task 8.
+                    onTapEvent: (_) {},
+                  ),
+                  // The month body arrives in Task 9; until then it renders
+                  // the timeline, so the screen is never broken.
                   _ => _DayView(
                     entry: entry,
                     day: _day,
                     index: index,
                     controller: _controller,
                     onDayTap: _jumpTo,
-                    onWeekShift: _shiftWeek,
+                    onWeekShift: _shiftDays,
                   ),
                 };
               },
@@ -235,6 +246,69 @@ class _DayView extends StatelessWidget {
         ),
         Padding(
           padding: const EdgeInsets.symmetric(vertical: 6),
+          child: Text(
+            scheduleFreshnessLabel(entry),
+            style: context.text.labelMedium?.copyWith(
+              color: context.scheme.onSurfaceVariant,
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _GridView extends StatelessWidget {
+  const _GridView({
+    required this.entry,
+    required this.day,
+    required this.index,
+    required this.days,
+    required this.showStrip,
+    required this.onDayTap,
+    required this.onShiftDays,
+    required this.onTapEvent,
+  });
+
+  final CachedEntry<List<ScheduleEvent>> entry;
+  final DateTime day;
+  final ScheduleDayIndex index;
+  final List<DateTime> days;
+  final bool showStrip;
+  final ValueChanged<DateTime> onDayTap;
+  final ValueChanged<int> onShiftDays;
+  final ValueChanged<ScheduleEvent> onTapEvent;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      children: [
+        if (showStrip)
+          WeekStrip(
+            index: index,
+            weekOf: day,
+            currentDay: day,
+            today: campusNow(),
+            onDayTap: onDayTap,
+          ),
+        Expanded(
+          child: GestureDetector(
+            // Pages by whatever the mode shows: one day, three, or a week.
+            onHorizontalDragEnd: (details) {
+              final velocity = details.primaryVelocity ?? 0;
+              if (velocity.abs() < 200) return;
+              onShiftDays(velocity < 0 ? days.length : -days.length);
+            },
+            child: ScheduleGrid(
+              index: index,
+              days: days,
+              now: campusNow(),
+              onTapEvent: onTapEvent,
+            ),
+          ),
+        ),
+        Padding(
+          padding: const EdgeInsets.symmetric(vertical: CampusSpacing.x2),
           child: Text(
             scheduleFreshnessLabel(entry),
             style: context.text.labelMedium?.copyWith(
