@@ -2,6 +2,7 @@ import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:notes_insa/theme/module_tints.dart';
 import 'package:notes_insa/theme/tokens.dart';
 
 double contrast(Color a, Color b) {
@@ -41,103 +42,21 @@ List<(String, Color, Color, double)> pairs(CampusColors c) => [
 ];
 
 void main() {
-  for (final (name, colors) in [
-    ('light', CampusColors.light),
-    ('dark', CampusColors.dark),
-  ]) {
-    group('$name scheme', () {
-      for (final (label, fg, bg, minimum) in pairs(colors)) {
-        test('$label >= $minimum:1', () {
-          expect(
-            contrast(fg, bg),
-            greaterThanOrEqualTo(minimum),
-            reason: '$label is ${contrast(fg, bg).toStringAsFixed(2)}:1',
-          );
-        });
-      }
-    });
-  }
-
-  for (final (name, colors) in [
-    ('light', CampusColors.light),
-    ('dark', CampusColors.dark),
-  ]) {
-    group('$name module tints', () {
-      test('there are eight of them', () {
-        expect(colors.moduleTints, hasLength(8));
-      });
-
-      // A tint is a block fill with the module name on it, so it has to carry
-      // body text in both modes.
-      for (var i = 0; i < 8; i++) {
-        test('tint $i carries onSurface text', () {
-          expect(
-            contrast(colors.onSurface, colors.moduleTints[i]),
-            greaterThanOrEqualTo(4.5),
-          );
-        });
-      }
-
-      test('no tint sits in the gorse accent hue', () {
-        final accent = HSLColor.fromColor(colors.now).hue;
-        for (final tint in colors.moduleTints) {
-          final hue = HSLColor.fromColor(tint).hue;
-          final gap = (hue - accent).abs();
-          expect(
-            math.min(gap, 360 - gap),
-            greaterThan(30),
-            reason: 'a tint at $hue competes with the now accent at $accent',
-          );
-        }
-      });
-
-      test('there are eight bold tints, one per fill tint', () {
-        expect(colors.moduleTintsBold, hasLength(colors.moduleTints.length));
-      });
-
-      // A strip bar carries no text: the bar itself is the information, so it
-      // answers to the 3:1 of WCAG 1.4.11 against the surface it sits on.
-      for (var i = 0; i < 8; i++) {
-        test('bold tint $i reads as a graphic on the surface', () {
-          expect(
-            contrast(colors.moduleTintsBold[i], colors.surface),
-            greaterThanOrEqualTo(3),
-          );
-        });
-      }
-
-      test('bold tints clear text contrast, not just graphic contrast', () {
-        // 3:1 is all WCAG asks of a bar, but the strip is read at a glance on
-        // a phone outdoors, so hold the ramp to the 4.5:1 of body text.
-        for (final bold in colors.moduleTintsBold) {
-          expect(contrast(bold, colors.surface), greaterThanOrEqualTo(4.5));
-        }
-      });
-
-      test('each bold tint keeps the hue of its fill tint', () {
-        for (var i = 0; i < 8; i++) {
-          final fill = HSLColor.fromColor(colors.moduleTints[i]).hue;
-          final bold = HSLColor.fromColor(colors.moduleTintsBold[i]).hue;
-          final gap = (fill - bold).abs();
-          expect(
-            math.min(gap, 360 - gap),
-            lessThan(25),
-            reason: 'tint $i: bar and block would read as different modules',
-          );
-        }
-      });
-
-      test('tints carry the weight of a block fill, not a wash', () {
-        // Matched to surfaceContainerHighest, the fill they replace: any
-        // lighter and a grid block loses the edge it has today.
-        final reference = contrast(
-          colors.surfaceContainerHighest,
-          colors.surface,
-        );
-        for (final tint in colors.moduleTints) {
-          expect(contrast(tint, colors.surface), closeTo(reference, 0.15));
-        }
-      });
+  // The per-scheme colour contract lives in test/theme/module_tints_test.dart,
+  // which checks every scheme in both brightnesses. What matters here is that
+  // the const defaults are the Spectre ramps, so the shipped look is the
+  // default resolution and not a third set of values.
+  for (final (name, colors, table)
+      in <(String, CampusColors, Map<ScheduleTintScheme, ModuleTintRamps>)>[
+        ('light', CampusColors.light, kLightModuleTints),
+        ('dark', CampusColors.dark, kDarkModuleTints),
+      ]) {
+    test('$name defaults to the Spectre ramps at Standard intensity', () {
+      final spectre = table[ScheduleTintScheme.spectre]!;
+      expect(colors.moduleBlockTints, spectre.fill);
+      expect(colors.moduleSpineTints, spectre.fill);
+      expect(colors.moduleBarTints, spectre.bold);
+      expect(colors.onModuleBlockTint, colors.onSurface);
     });
   }
 
@@ -152,12 +71,12 @@ void main() {
 
   test('lerp mixes the tints element by element', () {
     final mid = CampusColors.light.lerp(CampusColors.dark, 0.5);
-    expect(mid.moduleTints, hasLength(8));
+    expect(mid.moduleBlockTints, hasLength(8));
     expect(
-      mid.moduleTints.first,
+      mid.moduleBlockTints.first,
       Color.lerp(
-        CampusColors.light.moduleTints.first,
-        CampusColors.dark.moduleTints.first,
+        CampusColors.light.moduleBlockTints.first,
+        CampusColors.dark.moduleBlockTints.first,
         0.5,
       ),
     );

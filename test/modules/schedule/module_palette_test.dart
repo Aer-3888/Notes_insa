@@ -97,7 +97,7 @@ void main() {
     test('the shipped tints spread a realistic semester', () {
       // A dozen modules over eight tints collide by pigeonhole; what matters
       // is that the spread is not degenerate.
-      final palette = ModulePalette(tints: CampusColors.light.moduleTints);
+      final palette = ModulePalette(tints: CampusColors.light.moduleBlockTints);
       const modules = <String>[
         'analyse 3',
         'algèbre 3',

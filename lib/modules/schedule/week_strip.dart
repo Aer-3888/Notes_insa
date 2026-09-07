@@ -221,7 +221,7 @@ class _DayColumn extends StatelessWidget {
       left: placement.lane * width,
       width: width,
       child: WeekStripBar(
-        color: ModulePalette.boldOf(context).colorFor(
+        color: ModulePalette.barsOf(context).colorFor(
           ModulePalette.normalize(event.module ?? event.title),
           fallback: context.scheme.onSurfaceVariant,
         ),

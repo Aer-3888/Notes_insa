@@ -31,6 +31,11 @@ const double _rangeEndHeight = 56;
 /// Wide enough for `08:15` in the shipped font at the default text size.
 const double _timeColumnWidth = 56;
 
+/// One session row, at the current text size. The hub preview sizes its
+/// viewport from this so it shows whole rows rather than an arbitrary height.
+double scheduleEventRowHeight(BuildContext context) =>
+    _eventHeight * MediaQuery.textScalerOf(context).scale(1);
+
 double scheduleRowHeight(BuildContext context, ScheduleRow row) {
   final scale = MediaQuery.textScalerOf(context).scale(1);
   final base = switch (row.kind) {
@@ -69,7 +74,7 @@ class ScheduleTimeline extends StatelessWidget {
   }
 
   Widget _row(BuildContext context, ScheduleRow row) => switch (row.kind) {
-    ScheduleRowKind.dayHeader => _DayHeader(
+    ScheduleRowKind.dayHeader => ScheduleDayHeader(
       day: row.day,
       isToday: _isToday(row.day),
     ),
@@ -100,8 +105,9 @@ class ScheduleTimeline extends StatelessWidget {
   }
 }
 
-class _DayHeader extends StatelessWidget {
-  const _DayHeader({required this.day, required this.isToday});
+/// Public so the hub preview dates its days the way the list does.
+class ScheduleDayHeader extends StatelessWidget {
+  const ScheduleDayHeader({required this.day, this.isToday = false, super.key});
 
   final DateTime day;
   final bool isToday;
@@ -147,7 +153,7 @@ class ScheduleEventRow extends StatelessWidget {
       if (event.teachers.isNotEmpty) event.teachers.join(', '),
     ].join(' · ');
 
-    final tint = ModulePalette.of(context).colorFor(
+    final tint = ModulePalette.spinesOf(context).colorFor(
       ModulePalette.normalize(event.module ?? event.title),
       fallback: scheme.outlineVariant,
     );

@@ -11,14 +11,18 @@ import '../../theme/campus_context.dart';
 class ModulePalette {
   const ModulePalette({required this.tints});
 
-  /// Block fills, for surfaces where text sits on the tint.
-  factory ModulePalette.of(BuildContext context) =>
-      ModulePalette(tints: context.campus.moduleTints);
+  /// Grid block fills, where text sits on the tint.
+  factory ModulePalette.blocksOf(BuildContext context) =>
+      ModulePalette(tints: context.campus.moduleBlockTints);
 
-  /// Bar density, for the week strip, where the bar carries the information
-  /// itself and a fill-weight tint would all but vanish against the surface.
-  factory ModulePalette.boldOf(BuildContext context) =>
-      ModulePalette(tints: context.campus.moduleTintsBold);
+  /// The 3 dp spine on a timeline row.
+  factory ModulePalette.spinesOf(BuildContext context) =>
+      ModulePalette(tints: context.campus.moduleSpineTints);
+
+  /// Week strip bars, where the bar carries the information itself and a
+  /// fill-weight tint would all but vanish against the surface.
+  factory ModulePalette.barsOf(BuildContext context) =>
+      ModulePalette(tints: context.campus.moduleBarTints);
 
   final List<Color> tints;
 

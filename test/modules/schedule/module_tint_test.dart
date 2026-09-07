@@ -7,6 +7,7 @@ import 'package:notes_insa/modules/schedule/schedule_event.dart';
 import 'package:notes_insa/modules/schedule/schedule_timeline.dart';
 import 'package:notes_insa/modules/schedule/week_strip.dart';
 import 'package:notes_insa/theme/campus_theme.dart';
+import 'package:notes_insa/theme/module_tints.dart';
 import 'package:notes_insa/theme/tokens.dart';
 
 ScheduleEvent event(String title, {String? module, String? room}) =>
@@ -46,7 +47,7 @@ void main() {
         tester,
         GridBlock(event: event('Analyse 3_GHIJKL'), onTap: () {}),
       );
-      expect(CampusColors.light.moduleTints, contains(blockFill(tester)));
+      expect(CampusColors.light.moduleBlockTints, contains(blockFill(tester)));
     });
 
     testWidgets('is no longer the one flat container fill', (tester) async {
@@ -102,7 +103,7 @@ void main() {
         tester,
         ScheduleEventRow(event: event('Analyse 3_GHIJKL', room: 'Amphi C')),
       );
-      expect(CampusColors.light.moduleTints, contains(spineColor(tester)));
+      expect(CampusColors.light.moduleSpineTints, contains(spineColor(tester)));
     });
 
     testWidgets('agrees with the grid block for the same module', (
@@ -157,12 +158,12 @@ void main() {
       );
 
       final bar = tester.widget<WeekStripBar>(find.byType(WeekStripBar));
-      expect(CampusColors.light.moduleTintsBold, contains(bar.color));
+      expect(CampusColors.light.moduleBarTints, contains(bar.color));
       expect(bar.color, isNot(CampusColors.light.onSurfaceVariant));
 
       // The bar is the information in the strip, so it takes the bold ramp,
       // not the pale fill a grid block gets.
-      expect(CampusColors.light.moduleTints, isNot(contains(bar.color)));
+      expect(CampusColors.light.moduleBlockTints, isNot(contains(bar.color)));
     });
   });
 
@@ -173,20 +174,83 @@ void main() {
       tester,
       GridBlock(event: event('Analyse 3_GHIJKL'), onTap: () {}),
     );
-    final fillIndex = CampusColors.light.moduleTints.indexOf(blockFill(tester));
+    final fillIndex = CampusColors.light.moduleBlockTints.indexOf(
+      blockFill(tester),
+    );
     expect(fillIndex, isNonNegative);
 
     final key = ModulePalette.normalize('Analyse 3_GHIJKL');
     final bold = ModulePalette(
-      tints: CampusColors.light.moduleTintsBold,
+      tints: CampusColors.light.moduleBarTints,
     ).colorFor(key, fallback: const Color(0xFF000000));
-    expect(CampusColors.light.moduleTintsBold.indexOf(bold), fillIndex);
+    expect(CampusColors.light.moduleBarTints.indexOf(bold), fillIndex);
+  });
+
+  group('sans couleur', () {
+    Future<void> pumpPlain(WidgetTester tester, Widget child) async {
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: campusTheme(
+            Brightness.light,
+            scheme: ScheduleTintScheme.aucune,
+          ),
+          home: Scaffold(body: SizedBox(width: 200, height: 120, child: child)),
+        ),
+      );
+    }
+
+    testWidgets('a block falls back to the flat container fill', (
+      tester,
+    ) async {
+      await pumpPlain(
+        tester,
+        GridBlock(event: event('Analyse 3_GHIJKL'), onTap: () {}),
+      );
+      expect(blockFill(tester), CampusColors.light.surfaceContainerHighest);
+    });
+
+    testWidgets('a spine falls back to the hairline', (tester) async {
+      await pumpPlain(
+        tester,
+        ScheduleEventRow(event: event('Analyse 3_GHIJKL', room: 'Amphi C')),
+      );
+      final spine = tester
+          .widget<ColoredBox>(
+            find.descendant(
+              of: find.byType(ScheduleEventRow),
+              matching: find.byType(ColoredBox),
+            ),
+          )
+          .color;
+      expect(spine, CampusColors.light.outlineVariant);
+    });
+  });
+
+  testWidgets('discret leaves the block neutral but tints the spine', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: campusTheme(
+          Brightness.light,
+          intensity: ScheduleTintIntensity.discret,
+        ),
+        home: Scaffold(
+          body: SizedBox(
+            width: 200,
+            height: 120,
+            child: GridBlock(event: event('Analyse 3_GHIJKL'), onTap: () {}),
+          ),
+        ),
+      ),
+    );
+    expect(blockFill(tester), CampusColors.light.surfaceContainerHighest);
   });
 
   test('the palette reads its tints from the theme extension', () {
-    final palette = ModulePalette(tints: CampusColors.dark.moduleTints);
+    final palette = ModulePalette(tints: CampusColors.dark.moduleBlockTints);
     expect(
-      CampusColors.dark.moduleTints,
+      CampusColors.dark.moduleBlockTints,
       contains(
         palette.colorFor('analyse 3', fallback: const Color(0xFF000000)),
       ),

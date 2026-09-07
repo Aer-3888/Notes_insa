@@ -37,7 +37,7 @@ class GridBlock extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final campus = context.campus;
-    final tint = ModulePalette.of(context).colorFor(
+    final tint = ModulePalette.blocksOf(context).colorFor(
       ModulePalette.normalize(event.module ?? event.title),
       fallback: campus.surfaceContainerHighest,
     );
@@ -66,7 +66,9 @@ class GridBlock extends StatelessWidget {
                     Flexible(
                       child: Text(
                         event.module ?? event.title,
-                        style: context.text.labelMedium,
+                        style: context.text.labelMedium?.copyWith(
+                          color: campus.onModuleBlockTint,
+                        ),
                         maxLines: 2,
                         overflow: TextOverflow.ellipsis,
                       ),

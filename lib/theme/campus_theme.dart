@@ -38,8 +38,6 @@ ThemeData campusTheme(
       (dark ? kDarkModuleTints : kLightModuleTints)[scheme] ??
       ModuleTintRamps.none;
   final c = base.copyWith(
-    moduleTints: ramps.fill,
-    moduleTintsBold: ramps.bold,
     // Intensity is only ever a question of which ramp lands on which surface.
     moduleBlockTints: switch (intensity) {
       ScheduleTintIntensity.discret => const <Color>[],
