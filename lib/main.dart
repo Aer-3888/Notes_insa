@@ -6,6 +6,7 @@ import 'core/time.dart';
 import 'background_tasks.dart';
 import 'constants.dart';
 import 'core/auth/privacy_cover.dart';
+import 'providers/schedule_tint_provider.dart';
 import 'providers/theme_mode_provider.dart';
 import 'shell/campus_shell.dart';
 import 'theme/campus_theme.dart';
@@ -29,12 +30,21 @@ class MyApp extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final tint = ref.watch(scheduleTintProvider);
     return MaterialApp(
       navigatorKey: rootNavigatorKey,
       debugShowCheckedModeBanner: false,
       title: 'Campus INSA',
-      theme: campusTheme(Brightness.light),
-      darkTheme: campusTheme(Brightness.dark),
+      theme: campusTheme(
+        Brightness.light,
+        scheme: tint.scheme,
+        intensity: tint.intensity,
+      ),
+      darkTheme: campusTheme(
+        Brightness.dark,
+        scheme: tint.scheme,
+        intensity: tint.intensity,
+      ),
       themeMode: ref.watch(themeModeProvider),
       locale: const Locale('fr'),
       supportedLocales: const <Locale>[Locale('fr')],
