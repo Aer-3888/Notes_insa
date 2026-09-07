@@ -13,7 +13,9 @@ import '../../providers/settings_provider.dart';
 import '../../providers/averages_provider.dart';
 import '../../providers/coefficients_provider.dart';
 import '../../components/dashboard_header.dart';
-import '../../components/unit_card_grid.dart';
+import '../../components/grades_view_menu.dart';
+import '../../components/grades_views.dart';
+import '../../providers/grades_view_mode_provider.dart';
 import '../../services/averages_service.dart';
 import '../../services/notification_service.dart';
 
@@ -301,6 +303,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen>
             Builder(
               builder: (context) => DashboardHeader(
                 title: 'Notes',
+                titleWidget: const GradesViewMenu(),
                 subtitle: departmentName,
                 average: semesterAverage,
                 provisional: ref.watch(semesterAverageProvisionalProvider),
@@ -318,7 +321,9 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen>
                 behavior: HitTestBehavior.opaque,
                 child: RefreshIndicator(
                   onRefresh: () => _onManualRefresh(context),
-                  child: UnitCardGrid(
+                  child: GradesViews(
+                    key: ValueKey(effectiveSemester),
+                    mode: ref.watch(gradesViewModeProvider),
                     curriculum: curriculum,
                     isLoading: isLoading,
                     errorMessage: gridError,

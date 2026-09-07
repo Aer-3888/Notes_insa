@@ -19,6 +19,7 @@ class DashboardHeader extends StatelessWidget {
   /// The screen's name. The department belongs in [subtitle]: a module is not
   /// the app's home.
   final String title;
+  final Widget? titleWidget;
   final String subtitle;
 
   final DateTime? lastUpdated;
@@ -33,6 +34,7 @@ class DashboardHeader extends StatelessWidget {
     super.key,
     required this.average,
     required this.title,
+    this.titleWidget,
     required this.subtitle,
     this.lastUpdated,
     required this.selectedSemester,
@@ -49,6 +51,35 @@ class DashboardHeader extends StatelessWidget {
     final averageText = average == null
         ? '–'
         : '${provisional ? '≈' : ''}${average!.toStringAsFixed(2)}';
+    final heading = Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        titleWidget ?? Text(title, style: text.headlineMedium),
+        Text(
+          subtitle,
+          style: text.bodyMedium?.copyWith(color: scheme.onSurfaceVariant),
+        ),
+        if (lastUpdated != null) _LastUpdatedLabel(lastUpdated: lastUpdated!),
+      ],
+    );
+    final averageLabel = Column(
+      crossAxisAlignment: CrossAxisAlignment.end,
+      children: [
+        Text(
+          'Moyenne',
+          style: text.labelMedium?.copyWith(color: scheme.onSurfaceVariant),
+        ),
+        Text(
+          averageText,
+          semanticsLabel: average == null
+              ? 'Moyenne du semestre indisponible'
+              : 'Moyenne du semestre $averageText sur 20',
+          style: context.campusType.displayNumeral.copyWith(
+            color: attention ? scheme.error : scheme.onSurface,
+          ),
+        ),
+      ],
+    );
 
     return Padding(
       padding: const EdgeInsets.fromLTRB(
@@ -60,47 +91,31 @@ class DashboardHeader extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.end,
-            children: [
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
+          LayoutBuilder(
+            builder: (context, constraints) {
+              final scale = MediaQuery.textScalerOf(context).scale(16) / 16;
+              if (constraints.maxWidth < 320 * scale) {
+                return Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
-                    Text(title, style: text.headlineMedium),
-                    Text(
-                      subtitle,
-                      style: text.bodyMedium?.copyWith(
-                        color: scheme.onSurfaceVariant,
-                      ),
+                    heading,
+                    const SizedBox(height: CampusSpacing.x2),
+                    Align(
+                      alignment: Alignment.centerRight,
+                      child: averageLabel,
                     ),
-                    if (lastUpdated != null)
-                      _LastUpdatedLabel(lastUpdated: lastUpdated!),
                   ],
-                ),
-              ),
-              const SizedBox(width: CampusSpacing.x4),
-              Column(
+                );
+              }
+              return Row(
                 crossAxisAlignment: CrossAxisAlignment.end,
                 children: [
-                  Text(
-                    'Moyenne',
-                    style: text.labelMedium?.copyWith(
-                      color: scheme.onSurfaceVariant,
-                    ),
-                  ),
-                  Text(
-                    averageText,
-                    semanticsLabel: average == null
-                        ? 'Moyenne du semestre indisponible'
-                        : 'Moyenne du semestre $averageText sur 20',
-                    style: context.campusType.displayNumeral.copyWith(
-                      color: attention ? scheme.error : scheme.onSurface,
-                    ),
-                  ),
+                  Expanded(child: heading),
+                  const SizedBox(width: CampusSpacing.x4),
+                  averageLabel,
                 ],
-              ),
-            ],
+              );
+            },
           ),
           if (provisional && average != null)
             Text(

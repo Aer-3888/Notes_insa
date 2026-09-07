@@ -70,6 +70,8 @@ class UnitCardGrid extends StatelessWidget {
       );
     }
 
+    final textScale = MediaQuery.textScalerOf(context).scale(16) / 16;
+    final columns = textScale > 1.3 ? 1 : 2;
     return GridView.builder(
       padding: const EdgeInsets.fromLTRB(
         CampusSpacing.gutter,
@@ -77,9 +79,10 @@ class UnitCardGrid extends StatelessWidget {
         CampusSpacing.gutter,
         CampusSpacing.gutter,
       ),
-      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-        crossAxisCount: 2,
-        childAspectRatio: 0.85,
+      physics: const AlwaysScrollableScrollPhysics(),
+      gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+        crossAxisCount: columns,
+        childAspectRatio: (columns == 1 ? 1.6 : 0.85) / textScale,
         crossAxisSpacing: CampusSpacing.x4,
         mainAxisSpacing: CampusSpacing.x4,
       ),
