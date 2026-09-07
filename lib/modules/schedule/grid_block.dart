@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../theme/campus_context.dart';
 import '../../theme/tokens.dart';
+import 'module_palette.dart';
 import 'schedule_event.dart';
 
 enum BlockLabelDensity { none, moduleOnly, moduleAndRoom }
@@ -36,10 +37,14 @@ class GridBlock extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final campus = context.campus;
+    final tint = ModulePalette.of(context).colorFor(
+      ModulePalette.normalize(event.module ?? event.title),
+      fallback: campus.surfaceContainerHighest,
+    );
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 1),
       child: Material(
-        color: campus.surfaceContainerHighest,
+        color: tint,
         borderRadius: BorderRadius.circular(CampusRadii.bar),
         child: InkWell(
           onTap: onTap,

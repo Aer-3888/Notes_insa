@@ -28,6 +28,8 @@ class CampusColors extends ThemeExtension<CampusColors> {
     required this.onPositiveContainer,
     required this.inverseSurface,
     required this.scrim,
+    required this.moduleTints,
+    required this.moduleTintsBold,
   });
 
   final Color surface;
@@ -56,6 +58,16 @@ class CampusColors extends ThemeExtension<CampusColors> {
   final Color inverseSurface;
   final Color scrim;
 
+  /// Block fills for timetable modules, generated in OKLCH at the weight of
+  /// [surfaceContainerHighest] so a tinted block reads no heavier than a plain
+  /// one. The 40-115 degree hue band is left empty: that is [now].
+  final List<Color> moduleTints;
+
+  /// The same hues at bar density, for the week strip, where the bar carries
+  /// the information itself and so needs 3:1 against the surface rather than
+  /// the fill weight of [moduleTints].
+  final List<Color> moduleTintsBold;
+
   static const CampusColors light = CampusColors(
     surface: Color(0xFFF4F5F7),
     surfaceLowest: Color(0xFFFFFFFF),
@@ -80,6 +92,26 @@ class CampusColors extends ThemeExtension<CampusColors> {
     onPositiveContainer: Color(0xFF1D5A40),
     inverseSurface: Color(0xFF1B2027),
     scrim: Color(0x66000000),
+    moduleTints: <Color>[
+      Color(0xFFD0DDB9),
+      Color(0xFFBDE1C9),
+      Color(0xFFB2E2DD),
+      Color(0xFFB4DFEF),
+      Color(0xFFC1D9F8),
+      Color(0xFFD3D3F7),
+      Color(0xFFE6CDEC),
+      Color(0xFFF2CADA),
+    ],
+    moduleTintsBold: <Color>[
+      Color(0xFF5C7327),
+      Color(0xFF297A4F),
+      Color(0xFF007B75),
+      Color(0xFF007594),
+      Color(0xFF3B6BA4),
+      Color(0xFF645FA2),
+      Color(0xFF83548F),
+      Color(0xFF964D6F),
+    ],
   );
 
   static const CampusColors dark = CampusColors(
@@ -106,6 +138,26 @@ class CampusColors extends ThemeExtension<CampusColors> {
     onPositiveContainer: Color(0xFFBFE6D1),
     inverseSurface: Color(0xFFF0F2F5),
     scrim: Color(0x99000000),
+    moduleTints: <Color>[
+      Color(0xFF2E371B),
+      Color(0xFF1D3A28),
+      Color(0xFF0D3B38),
+      Color(0xFF113844),
+      Color(0xFF21344B),
+      Color(0xFF312F4A),
+      Color(0xFF3D2B42),
+      Color(0xFF462835),
+    ],
+    moduleTintsBold: <Color>[
+      Color(0xFF92A965),
+      Color(0xFF6BB086),
+      Color(0xFF4BB1AA),
+      Color(0xFF52ACC9),
+      Color(0xFF75A1D9),
+      Color(0xFF9996D7),
+      Color(0xFFB88BC4),
+      Color(0xFFCC86A5),
+    ],
   );
 
   @override
@@ -133,6 +185,8 @@ class CampusColors extends ThemeExtension<CampusColors> {
     Color? onPositiveContainer,
     Color? inverseSurface,
     Color? scrim,
+    List<Color>? moduleTints,
+    List<Color>? moduleTintsBold,
   }) => CampusColors(
     surface: surface ?? this.surface,
     surfaceLowest: surfaceLowest ?? this.surfaceLowest,
@@ -158,6 +212,8 @@ class CampusColors extends ThemeExtension<CampusColors> {
     onPositiveContainer: onPositiveContainer ?? this.onPositiveContainer,
     inverseSurface: inverseSurface ?? this.inverseSurface,
     scrim: scrim ?? this.scrim,
+    moduleTints: moduleTints ?? this.moduleTints,
+    moduleTintsBold: moduleTintsBold ?? this.moduleTintsBold,
   );
 
   @override
@@ -197,6 +253,14 @@ class CampusColors extends ThemeExtension<CampusColors> {
       onPositiveContainer: mix(onPositiveContainer, other.onPositiveContainer),
       inverseSurface: mix(inverseSurface, other.inverseSurface),
       scrim: mix(scrim, other.scrim),
+      moduleTints: <Color>[
+        for (var i = 0; i < moduleTints.length; i++)
+          mix(moduleTints[i], other.moduleTints[i]),
+      ],
+      moduleTintsBold: <Color>[
+        for (var i = 0; i < moduleTintsBold.length; i++)
+          mix(moduleTintsBold[i], other.moduleTintsBold[i]),
+      ],
     );
   }
 }

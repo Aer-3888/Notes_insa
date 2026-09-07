@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../../theme/campus_context.dart';
 import '../../theme/now_line.dart';
 import '../../theme/tokens.dart';
+import 'module_palette.dart';
 import 'schedule_day_index.dart';
 import 'schedule_event.dart';
 import 'schedule_period.dart';
@@ -146,14 +147,30 @@ class ScheduleEventRow extends StatelessWidget {
       if (event.teachers.isNotEmpty) event.teachers.join(', '),
     ].join(' · ');
 
+    final tint = ModulePalette.of(context).colorFor(
+      ModulePalette.normalize(event.module ?? event.title),
+      fallback: scheme.outlineVariant,
+    );
+
     return Padding(
       padding: const EdgeInsets.symmetric(
         horizontal: CampusSpacing.gutter,
         vertical: CampusSpacing.x2,
       ),
       child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
+        // The ListView gives the row a fixed extent, so the spine can stretch
+        // to it without an IntrinsicHeight measuring pass.
+        crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
+          // A spine rather than a filled row: eight pastel bands down the list
+          // would drown the text the list exists to carry.
+          Padding(
+            padding: const EdgeInsets.only(right: CampusSpacing.x3),
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(CampusRadii.bar),
+              child: SizedBox(width: 3, child: ColoredBox(color: tint)),
+            ),
+          ),
           SizedBox(
             // Scales with the text, or a time truncates at large text sizes
             // while the row around it grows.

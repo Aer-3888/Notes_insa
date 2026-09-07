@@ -1,28 +1,40 @@
 import 'package:flutter/material.dart';
 
-import 'schedule_event.dart';
+import '../../theme/campus_context.dart';
 
-/// Maps a module to a bar tint for the week strip.
+/// Maps a module to a block tint.
 ///
-/// Assignment is by frequency, not by hash: with a dozen modules a semester a
-/// hash eventually gives two regulars the same colour, which is exactly the
-/// case the colour exists to serve.
+/// Assignment is by hash of the normalised name, so a module keeps its colour
+/// across weeks, periods and launches. With eight tints and a dozen modules a
+/// semester two of them will share one; the colour is a recall aid and the
+/// name on the block is what identifies it.
 class ModulePalette {
-  ModulePalette({required this.tints, List<String> ranked = const <String>[]})
-    : _rankOf = <String, int>{
-        for (var i = 0; i < ranked.length; i++) ranked[i]: i,
-      };
+  const ModulePalette({required this.tints});
+
+  /// Block fills, for surfaces where text sits on the tint.
+  factory ModulePalette.of(BuildContext context) =>
+      ModulePalette(tints: context.campus.moduleTints);
+
+  /// Bar density, for the week strip, where the bar carries the information
+  /// itself and a fill-weight tint would all but vanish against the surface.
+  factory ModulePalette.boldOf(BuildContext context) =>
+      ModulePalette(tints: context.campus.moduleTintsBold);
 
   final List<Color> tints;
 
-  /// Rank per normalised module key, fixed at construction. An instance field
-  /// rather than static state, so two palettes cannot contaminate each other.
-  final Map<String, int> _rankOf;
-
   Color colorFor(String key, {required Color fallback}) {
-    final rank = _rankOf[key];
-    if (rank == null || rank >= tints.length) return fallback;
-    return tints[rank];
+    if (tints.isEmpty || key.isEmpty) return fallback;
+    return tints[_hash(key) % tints.length];
+  }
+
+  /// FNV-1a. Dart's `String.hashCode` is not guaranteed stable between runs,
+  /// which would repaint the whole timetable on a cold start.
+  static int _hash(String key) {
+    var hash = 0x811c9dc5;
+    for (final unit in key.codeUnits) {
+      hash = ((hash ^ unit) * 0x01000193) & 0x7fffffff;
+    }
+    return hash;
   }
 
   /// Group suffixes ADE glues onto SUMMARY: a separator then capitals only.
@@ -36,21 +48,5 @@ class ModulePalette {
     v = v.replaceAll(_groupSuffix, '');
     v = v.replaceAll(_whitespace, ' ');
     return v.trim().toLowerCase();
-  }
-
-  /// Normalised module keys, most frequent first, ties alphabetical.
-  static List<String> rank(List<ScheduleEvent> events) {
-    final counts = <String, int>{};
-    for (final event in events) {
-      final key = normalize(event.module ?? event.title);
-      if (key.isEmpty) continue;
-      counts[key] = (counts[key] ?? 0) + 1;
-    }
-    final keys = counts.keys.toList();
-    keys.sort((a, b) {
-      final byCount = counts[b]!.compareTo(counts[a]!);
-      return byCount != 0 ? byCount : a.compareTo(b);
-    });
-    return keys;
   }
 }

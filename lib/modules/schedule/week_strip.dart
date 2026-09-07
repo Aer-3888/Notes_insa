@@ -43,7 +43,6 @@ class WeekStrip extends StatelessWidget {
     required this.currentDay,
     required this.onDayTap,
     this.today,
-    this.palette,
     super.key,
   });
 
@@ -54,10 +53,6 @@ class WeekStrip extends StatelessWidget {
   final DateTime currentDay;
   final DateTime? today;
   final ValueChanged<DateTime> onDayTap;
-
-  /// Defaults to an untinted palette, which is what ships until the OKLCH
-  /// ramps of direction 3 exist.
-  final ModulePalette? palette;
 
   static const double height = 140;
 
@@ -100,7 +95,6 @@ class WeekStrip extends StatelessWidget {
                 lastHour: last,
                 selected: _sameDay(day, currentDay),
                 isToday: today != null && _sameDay(day, today!),
-                palette: palette,
                 onTap: () => onDayTap(day),
               ),
             ),
@@ -124,7 +118,6 @@ class _DayColumn extends StatelessWidget {
     required this.lastHour,
     required this.selected,
     required this.isToday,
-    required this.palette,
     required this.onTap,
   });
 
@@ -134,7 +127,6 @@ class _DayColumn extends StatelessWidget {
   final int lastHour;
   final bool selected;
   final bool isToday;
-  final ModulePalette? palette;
   final VoidCallback onTap;
 
   @override
@@ -229,12 +221,10 @@ class _DayColumn extends StatelessWidget {
       left: placement.lane * width,
       width: width,
       child: WeekStripBar(
-        color:
-            palette?.colorFor(
-              ModulePalette.normalize(event.module ?? event.title),
-              fallback: context.scheme.onSurfaceVariant,
-            ) ??
-            context.scheme.onSurfaceVariant,
+        color: ModulePalette.boldOf(context).colorFor(
+          ModulePalette.normalize(event.module ?? event.title),
+          fallback: context.scheme.onSurfaceVariant,
+        ),
       ),
     );
   }
