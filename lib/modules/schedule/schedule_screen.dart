@@ -213,7 +213,6 @@ class _ScheduleScreenState extends ConsumerState<ScheduleScreen> {
                     showStrip: mode.showsStrip,
                     onDayTap: _goTo,
                     onShiftPeriod: _shiftPeriod,
-                    onPickDay: _openDay,
                     onTapEvent: (e) => showEventSheet(context, e),
                   ),
                   ScheduleViewMode.mois => MonthGrid(
@@ -319,7 +318,6 @@ class _GridView extends StatelessWidget {
     required this.showStrip,
     required this.onDayTap,
     required this.onShiftPeriod,
-    required this.onPickDay,
     required this.onTapEvent,
   });
 
@@ -330,7 +328,6 @@ class _GridView extends StatelessWidget {
   final bool showStrip;
   final ValueChanged<DateTime> onDayTap;
   final ValueChanged<int> onShiftPeriod;
-  final ValueChanged<DateTime> onPickDay;
   final ValueChanged<ScheduleEvent> onTapEvent;
 
   @override
@@ -356,7 +353,6 @@ class _GridView extends StatelessWidget {
               index: index,
               days: days,
               now: campusNow(),
-              onPickDay: onPickDay,
               onTapEvent: onTapEvent,
             ),
           ),

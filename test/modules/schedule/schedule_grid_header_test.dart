@@ -27,12 +27,11 @@ void main() {
       DateTime(monday.year, monday.month, monday.day + i),
   ];
 
-  Future<List<DateTime>> pump(
+  Future<void> pump(
     WidgetTester tester, {
     required List<DateTime> days,
     DateTime? now,
   }) async {
-    final picked = <DateTime>[];
     tester.view.physicalSize = const Size(384, 800);
     tester.view.devicePixelRatio = 1.0;
     addTearDown(tester.view.reset);
@@ -45,13 +44,11 @@ void main() {
             days: days,
             now: now,
             onTapEvent: (_) {},
-            onPickDay: picked.add,
           ),
         ),
       ),
     );
     await tester.pump();
-    return picked;
   }
 
   testWidgets('every column of a multi-day grid is named and dated', (
@@ -79,11 +76,15 @@ void main() {
     expect(find.byType(ScheduleDayHeading), findsNothing);
   });
 
-  testWidgets('tapping a column heading picks that day', (tester) async {
-    final picked = await pump(tester, days: span(3));
-    await tester.tap(find.text('mar'));
-    await tester.pump();
-    expect(picked.single, DateTime(2026, 9, 8));
+  testWidgets('a column heading is a label, not a control', (tester) async {
+    await pump(tester, days: span(3));
+    expect(
+      find.descendant(
+        of: find.byType(ScheduleDayHeading),
+        matching: find.byType(InkWell),
+      ),
+      findsNothing,
+    );
   });
 
   testWidgets('the columns are separated so a day cannot bleed into the next', (

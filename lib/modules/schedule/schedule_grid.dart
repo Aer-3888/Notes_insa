@@ -37,7 +37,6 @@ class ScheduleGrid extends StatefulWidget {
     required this.index,
     required this.days,
     required this.onTapEvent,
-    this.onPickDay,
     this.now,
     super.key,
   });
@@ -45,9 +44,6 @@ class ScheduleGrid extends StatefulWidget {
   final ScheduleDayIndex index;
   final List<DateTime> days;
   final ValueChanged<ScheduleEvent> onTapEvent;
-
-  /// Tapping a column heading opens that day alone.
-  final ValueChanged<DateTime>? onPickDay;
   final DateTime? now;
 
   static const double gutterWidth = 40;
@@ -141,7 +137,6 @@ class _ScheduleGridState extends State<ScheduleGrid> {
                           days: days,
                           columnWidth: columnWidth,
                           today: now,
-                          onPickDay: widget.onPickDay,
                         ),
                       ),
                     ),
@@ -229,13 +224,11 @@ class _HeadingRow extends StatelessWidget {
     required this.days,
     required this.columnWidth,
     required this.today,
-    required this.onPickDay,
   });
 
   final List<DateTime> days;
   final double columnWidth;
   final DateTime? today;
-  final ValueChanged<DateTime>? onPickDay;
 
   bool _isToday(DateTime day) {
     final t = today;
@@ -256,11 +249,7 @@ class _HeadingRow extends StatelessWidget {
           if (i > 0) const SizedBox(width: 1),
           SizedBox(
             width: columnWidth,
-            child: ScheduleDayHeading(
-              day: days[i],
-              isToday: _isToday(days[i]),
-              onTap: onPickDay == null ? null : () => onPickDay!(days[i]),
-            ),
+            child: ScheduleDayHeading(day: days[i], isToday: _isToday(days[i])),
           ),
         ],
       ],
@@ -273,52 +262,42 @@ class ScheduleDayHeading extends StatelessWidget {
   const ScheduleDayHeading({
     required this.day,
     required this.isToday,
-    this.onTap,
     super.key,
   });
 
   final DateTime day;
   final bool isToday;
-  final VoidCallback? onTap;
 
   @override
   Widget build(BuildContext context) {
     final campus = context.campus;
     return Semantics(
-      button: onTap != null,
       label: frenchDayLabel(day),
       excludeSemantics: true,
-      child: InkWell(
-        onTap: onTap,
-        child: Padding(
-          padding: const EdgeInsets.symmetric(vertical: CampusSpacing.x2),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: <Widget>[
-              Text(
-                frenchWeekdaysShort[day.weekday - 1],
-                maxLines: 1,
-                style: context.text.labelMedium?.copyWith(
-                  color: context.scheme.onSurfaceVariant,
-                ),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(vertical: CampusSpacing.x2),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: <Widget>[
+            Text(
+              frenchWeekdaysShort[day.weekday - 1],
+              maxLines: 1,
+              style: context.text.labelMedium?.copyWith(
+                color: context.scheme.onSurfaceVariant,
               ),
-              const SizedBox(height: CampusSpacing.x1),
-              Text(
-                '${day.day}',
-                maxLines: 1,
-                style: context.campusType.numeral,
-              ),
-              const SizedBox(height: CampusSpacing.x1),
-              // Today keeps the underline the week strip uses, not a fill.
-              SizedBox(
-                height: 2,
-                width: CampusSpacing.x5,
-                child: isToday
-                    ? DecoratedBox(decoration: BoxDecoration(color: campus.now))
-                    : null,
-              ),
-            ],
-          ),
+            ),
+            const SizedBox(height: CampusSpacing.x1),
+            Text('${day.day}', maxLines: 1, style: context.campusType.numeral),
+            const SizedBox(height: CampusSpacing.x1),
+            // Today keeps the underline the week strip uses, not a fill.
+            SizedBox(
+              height: 2,
+              width: CampusSpacing.x5,
+              child: isToday
+                  ? DecoratedBox(decoration: BoxDecoration(color: campus.now))
+                  : null,
+            ),
+          ],
         ),
       ),
     );
@@ -397,7 +376,7 @@ class _DayColumn extends StatelessWidget {
               height: (_offsetOf(events[i].end) - _offsetOf(events[i].start))
                   .clamp(minBlockHeight, double.infinity),
               left: lanes[i].lane * (constraints.maxWidth / lanes[i].lanes),
-              width: constraints.maxWidth / lanes[i].lanes,
+              width: lanes[i].span * (constraints.maxWidth / lanes[i].lanes),
               child: GridBlock(
                 event: events[i],
                 onTap: () => onTapEvent(events[i]),
