@@ -6,6 +6,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 /// Small scalar, so it lives in shared_preferences beside the group ids
 /// rather than in the file cache.
 const String kScheduleViewModeKey = 'schedule_view_mode';
+const String kScheduleDayWeekStripKey = 'schedule_day_week_strip';
 
 enum ScheduleViewMode {
   liste('Liste', 0),
@@ -57,4 +58,30 @@ class ScheduleViewModeNotifier extends Notifier<ScheduleViewMode> {
 final scheduleViewModeProvider =
     NotifierProvider<ScheduleViewModeNotifier, ScheduleViewMode>(
       ScheduleViewModeNotifier.new,
+    );
+
+/// Whether Jour keeps the compact week strip above its day timeline. This is
+/// independent from the view mode, so returning to Jour keeps the preference.
+class ScheduleDayWeekStripNotifier extends Notifier<bool> {
+  @override
+  bool build() {
+    unawaited(_restore());
+    return true;
+  }
+
+  Future<void> _restore() async {
+    final prefs = await SharedPreferences.getInstance();
+    state = prefs.getBool(kScheduleDayWeekStripKey) ?? true;
+  }
+
+  Future<void> toggle() async {
+    state = !state;
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool(kScheduleDayWeekStripKey, state);
+  }
+}
+
+final scheduleDayWeekStripProvider =
+    NotifierProvider<ScheduleDayWeekStripNotifier, bool>(
+      ScheduleDayWeekStripNotifier.new,
     );

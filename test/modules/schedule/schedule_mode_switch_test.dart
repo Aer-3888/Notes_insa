@@ -110,4 +110,23 @@ void main() {
       );
     }
   });
+
+  testWidgets('Jour can hide and show its week strip', (tester) async {
+    await pump(tester);
+    await tester.tap(find.byType(PopupMenuButton<ScheduleViewMode>));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Jour').last);
+    await tester.pumpAndSettle();
+
+    final hide = find.byTooltip('Masquer l\'aper\u00e7u de la semaine');
+    expect(hide, findsOneWidget);
+    await tester.tap(hide);
+    await tester.pumpAndSettle();
+
+    expect(find.byType(WeekStrip), findsNothing);
+    expect(
+      find.byTooltip('Afficher l\'aper\u00e7u de la semaine'),
+      findsOneWidget,
+    );
+  });
 }

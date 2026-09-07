@@ -163,11 +163,13 @@ class _ScheduleScreenState extends ConsumerState<ScheduleScreen> {
     final ids = ref.watch(selectedGroupsProvider);
     final async = ref.watch(scheduleProvider);
     final mode = ref.watch(scheduleViewModeProvider);
+    final showDayWeekStrip = ref.watch(scheduleDayWeekStripProvider);
 
     ref.listen<ScheduleFocus?>(scheduleFocusProvider, (_, next) {
       if (next == null) return;
       WidgetsBinding.instance.addPostFrameCallback((_) => _consumeFocus());
     });
+    ref.listen<int>(scheduleTodayRequestProvider, (_, _) => _goTo(_today()));
 
     return Scaffold(
       appBar: AppBar(
@@ -189,6 +191,20 @@ class _ScheduleScreenState extends ConsumerState<ScheduleScreen> {
           ),
         ),
         actions: [
+          if (mode == ScheduleViewMode.jour)
+            IconButton(
+              icon: Icon(
+                showDayWeekStrip
+                    ? Icons.calendar_view_week_outlined
+                    : Icons.calendar_view_day_outlined,
+              ),
+              tooltip: showDayWeekStrip
+                  ? 'Masquer l\'aper\u00e7u de la semaine'
+                  : 'Afficher l\'aper\u00e7u de la semaine',
+              onPressed: () => unawaited(
+                ref.read(scheduleDayWeekStripProvider.notifier).toggle(),
+              ),
+            ),
           IconButton(
             icon: const Icon(Icons.group_outlined),
             tooltip: 'Changer de groupe',
@@ -255,7 +271,9 @@ class _ScheduleScreenState extends ConsumerState<ScheduleScreen> {
                     day: _day,
                     index: index,
                     days: _daysFor(mode),
-                    showStrip: mode.showsStrip,
+                    showStrip: mode == ScheduleViewMode.jour
+                        ? showDayWeekStrip
+                        : mode.showsStrip,
                     onDayTap: _goTo,
                     onShiftPeriod: _shiftPeriod,
                     onTapEvent: (e) => showEventSheet(context, e),

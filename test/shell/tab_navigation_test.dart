@@ -7,6 +7,7 @@ import 'package:notes_insa/core/module_cache.dart';
 import 'package:notes_insa/core/time.dart';
 import 'package:notes_insa/modules/weather/weather_model.dart';
 import 'package:notes_insa/modules/weather/weather_provider.dart';
+import 'package:notes_insa/modules/schedule/schedule_focus.dart';
 import 'package:notes_insa/shell/campus_shell.dart';
 import 'package:notes_insa/shell/module_card.dart';
 import 'package:notes_insa/theme/campus_theme.dart';
@@ -130,6 +131,43 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(selectedIndex(tester), 0);
+  });
+
+  testWidgets('returning to Cours requests today without changing its mode', (
+    tester,
+  ) async {
+    final container = ProviderContainer(
+      overrides: [
+        weatherProvider.overrideWith(
+          (ref) => Stream<CachedEntry<WeatherSnapshot>>.value(
+            const CachedEntry<WeatherSnapshot>(
+              refreshState: RefreshState.failedUpstream,
+            ),
+          ),
+        ),
+      ],
+    );
+    addTearDown(container.dispose);
+    await tester.pumpWidget(
+      UncontrolledProviderScope(
+        container: container,
+        child: MaterialApp(
+          theme: campusTheme(Brightness.light),
+          home: const CampusShell(),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.tap(destination('Cours'));
+    await tester.pumpAndSettle();
+    expect(container.read(scheduleTodayRequestProvider), 1);
+
+    await tester.tap(destination('Carte'));
+    await tester.pumpAndSettle();
+    await tester.tap(destination('Cours'));
+    await tester.pumpAndSettle();
+    expect(container.read(scheduleTodayRequestProvider), 2);
   });
 
   testWidgets('a hub card with no destination opens under the bar', (

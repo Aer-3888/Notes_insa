@@ -31,3 +31,15 @@ final scheduleFocusProvider =
     NotifierProvider<ScheduleFocusRequest, ScheduleFocus?>(
       ScheduleFocusRequest.new,
     );
+
+/// A request from the bottom bar to return the timetable to the current day.
+/// A counter makes consecutive requests observable without timing concerns.
+class ScheduleTodayRequest extends Notifier<int> {
+  @override
+  int build() => 0;
+
+  void request() => state++;
+}
+
+final scheduleTodayRequestProvider =
+    NotifierProvider<ScheduleTodayRequest, int>(ScheduleTodayRequest.new);

@@ -65,6 +65,21 @@ void main() {
     );
   });
 
+  test(
+    'the Day week strip is visible by default and can be remembered off',
+    () async {
+      final container = ProviderContainer();
+      addTearDown(container.dispose);
+
+      expect(container.read(scheduleDayWeekStripProvider), isTrue);
+      await container.read(scheduleDayWeekStripProvider.notifier).toggle();
+      expect(container.read(scheduleDayWeekStripProvider), isFalse);
+
+      final prefs = await SharedPreferences.getInstance();
+      expect(prefs.getBool(kScheduleDayWeekStripKey), isFalse);
+    },
+  );
+
   test('an unknown stored value falls back to Liste', () async {
     SharedPreferences.setMockInitialValues(<String, Object>{
       kScheduleViewModeKey: 'trimestre',

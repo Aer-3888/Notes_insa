@@ -12,6 +12,7 @@ import '../main.dart' show rootNavigatorKey;
 import '../modules/grades/grades_provider.dart';
 import '../modules/grades/two_factor_screen.dart';
 import '../modules/registry.dart';
+import '../modules/schedule/schedule_focus.dart';
 import '../providers/auth_providers.dart';
 import '../services/notification_service.dart';
 import '../services/worker_sync_service.dart';
@@ -187,7 +188,12 @@ class _CampusShellState extends ConsumerState<CampusShell>
     unawaited(_lock?.onResume() ?? Future<void>.value());
   }
 
-  void _select(int index) {
+  void _select(int index, {bool resetSchedule = true}) {
+    final isReturningToSchedule =
+        index == 0 && _index != index && resetSchedule;
+    if (isReturningToSchedule) {
+      ref.read(scheduleTodayRequestProvider.notifier).request();
+    }
     setState(() {
       _index = index;
       _visited.add(index);
@@ -201,7 +207,9 @@ class _CampusShellState extends ConsumerState<CampusShell>
   void _openModule(String id) {
     final index = _destinations.indexWhere((d) => d.module?.id == id);
     if (index >= 0) {
-      _select(index);
+      final opensFocusedEvent =
+          id == 'edt' && ref.read(scheduleFocusProvider) != null;
+      _select(index, resetSchedule: !opensFocusedEvent);
       return;
     }
     for (final module in kCampusModules) {
