@@ -3,7 +3,10 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:notes_insa/core/module_cache.dart';
 import 'package:notes_insa/core/time.dart';
+import 'package:notes_insa/modules/weather/weather_model.dart';
+import 'package:notes_insa/modules/weather/weather_provider.dart';
 import 'package:notes_insa/shell/campus_shell.dart';
 import 'package:notes_insa/shell/module_card.dart';
 import 'package:notes_insa/theme/campus_theme.dart';
@@ -17,6 +20,17 @@ void main() {
     addTearDown(tester.view.reset);
     await tester.pumpWidget(
       ProviderScope(
+        // Left unresolved the weather screen spins forever and pumpAndSettle
+        // never returns; the failed state is static.
+        overrides: [
+          weatherProvider.overrideWith(
+            (ref) => Stream<CachedEntry<WeatherSnapshot>>.value(
+              const CachedEntry<WeatherSnapshot>(
+                refreshState: RefreshState.failedUpstream,
+              ),
+            ),
+          ),
+        ],
         child: MaterialApp(
           theme: campusTheme(Brightness.light),
           home: const CampusShell(),
@@ -116,5 +130,20 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(selectedIndex(tester), 0);
+  });
+
+  testWidgets('a hub card with no destination opens under the bar', (
+    tester,
+  ) async {
+    await pumpShell(tester);
+    final card = find.widgetWithText(ModuleCard, 'Météo');
+    expect(card, findsOneWidget);
+
+    await tester.tap(card);
+    await tester.pumpAndSettle();
+
+    expect(find.widgetWithText(AppBar, 'Météo'), findsOneWidget);
+    expect(find.byType(NavigationBar), findsOneWidget);
+    expect(selectedIndex(tester), 2);
   });
 }

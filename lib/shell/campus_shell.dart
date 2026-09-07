@@ -196,10 +196,28 @@ class _CampusShellState extends ConsumerState<CampusShell>
   }
 
   /// The hub's cards select a destination rather than pushing the module.
+  /// Modules the bar has no room for have no destination to select, so they
+  /// open as a page in the current tab and keep the bar.
   void _openModule(String id) {
     final index = _destinations.indexWhere((d) => d.module?.id == id);
-    if (index >= 0) _select(index);
+    if (index >= 0) {
+      _select(index);
+      return;
+    }
+    for (final module in kCampusModules) {
+      if (module.id != id) continue;
+      if (module is! ReadyModule) return;
+      _tabNavigators[_index].currentState?.push(
+        MaterialPageRoute<void>(builder: (_) => _screenFor(module)),
+      );
+      return;
+    }
   }
+
+  /// A module's screen, behind the lock when it needs an account.
+  Widget _screenFor(ReadyModule module) => module.requiresCas
+      ? CasGuard(child: Builder(builder: module.builder))
+      : Builder(builder: module.builder);
 
   /// Built on first visit, so an unvisited tab still costs nothing.
   Widget _destinationFor(int index) {
@@ -219,10 +237,7 @@ class _CampusShellState extends ConsumerState<CampusShell>
 
     final module = _destinations[index].module;
     return switch (module) {
-      ReadyModule(:final builder, :final requiresCas) =>
-        requiresCas
-            ? CasGuard(child: Builder(builder: builder))
-            : Builder(builder: builder),
+      ReadyModule() => _screenFor(module),
       null => const SizedBox.shrink(),
     };
   }
