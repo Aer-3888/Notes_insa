@@ -115,14 +115,21 @@ final scheduleProvider = StreamProvider<CachedEntry<List<ScheduleEvent>>>((
   }
 });
 
-/// The next session starting from now, for the hub card. Reads the same cache,
-/// so it costs no extra request and works offline.
-final nextCourseProvider = Provider<ScheduleEvent?>((ref) {
+/// How many sessions the hub preview holds. Enough to scroll past today
+/// without carrying the rest of the semester into the hub.
+const int kUpcomingPreviewCount = 8;
+
+/// The sessions still to come, for the hub preview. Reads the same cache, so
+/// it costs no extra request and works offline.
+final upcomingCoursesProvider = Provider<List<ScheduleEvent>>((ref) {
   final events = ref.watch(scheduleProvider).value?.data;
-  if (events == null) return null;
+  if (events == null) return const <ScheduleEvent>[];
   final now = campusNow();
+  final upcoming = <ScheduleEvent>[];
   for (final e in events) {
-    if (e.end.isAfter(now)) return e;
+    if (!e.end.isAfter(now)) continue;
+    upcoming.add(e);
+    if (upcoming.length == kUpcomingPreviewCount) break;
   }
-  return null;
+  return upcoming;
 });

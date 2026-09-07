@@ -14,6 +14,7 @@ import 'month_grid.dart';
 import 'schedule_day_index.dart';
 import 'event_sheet.dart';
 import 'schedule_event.dart';
+import 'schedule_focus.dart';
 import 'schedule_grid.dart';
 import 'schedule_metrics.dart';
 import 'schedule_period.dart';
@@ -41,11 +42,17 @@ class _ScheduleScreenState extends ConsumerState<ScheduleScreen> {
 
   ScheduleMetrics? _metrics;
 
+  /// A day asked for before the timeline had been measured. Applied on the
+  /// next frame that has metrics, then dropped.
+  DateTime? _pendingScroll;
+
   @override
   void initState() {
     super.initState();
     _day = _today();
     _controller.addListener(_onScroll);
+    // A request filed before this screen existed has no listener to catch it.
+    WidgetsBinding.instance.addPostFrameCallback((_) => _consumeFocus());
   }
 
   @override
@@ -74,14 +81,41 @@ class _ScheduleScreenState extends ConsumerState<ScheduleScreen> {
       return;
     }
     final offset = _metrics?.offsetOfDay(target);
+    if (offset == null || !_controller.hasClients) {
+      _pendingScroll = target;
+      return;
+    }
+    _pendingScroll = null;
+    _animateTo(offset);
+  }
+
+  void _animateTo(double offset) => unawaited(
+    _controller.animateTo(
+      offset,
+      duration: CampusMotion.of(context, CampusMotion.enter),
+      curve: CampusMotion.standard,
+    ),
+  );
+
+  /// Always clears the request, so a timeline that never attaches a controller
+  /// cannot leave a day queued for every later frame.
+  void _flushPendingScroll() {
+    final day = _pendingScroll;
+    _pendingScroll = null;
+    if (day == null || !mounted) return;
+    final offset = _metrics?.offsetOfDay(day);
     if (offset == null || !_controller.hasClients) return;
-    unawaited(
-      _controller.animateTo(
-        offset,
-        duration: CampusMotion.of(context, CampusMotion.enter),
-        curve: CampusMotion.standard,
-      ),
-    );
+    _animateTo(offset);
+  }
+
+  /// Opens the session another surface asked for: the hub preview files it,
+  /// the shell selects this tab, and this is where it lands.
+  void _consumeFocus() {
+    if (!mounted) return;
+    final focus = ref.read(scheduleFocusProvider.notifier).consume();
+    if (focus == null) return;
+    _goTo(focus.day);
+    unawaited(showEventSheet(context, focus.event));
   }
 
   void _shiftPeriod(int direction) =>
@@ -129,6 +163,11 @@ class _ScheduleScreenState extends ConsumerState<ScheduleScreen> {
     final ids = ref.watch(selectedGroupsProvider);
     final async = ref.watch(scheduleProvider);
     final mode = ref.watch(scheduleViewModeProvider);
+
+    ref.listen<ScheduleFocus?>(scheduleFocusProvider, (_, next) {
+      if (next == null) return;
+      WidgetsBinding.instance.addPostFrameCallback((_) => _consumeFocus());
+    });
 
     return Scaffold(
       appBar: AppBar(
@@ -202,6 +241,11 @@ class _ScheduleScreenState extends ConsumerState<ScheduleScreen> {
                   index,
                   (row) => scheduleRowHeight(context, row),
                 );
+                if (_pendingScroll != null) {
+                  WidgetsBinding.instance.addPostFrameCallback(
+                    (_) => _flushPendingScroll(),
+                  );
+                }
                 final body = switch (mode) {
                   ScheduleViewMode.jour ||
                   ScheduleViewMode.troisJours ||

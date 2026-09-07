@@ -2,7 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../modules/registry.dart';
-import '../modules/schedule/next_course_card.dart';
+import '../modules/schedule/schedule_focus.dart';
+import '../modules/schedule/schedule_provider.dart';
+import '../modules/schedule/upcoming_courses_card.dart';
 import '../modules/weather/weather_screen.dart';
 import '../theme/tokens.dart';
 import 'module_card.dart';
@@ -24,7 +26,14 @@ class HomeHubScreen extends ConsumerWidget {
       body: Column(
         children: [
           const SizedBox(height: CampusSpacing.x2),
-          const NextCourseCard(),
+          UpcomingCoursesCard(
+            onOpenEvent: onOpenModule == null
+                ? null
+                : (event) {
+                    ref.read(scheduleFocusProvider.notifier).request(event);
+                    onOpenModule!(kScheduleModuleId);
+                  },
+          ),
           const WeatherStrip(),
           Expanded(
             child: GridView.count(
