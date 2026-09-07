@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
 /// Colour roles of the campus identity. Values and contrast ratios:
@@ -30,6 +31,10 @@ class CampusColors extends ThemeExtension<CampusColors> {
     required this.scrim,
     required this.moduleTints,
     required this.moduleTintsBold,
+    required this.moduleBlockTints,
+    required this.moduleSpineTints,
+    required this.moduleBarTints,
+    required this.onModuleBlockTint,
   });
 
   final Color surface;
@@ -67,6 +72,20 @@ class CampusColors extends ThemeExtension<CampusColors> {
   /// the information itself and so needs 3:1 against the surface rather than
   /// the fill weight of [moduleTints].
   final List<Color> moduleTintsBold;
+
+  /// The grid block fill. Empty when the chosen scheme or intensity leaves
+  /// blocks neutral, which ModulePalette resolves to its fallback.
+  final List<Color> moduleBlockTints;
+
+  /// The 3 dp spine on a timeline row, and so on the hub preview.
+  final List<Color> moduleSpineTints;
+
+  /// The week strip bar, which carries its information with no text.
+  final List<Color> moduleBarTints;
+
+  /// The label ink on a grid block. Never a new colour: onSurface on a pale
+  /// fill, surfaceLowest on a Vif block.
+  final Color onModuleBlockTint;
 
   static const CampusColors light = CampusColors(
     surface: Color(0xFFF4F5F7),
@@ -112,6 +131,37 @@ class CampusColors extends ThemeExtension<CampusColors> {
       Color(0xFF83548F),
       Color(0xFF964D6F),
     ],
+    moduleBlockTints: <Color>[
+      Color(0xFFD0DDB9),
+      Color(0xFFBDE1C9),
+      Color(0xFFB2E2DD),
+      Color(0xFFB4DFEF),
+      Color(0xFFC1D9F8),
+      Color(0xFFD3D3F7),
+      Color(0xFFE6CDEC),
+      Color(0xFFF2CADA),
+    ],
+    moduleSpineTints: <Color>[
+      Color(0xFFD0DDB9),
+      Color(0xFFBDE1C9),
+      Color(0xFFB2E2DD),
+      Color(0xFFB4DFEF),
+      Color(0xFFC1D9F8),
+      Color(0xFFD3D3F7),
+      Color(0xFFE6CDEC),
+      Color(0xFFF2CADA),
+    ],
+    moduleBarTints: <Color>[
+      Color(0xFF5C7327),
+      Color(0xFF297A4F),
+      Color(0xFF007B75),
+      Color(0xFF007594),
+      Color(0xFF3B6BA4),
+      Color(0xFF645FA2),
+      Color(0xFF83548F),
+      Color(0xFF964D6F),
+    ],
+    onModuleBlockTint: Color(0xFF1B2027),
   );
 
   static const CampusColors dark = CampusColors(
@@ -158,6 +208,37 @@ class CampusColors extends ThemeExtension<CampusColors> {
       Color(0xFFB88BC4),
       Color(0xFFCC86A5),
     ],
+    moduleBlockTints: <Color>[
+      Color(0xFF2E371B),
+      Color(0xFF1D3A28),
+      Color(0xFF0D3B38),
+      Color(0xFF113844),
+      Color(0xFF21344B),
+      Color(0xFF312F4A),
+      Color(0xFF3D2B42),
+      Color(0xFF462835),
+    ],
+    moduleSpineTints: <Color>[
+      Color(0xFF2E371B),
+      Color(0xFF1D3A28),
+      Color(0xFF0D3B38),
+      Color(0xFF113844),
+      Color(0xFF21344B),
+      Color(0xFF312F4A),
+      Color(0xFF3D2B42),
+      Color(0xFF462835),
+    ],
+    moduleBarTints: <Color>[
+      Color(0xFF92A965),
+      Color(0xFF6BB086),
+      Color(0xFF4BB1AA),
+      Color(0xFF52ACC9),
+      Color(0xFF75A1D9),
+      Color(0xFF9996D7),
+      Color(0xFFB88BC4),
+      Color(0xFFCC86A5),
+    ],
+    onModuleBlockTint: Color(0xFFF0F2F5),
   );
 
   @override
@@ -187,6 +268,10 @@ class CampusColors extends ThemeExtension<CampusColors> {
     Color? scrim,
     List<Color>? moduleTints,
     List<Color>? moduleTintsBold,
+    List<Color>? moduleBlockTints,
+    List<Color>? moduleSpineTints,
+    List<Color>? moduleBarTints,
+    Color? onModuleBlockTint,
   }) => CampusColors(
     surface: surface ?? this.surface,
     surfaceLowest: surfaceLowest ?? this.surfaceLowest,
@@ -214,6 +299,80 @@ class CampusColors extends ThemeExtension<CampusColors> {
     scrim: scrim ?? this.scrim,
     moduleTints: moduleTints ?? this.moduleTints,
     moduleTintsBold: moduleTintsBold ?? this.moduleTintsBold,
+    moduleBlockTints: moduleBlockTints ?? this.moduleBlockTints,
+    moduleSpineTints: moduleSpineTints ?? this.moduleSpineTints,
+    moduleBarTints: moduleBarTints ?? this.moduleBarTints,
+    onModuleBlockTint: onModuleBlockTint ?? this.onModuleBlockTint,
+  );
+
+  /// A categorical palette has nothing meaningful between two schemes, so a
+  /// length change is a cut rather than a blend.
+  static List<Color> _lerpRamp(
+    List<Color> a,
+    List<Color> b,
+    double t,
+    Color Function(Color, Color) mix,
+  ) {
+    if (a.length != b.length) return t < 0.5 ? a : b;
+    return <Color>[for (var i = 0; i < a.length; i++) mix(a[i], b[i])];
+  }
+
+  /// Every colour role, in declaration order, for equality and hashing. The
+  /// ramps are held out because a List compares by identity.
+  List<Object?> get _roles => <Object?>[
+    surface,
+    surfaceLowest,
+    surfaceContainer,
+    surfaceContainerHigh,
+    surfaceContainerHighest,
+    outline,
+    outlineVariant,
+    onSurface,
+    onSurfaceVariant,
+    onSurfaceMuted,
+    primary,
+    onPrimary,
+    now,
+    onNow,
+    nowContainer,
+    attention,
+    attentionContainer,
+    onAttentionContainer,
+    positive,
+    positiveContainer,
+    onPositiveContainer,
+    inverseSurface,
+    scrim,
+    onModuleBlockTint,
+  ];
+
+  List<List<Color>> get _ramps => <List<Color>>[
+    moduleTints,
+    moduleTintsBold,
+    moduleBlockTints,
+    moduleSpineTints,
+    moduleBarTints,
+  ];
+
+  /// Value equality, so a theme rebuilt with the same choice does not read as
+  /// a change. Identity would make every `copyWith` a new palette.
+  @override
+  bool operator ==(Object other) {
+    if (identical(this, other)) return true;
+    if (other is! CampusColors) return false;
+    if (!listEquals(_roles, other._roles)) return false;
+    final mine = _ramps;
+    final theirs = other._ramps;
+    for (var i = 0; i < mine.length; i++) {
+      if (!listEquals(mine[i], theirs[i])) return false;
+    }
+    return true;
+  }
+
+  @override
+  int get hashCode => Object.hash(
+    Object.hashAll(_roles),
+    Object.hashAll(<int>[for (final ramp in _ramps) Object.hashAll(ramp)]),
   );
 
   @override
@@ -253,14 +412,27 @@ class CampusColors extends ThemeExtension<CampusColors> {
       onPositiveContainer: mix(onPositiveContainer, other.onPositiveContainer),
       inverseSurface: mix(inverseSurface, other.inverseSurface),
       scrim: mix(scrim, other.scrim),
-      moduleTints: <Color>[
-        for (var i = 0; i < moduleTints.length; i++)
-          mix(moduleTints[i], other.moduleTints[i]),
-      ],
-      moduleTintsBold: <Color>[
-        for (var i = 0; i < moduleTintsBold.length; i++)
-          mix(moduleTintsBold[i], other.moduleTintsBold[i]),
-      ],
+      moduleTints: _lerpRamp(moduleTints, other.moduleTints, t, mix),
+      moduleTintsBold: _lerpRamp(
+        moduleTintsBold,
+        other.moduleTintsBold,
+        t,
+        mix,
+      ),
+      moduleBlockTints: _lerpRamp(
+        moduleBlockTints,
+        other.moduleBlockTints,
+        t,
+        mix,
+      ),
+      moduleSpineTints: _lerpRamp(
+        moduleSpineTints,
+        other.moduleSpineTints,
+        t,
+        mix,
+      ),
+      moduleBarTints: _lerpRamp(moduleBarTints, other.moduleBarTints, t, mix),
+      onModuleBlockTint: mix(onModuleBlockTint, other.onModuleBlockTint),
     );
   }
 }

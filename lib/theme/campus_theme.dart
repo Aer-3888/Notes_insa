@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
+import 'module_tints.dart';
 import 'tokens.dart';
 
 const String kCampusFontFamily = 'PublicSans';
@@ -26,9 +27,33 @@ TextStyle _text(
 );
 
 /// The single source of every Material default. docs/design/design-direction.md §3.
-ThemeData campusTheme(Brightness brightness) {
+ThemeData campusTheme(
+  Brightness brightness, {
+  ScheduleTintScheme scheme = ScheduleTintScheme.spectre,
+  ScheduleTintIntensity intensity = ScheduleTintIntensity.standard,
+}) {
   final dark = brightness == Brightness.dark;
-  final c = dark ? CampusColors.dark : CampusColors.light;
+  final base = dark ? CampusColors.dark : CampusColors.light;
+  final ramps =
+      (dark ? kDarkModuleTints : kLightModuleTints)[scheme] ??
+      ModuleTintRamps.none;
+  final c = base.copyWith(
+    moduleTints: ramps.fill,
+    moduleTintsBold: ramps.bold,
+    // Intensity is only ever a question of which ramp lands on which surface.
+    moduleBlockTints: switch (intensity) {
+      ScheduleTintIntensity.discret => const <Color>[],
+      ScheduleTintIntensity.standard => ramps.fill,
+      ScheduleTintIntensity.vif => ramps.bold,
+    },
+    moduleSpineTints: intensity == ScheduleTintIntensity.standard
+        ? ramps.fill
+        : ramps.bold,
+    moduleBarTints: ramps.bold,
+    onModuleBlockTint: intensity == ScheduleTintIntensity.vif
+        ? base.surfaceLowest
+        : base.onSurface,
+  );
   final ink = c.onSurface;
 
   final textTheme = TextTheme(
@@ -51,7 +76,7 @@ ThemeData campusTheme(Brightness brightness) {
     labelSmall: _text(12, 16, FontWeight.w500, ink),
   );
 
-  final scheme = ColorScheme(
+  final colorScheme = ColorScheme(
     brightness: brightness,
     primary: c.primary,
     onPrimary: c.onPrimary,
@@ -109,7 +134,7 @@ ThemeData campusTheme(Brightness brightness) {
   return ThemeData(
     useMaterial3: true,
     brightness: brightness,
-    colorScheme: scheme,
+    colorScheme: colorScheme,
     fontFamily: kCampusFontFamily,
     textTheme: textTheme,
     scaffoldBackgroundColor: c.surface,
