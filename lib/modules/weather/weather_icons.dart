@@ -3,8 +3,8 @@ import 'package:flutter/material.dart';
 import 'weather_advice.dart';
 
 /// WMO code to icon. Outlined throughout, so the strip reads as one set.
-IconData weatherIcon(int code) => switch (code) {
-  0 || 1 => Icons.wb_sunny_outlined,
+IconData weatherIcon(int code, {bool isNight = false}) => switch (code) {
+  0 || 1 => isNight ? Icons.nightlight_outlined : Icons.wb_sunny_outlined,
   2 => Icons.wb_cloudy_outlined,
   3 => Icons.cloud_outlined,
   45 || 48 => Icons.foggy,

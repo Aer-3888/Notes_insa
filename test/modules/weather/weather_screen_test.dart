@@ -48,8 +48,9 @@ void main() {
   Future<void> pump(
     WidgetTester tester,
     Widget home,
-    CachedEntry<WeatherSnapshot> entry,
-  ) async {
+    CachedEntry<WeatherSnapshot> entry, {
+    VoidCallback? onLoad,
+  }) async {
     await _loadCampusFont();
     tester.view.physicalSize = const Size(384, 800);
     tester.view.devicePixelRatio = 1.0;
@@ -57,9 +58,10 @@ void main() {
     await tester.pumpWidget(
       ProviderScope(
         overrides: [
-          weatherProvider.overrideWith(
-            (ref) => Stream<CachedEntry<WeatherSnapshot>>.value(entry),
-          ),
+          weatherProvider.overrideWith((ref) {
+            onLoad?.call();
+            return Stream<CachedEntry<WeatherSnapshot>>.value(entry);
+          }),
         ],
         child: MaterialApp(theme: campusTheme(Brightness.light), home: home),
       ),
@@ -80,6 +82,7 @@ void main() {
   });
 
   testWidgets('can be pulled down to refresh', (tester) async {
+    var loads = 0;
     await pump(
       tester,
       const WeatherScreen(),
@@ -87,8 +90,12 @@ void main() {
         data: snapshot(),
         cachedAt: DateTime(2026, 9, 2, 14),
       ),
+      onLoad: () => loads++,
     );
-    expect(find.byType(RefreshIndicator), findsOneWidget);
+    expect(loads, 1);
+    await tester.drag(find.byType(ListView), const Offset(0, 350));
+    await tester.pumpAndSettle();
+    expect(loads, 2);
   });
 
   testWidgets('keeps a stale forecast when the refresh fails', (tester) async {

@@ -6,6 +6,7 @@ import 'weather_advice.dart';
 import 'weather_format.dart';
 import 'weather_icons.dart';
 import 'weather_model.dart';
+import 'weather_scene.dart';
 
 /// The page without its plumbing: everything it draws is an argument.
 class WeatherBody extends StatelessWidget {
@@ -24,23 +25,58 @@ class WeatherBody extends StatelessWidget {
   Widget build(BuildContext context) {
     final hours = upcomingHours(snapshot, now);
     final notes = weatherNotes(snapshot, now);
-    return ListView(
-      padding: const EdgeInsets.symmetric(vertical: CampusSpacing.x4),
-      children: <Widget>[
-        _Header(snapshot: snapshot, now: now),
-        if (notes.isNotEmpty) ...<Widget>[
-          const _Hairline(),
-          for (final note in notes) _NoteRow(note: note),
-        ],
-        if (hours.isNotEmpty) ...<Widget>[
-          const _Hairline(),
-          _HourlyStrip(hours: hours),
-        ],
-        const _Hairline(),
-        _Details(snapshot: snapshot),
-        const _Hairline(),
-        _Footer(freshness: freshness),
-      ],
+    final phrase = weatherPhrase(snapshot, now);
+    return Center(
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(maxWidth: 720),
+        child: ListView(
+          physics: const AlwaysScrollableScrollPhysics(),
+          padding: const EdgeInsets.fromLTRB(
+            CampusSpacing.gutter,
+            CampusSpacing.x2,
+            CampusSpacing.gutter,
+            CampusSpacing.x8,
+          ),
+          children: <Widget>[
+            _Header(snapshot: snapshot, now: now, freshness: freshness),
+            if (notes.isNotEmpty ||
+                phrase != conditionLabel(snapshot.weatherCode)) ...<Widget>[
+              const SizedBox(height: CampusSpacing.x4),
+              _WeatherSection(
+                title: 'Pour votre journée',
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: <Widget>[
+                    Padding(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: CampusSpacing.x4,
+                      ),
+                      child: Text(phrase, style: context.text.bodyLarge),
+                    ),
+                    if (notes.isNotEmpty)
+                      const SizedBox(height: CampusSpacing.x2),
+                    for (final note in notes) _NoteRow(note: note),
+                  ],
+                ),
+              ),
+            ],
+            if (hours.isNotEmpty) ...<Widget>[
+              const SizedBox(height: CampusSpacing.x3),
+              _WeatherSection(
+                title: 'Les prochaines heures',
+                child: _HourlyStrip(hours: hours, snapshot: snapshot, now: now),
+              ),
+            ],
+            const SizedBox(height: CampusSpacing.x3),
+            _WeatherSection(
+              title: 'Aujourd’hui en détail',
+              child: _Details(snapshot: snapshot),
+            ),
+            const SizedBox(height: CampusSpacing.x5),
+            const _Footer(),
+          ],
+        ),
+      ),
     );
   }
 }
@@ -70,7 +106,10 @@ class WeatherStripView extends StatelessWidget {
         child: Row(
           children: <Widget>[
             Icon(
-              weatherIcon(snapshot.weatherCode),
+              weatherIcon(
+                snapshot.weatherCode,
+                isNight: WeatherSceneData.fromSnapshot(snapshot, now).isNight,
+              ),
               size: 20,
               color: context.scheme.onSurfaceVariant,
             ),
@@ -98,47 +137,83 @@ class WeatherStripView extends StatelessWidget {
 }
 
 class _Header extends StatelessWidget {
-  const _Header({required this.snapshot, required this.now});
+  const _Header({
+    required this.snapshot,
+    required this.now,
+    required this.freshness,
+  });
 
   final WeatherSnapshot snapshot;
   final DateTime now;
+  final String freshness;
 
   @override
   Widget build(BuildContext context) {
-    final muted = context.text.bodyMedium?.copyWith(
-      color: context.scheme.onSurfaceVariant,
-    );
-    return MergeSemantics(
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: CampusSpacing.gutter),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
+    final scene = WeatherSceneData.fromSnapshot(snapshot, now);
+    final ink = scene.palette.ink;
+    return LayoutBuilder(
+      builder: (context, constraints) => ClipRRect(
+        borderRadius: CampusRadii.cardRadius,
+        child: Stack(
           children: <Widget>[
-            Wrap(
-              spacing: CampusSpacing.x4,
-              runSpacing: CampusSpacing.x2,
-              crossAxisAlignment: WrapCrossAlignment.center,
-              children: <Widget>[
-                Icon(
-                  weatherIcon(snapshot.weatherCode),
-                  size: 32,
-                  color: context.scheme.onSurfaceVariant,
+            Positioned.fill(child: WeatherScene(data: scene)),
+            Padding(
+              padding: EdgeInsets.fromLTRB(
+                CampusSpacing.x6,
+                CampusSpacing.x6,
+                CampusSpacing.x6,
+                constraints.maxWidth * .46 + CampusSpacing.x4,
+              ),
+              child: MergeSemantics(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: <Widget>[
+                    Text(
+                      'Rennes · Beaulieu',
+                      style: context.text.titleSmall?.copyWith(color: ink),
+                    ),
+                    const SizedBox(height: CampusSpacing.x1),
+                    Text(
+                      freshness,
+                      style: context.text.labelMedium?.copyWith(color: ink),
+                    ),
+                    const SizedBox(height: CampusSpacing.x4),
+                    FittedBox(
+                      fit: BoxFit.scaleDown,
+                      alignment: Alignment.centerLeft,
+                      child: Text(
+                        degreesLabel(snapshot.temperatureC),
+                        semanticsLabel: spokenDegrees(snapshot.temperatureC),
+                        style: context.campusType.displayNumeral.copyWith(
+                          fontSize: 80,
+                          height: 1.05,
+                          fontWeight: FontWeight.w300,
+                          fontVariations: const <FontVariation>[
+                            FontVariation.weight(300),
+                          ],
+                          letterSpacing: -4,
+                          color: ink,
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: CampusSpacing.x2),
+                    Text(
+                      conditionLabel(snapshot.weatherCode),
+                      style: context.text.titleLarge?.copyWith(color: ink),
+                    ),
+                    const SizedBox(height: CampusSpacing.x2),
+                    Text(
+                      'Ressenti ${degreesLabel(snapshot.apparentTemperatureC)}',
+                      style: context.text.bodyMedium?.copyWith(color: ink),
+                    ),
+                    const SizedBox(height: CampusSpacing.x1),
+                    Text(
+                      'Min. ${degreesLabel(snapshot.low)}  ·  Max. ${degreesLabel(snapshot.high)}',
+                      style: context.text.bodyMedium?.copyWith(color: ink),
+                    ),
+                  ],
                 ),
-                Text(
-                  temperatureLabel(snapshot.temperatureC),
-                  semanticsLabel: spokenDegrees(snapshot.temperatureC),
-                  style: context.campusType.displayNumeral,
-                ),
-              ],
-            ),
-            const SizedBox(height: CampusSpacing.x2),
-            Text(weatherPhrase(snapshot, now), style: context.text.titleMedium),
-            const SizedBox(height: CampusSpacing.x1),
-            Text(
-              'Ressenti ${degreesLabel(snapshot.apparentTemperatureC)}, '
-              'de ${degreesLabel(snapshot.low)} '
-              'à ${degreesLabel(snapshot.high)} aujourd’hui',
-              style: muted,
+              ),
             ),
           ],
         ),
@@ -178,9 +253,15 @@ class _NoteRow extends StatelessWidget {
 }
 
 class _HourlyStrip extends StatelessWidget {
-  const _HourlyStrip({required this.hours});
+  const _HourlyStrip({
+    required this.hours,
+    required this.snapshot,
+    required this.now,
+  });
 
   final List<HourlyPoint> hours;
+  final WeatherSnapshot snapshot;
+  final DateTime now;
 
   @override
   Widget build(BuildContext context) {
@@ -192,7 +273,19 @@ class _HourlyStrip extends StatelessWidget {
         padding: const EdgeInsets.symmetric(horizontal: CampusSpacing.gutter),
         child: Row(
           crossAxisAlignment: CrossAxisAlignment.start,
-          children: <Widget>[for (final hour in hours) _HourColumn(hour: hour)],
+          children: <Widget>[
+            for (var i = 0; i < hours.length; i++)
+              _HourColumn(
+                hour: hours[i],
+                isCurrent:
+                    !hours[i].time.isAfter(now) &&
+                    hours[i].time.add(const Duration(hours: 1)).isAfter(now),
+                isNight: WeatherSceneData.fromSnapshot(
+                  snapshot,
+                  hours[i].time,
+                ).isNight,
+              ),
+          ],
         ),
       ),
     );
@@ -200,9 +293,15 @@ class _HourlyStrip extends StatelessWidget {
 }
 
 class _HourColumn extends StatelessWidget {
-  const _HourColumn({required this.hour});
+  const _HourColumn({
+    required this.hour,
+    required this.isNight,
+    required this.isCurrent,
+  });
 
   final HourlyPoint hour;
+  final bool isNight;
+  final bool isCurrent;
 
   /// Below this a rain chance is noise, not information.
   static const int _worthShowing = 20;
@@ -221,8 +320,16 @@ class _HourColumn extends StatelessWidget {
       container: true,
       label: _spoken,
       excludeSemantics: true,
-      child: Padding(
-        padding: const EdgeInsets.only(right: CampusSpacing.x5),
+      child: Container(
+        margin: const EdgeInsets.only(right: CampusSpacing.x2),
+        padding: const EdgeInsets.symmetric(
+          horizontal: CampusSpacing.x3,
+          vertical: CampusSpacing.x2,
+        ),
+        decoration: BoxDecoration(
+          color: isCurrent ? context.campus.nowContainer : Colors.transparent,
+          borderRadius: CampusRadii.controlRadius,
+        ),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: <Widget>[
@@ -234,7 +341,7 @@ class _HourColumn extends StatelessWidget {
             ),
             const SizedBox(height: CampusSpacing.x2),
             Icon(
-              weatherIcon(hour.weatherCode),
+              weatherIcon(hour.weatherCode, isNight: isNight),
               size: 20,
               color: scheme.onSurfaceVariant,
             ),
@@ -337,9 +444,7 @@ class _DetailRow extends StatelessWidget {
 }
 
 class _Footer extends StatelessWidget {
-  const _Footer({required this.freshness});
-
-  final String freshness;
+  const _Footer();
 
   @override
   Widget build(BuildContext context) {
@@ -350,23 +455,43 @@ class _Footer extends StatelessWidget {
       padding: const EdgeInsets.symmetric(horizontal: CampusSpacing.gutter),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
-        children: <Widget>[
-          Text(freshness, style: style),
-          const SizedBox(height: CampusSpacing.x1),
-          Text('Données Open-Meteo', style: style),
-        ],
+        children: <Widget>[Text('Données Open-Meteo', style: style)],
       ),
     );
   }
 }
 
-class _Hairline extends StatelessWidget {
-  const _Hairline();
+class _WeatherSection extends StatelessWidget {
+  const _WeatherSection({required this.title, required this.child});
+
+  final String title;
+  final Widget child;
 
   @override
-  Widget build(BuildContext context) => Divider(
-    height: CampusSpacing.x8,
-    thickness: 1,
-    color: context.scheme.outlineVariant,
+  Widget build(BuildContext context) => DecoratedBox(
+    decoration: BoxDecoration(
+      color: context.scheme.brightness == Brightness.dark
+          ? context.scheme.surfaceContainer
+          : context.scheme.surfaceContainerLowest,
+      borderRadius: CampusRadii.cardRadius,
+    ),
+    child: Padding(
+      padding: const EdgeInsets.symmetric(vertical: CampusSpacing.x4),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: <Widget>[
+          Padding(
+            padding: const EdgeInsets.fromLTRB(
+              CampusSpacing.x4,
+              0,
+              CampusSpacing.x4,
+              CampusSpacing.x3,
+            ),
+            child: Text(title, style: context.text.titleSmall),
+          ),
+          child,
+        ],
+      ),
+    ),
   );
 }

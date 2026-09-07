@@ -79,7 +79,13 @@ void main() {
   group('WeatherBody', () {
     testWidgets('leads with the temperature and the phrase', (tester) async {
       await pump(tester, body());
-      expect(find.text(temperatureLabel(14.2)), findsOneWidget);
+      expect(
+        find.descendant(
+          of: find.byType(FittedBox),
+          matching: find.text(degreesLabel(14.2)),
+        ),
+        findsOneWidget,
+      );
       expect(find.text(weatherPhrase(snapshot(), at(14))), findsOneWidget);
     });
 

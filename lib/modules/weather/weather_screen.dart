@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -27,8 +29,47 @@ class WeatherStrip extends ConsumerWidget {
   }
 }
 
-class WeatherScreen extends ConsumerWidget {
+class WeatherScreen extends ConsumerStatefulWidget {
   const WeatherScreen({super.key});
+
+  @override
+  ConsumerState<WeatherScreen> createState() => _WeatherScreenState();
+}
+
+class _WeatherScreenState extends ConsumerState<WeatherScreen>
+    with WidgetsBindingObserver {
+  Timer? _clock;
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addObserver(this);
+    _startClock();
+  }
+
+  void _startClock() {
+    _clock?.cancel();
+    // Update solar lighting, hourly forecasts and freshness while open.
+    // This only rebuilds the view; it does not make a weather request.
+    _clock = Timer.periodic(const Duration(minutes: 1), (_) => setState(() {}));
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) {
+      _startClock();
+      setState(() {});
+    } else {
+      _clock?.cancel();
+    }
+  }
+
+  @override
+  void dispose() {
+    _clock?.cancel();
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
+  }
 
   Future<void> _refresh(WidgetRef ref) async {
     ref.invalidate(weatherProvider);
@@ -36,7 +77,7 @@ class WeatherScreen extends ConsumerWidget {
   }
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  Widget build(BuildContext context) {
     final async = ref.watch(weatherProvider);
     final entry = async.value;
     final snapshot = entry?.data;
