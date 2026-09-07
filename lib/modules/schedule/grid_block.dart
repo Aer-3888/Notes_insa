@@ -32,7 +32,9 @@ class GridBlock extends StatelessWidget {
   const GridBlock({required this.event, required this.onTap, super.key});
 
   final ScheduleEvent event;
-  final VoidCallback onTap;
+
+  /// Null in the settings preview, where a block is a sample, not a control.
+  final VoidCallback? onTap;
 
   @override
   Widget build(BuildContext context) {

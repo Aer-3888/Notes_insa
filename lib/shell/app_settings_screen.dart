@@ -7,6 +7,7 @@ import '../modules/grades/grades_provider.dart';
 import '../modules/grades/grades_settings_screen.dart';
 import '../modules/grades/raw_json_viewer_screen.dart';
 import '../modules/schedule/group_picker_screen.dart';
+import '../modules/schedule/schedule_colors_screen.dart';
 import '../providers/auth_providers.dart';
 import '../providers/package_info_provider.dart';
 import '../providers/theme_mode_provider.dart';
@@ -41,6 +42,17 @@ class AppSettingsScreen extends ConsumerWidget {
             onTap: () => Navigator.of(context).push(
               MaterialPageRoute<void>(
                 builder: (_) => const GroupPickerScreen(),
+              ),
+            ),
+          ),
+          ListTile(
+            leading: const Icon(Icons.palette_outlined),
+            title: const Text('Couleurs des cours'),
+            subtitle: const Text('Choisir les teintes de l’emploi du temps'),
+            trailing: const Icon(Icons.chevron_right),
+            onTap: () => Navigator.of(context).push(
+              MaterialPageRoute<void>(
+                builder: (_) => const ScheduleColorsScreen(),
               ),
             ),
           ),
