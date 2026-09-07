@@ -251,6 +251,7 @@ class _ScheduleScreenState extends ConsumerState<ScheduleScreen> {
                   ScheduleViewMode.troisJours ||
                   ScheduleViewMode.semaine => _GridView(
                     entry: entry,
+                    mode: mode,
                     day: _day,
                     index: index,
                     days: _daysFor(mode),
@@ -258,11 +259,15 @@ class _ScheduleScreenState extends ConsumerState<ScheduleScreen> {
                     onDayTap: _goTo,
                     onShiftPeriod: _shiftPeriod,
                     onTapEvent: (e) => showEventSheet(context, e),
+                    rangeStart: _rangeStart,
+                    rangeEnd: _rangeEnd,
                   ),
-                  ScheduleViewMode.mois => MonthGrid(
+                  ScheduleViewMode.mois => _MonthView(
+                    day: _day,
                     index: index,
-                    month: _day,
-                    today: campusNow(),
+                    rangeStart: _rangeStart,
+                    rangeEnd: _rangeEnd,
+                    onPageChanged: _goTo,
                     onPickDay: _openDay,
                   ),
                   _ => _DayView(
@@ -356,6 +361,7 @@ class _DayView extends StatelessWidget {
 class _GridView extends StatelessWidget {
   const _GridView({
     required this.entry,
+    required this.mode,
     required this.day,
     required this.index,
     required this.days,
@@ -363,9 +369,12 @@ class _GridView extends StatelessWidget {
     required this.onDayTap,
     required this.onShiftPeriod,
     required this.onTapEvent,
+    required this.rangeStart,
+    required this.rangeEnd,
   });
 
   final CachedEntry<List<ScheduleEvent>> entry;
+  final ScheduleViewMode mode;
   final DateTime day;
   final ScheduleDayIndex index;
   final List<DateTime> days;
@@ -373,6 +382,8 @@ class _GridView extends StatelessWidget {
   final ValueChanged<DateTime> onDayTap;
   final ValueChanged<int> onShiftPeriod;
   final ValueChanged<ScheduleEvent> onTapEvent;
+  final DateTime rangeStart;
+  final DateTime rangeEnd;
 
   @override
   Widget build(BuildContext context) {
@@ -387,15 +398,16 @@ class _GridView extends StatelessWidget {
             onDayTap: onDayTap,
           ),
         Expanded(
-          child: GestureDetector(
-            onHorizontalDragEnd: (details) {
-              final velocity = details.primaryVelocity ?? 0;
-              if (velocity.abs() < 200) return;
-              onShiftPeriod(velocity < 0 ? 1 : -1);
-            },
-            child: ScheduleGrid(
+          child: _PeriodPager(
+            key: ValueKey<ScheduleViewMode>(mode),
+            mode: mode,
+            day: day,
+            rangeStart: rangeStart,
+            rangeEnd: rangeEnd,
+            onPageChanged: onDayTap,
+            itemBuilder: (context, pageDay) => ScheduleGrid(
               index: index,
-              days: days,
+              days: _daysFor(pageDay),
               now: campusNow(),
               onTapEvent: onTapEvent,
             ),
@@ -412,5 +424,185 @@ class _GridView extends StatelessWidget {
         ),
       ],
     );
+  }
+
+  List<DateTime> _daysFor(DateTime pageDay) {
+    final start = mode == ScheduleViewMode.semaine
+        ? DateTime(
+            pageDay.year,
+            pageDay.month,
+            pageDay.day - (pageDay.weekday - 1),
+          )
+        : pageDay;
+    return <DateTime>[
+      for (var i = 0; i < mode.dayColumns; i++)
+        DateTime(start.year, start.month, start.day + i),
+    ];
+  }
+}
+
+class _MonthView extends StatelessWidget {
+  const _MonthView({
+    required this.day,
+    required this.index,
+    required this.rangeStart,
+    required this.rangeEnd,
+    required this.onPageChanged,
+    required this.onPickDay,
+  });
+
+  final DateTime day;
+  final ScheduleDayIndex index;
+  final DateTime rangeStart;
+  final DateTime rangeEnd;
+  final ValueChanged<DateTime> onPageChanged;
+  final ValueChanged<DateTime> onPickDay;
+
+  @override
+  Widget build(BuildContext context) => _PeriodPager(
+    key: const ValueKey<ScheduleViewMode>(ScheduleViewMode.mois),
+    mode: ScheduleViewMode.mois,
+    day: day,
+    rangeStart: rangeStart,
+    rangeEnd: rangeEnd,
+    onPageChanged: onPageChanged,
+    itemBuilder: (context, pageDay) => MonthGrid(
+      index: index,
+      month: pageDay,
+      today: campusNow(),
+      onPickDay: onPickDay,
+    ),
+  );
+}
+
+/// A real pager lets the next period follow a drag instead of appearing only
+/// once a fling ends. The same controller also gives header arrows that motion.
+class _PeriodPager extends StatefulWidget {
+  const _PeriodPager({
+    required this.mode,
+    required this.day,
+    required this.rangeStart,
+    required this.rangeEnd,
+    required this.onPageChanged,
+    required this.itemBuilder,
+    super.key,
+  });
+
+  final ScheduleViewMode mode;
+  final DateTime day;
+  final DateTime rangeStart;
+  final DateTime rangeEnd;
+  final ValueChanged<DateTime> onPageChanged;
+  final Widget Function(BuildContext context, DateTime day) itemBuilder;
+
+  @override
+  State<_PeriodPager> createState() => _PeriodPagerState();
+}
+
+class _PeriodPagerState extends State<_PeriodPager> {
+  late _PeriodPageWindow _window;
+  late PageController _controller;
+
+  @override
+  void initState() {
+    super.initState();
+    _window = _PeriodPageWindow(
+      mode: widget.mode,
+      anchor: widget.day,
+      rangeStart: widget.rangeStart,
+      rangeEnd: widget.rangeEnd,
+    );
+    _controller = PageController(initialPage: _window.indexOf(widget.day));
+  }
+
+  @override
+  void didUpdateWidget(covariant _PeriodPager oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    final target = _window.indexOf(widget.day);
+    final current = _controller.hasClients
+        ? _controller.page?.round()
+        : _controller.initialPage;
+    if (current == target) return;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted || !_controller.hasClients) return;
+      unawaited(
+        _controller.animateToPage(
+          target,
+          duration: CampusMotion.of(context, CampusMotion.enter),
+          curve: CampusMotion.standard,
+        ),
+      );
+    });
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) => PageView.builder(
+    controller: _controller,
+    itemCount: _window.length,
+    onPageChanged: (index) => widget.onPageChanged(_window.dayAt(index)),
+    itemBuilder: (context, index) =>
+        widget.itemBuilder(context, _window.dayAt(index)),
+  );
+}
+
+class _PeriodPageWindow {
+  _PeriodPageWindow({
+    required this.mode,
+    required this.anchor,
+    required DateTime rangeStart,
+    required DateTime rangeEnd,
+  }) : _firstOffset = _firstOffsetFor(mode, anchor, rangeStart),
+       _lastOffset = _lastOffsetFor(mode, anchor, rangeEnd);
+
+  final ScheduleViewMode mode;
+  final DateTime anchor;
+  final int _firstOffset;
+  final int _lastOffset;
+
+  int get length => _lastOffset - _firstOffset + 1;
+
+  DateTime dayAt(int index) => shiftPeriod(mode, anchor, _firstOffset + index);
+
+  int indexOf(DateTime day) {
+    final offset = switch (mode) {
+      ScheduleViewMode.mois =>
+        (day.year - anchor.year) * 12 + day.month - anchor.month,
+      ScheduleViewMode.jour => day.difference(anchor).inDays,
+      ScheduleViewMode.troisJours =>
+        day.difference(anchor).inDays ~/ ScheduleViewMode.troisJours.dayColumns,
+      ScheduleViewMode.semaine => day.difference(anchor).inDays ~/ 7,
+      ScheduleViewMode.liste => 0,
+    };
+    return offset.clamp(_firstOffset, _lastOffset) - _firstOffset;
+  }
+
+  static int _firstOffsetFor(
+    ScheduleViewMode mode,
+    DateTime anchor,
+    DateTime rangeStart,
+  ) {
+    var offset = 0;
+    while (!shiftPeriod(mode, anchor, offset - 1).isBefore(rangeStart)) {
+      offset--;
+    }
+    return offset;
+  }
+
+  static int _lastOffsetFor(
+    ScheduleViewMode mode,
+    DateTime anchor,
+    DateTime rangeEnd,
+  ) {
+    var offset = 0;
+    while (!shiftPeriod(mode, anchor, offset + 1).isAfter(rangeEnd)) {
+      offset++;
+    }
+    return offset;
   }
 }

@@ -5,6 +5,7 @@ import 'package:notes_insa/core/module_cache.dart';
 import 'package:notes_insa/core/time.dart';
 import 'package:notes_insa/modules/schedule/schedule_event.dart';
 import 'package:notes_insa/modules/schedule/schedule_grid.dart';
+import 'package:notes_insa/modules/schedule/month_grid.dart';
 import 'package:notes_insa/modules/schedule/schedule_provider.dart';
 import 'package:notes_insa/modules/schedule/schedule_screen.dart';
 import 'package:notes_insa/modules/schedule/schedule_view_mode.dart';
@@ -76,6 +77,27 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(shownDays(tester).first.difference(before).inDays, 3);
+  });
+
+  testWidgets('swiping moves three days in 3 jours', (tester) async {
+    await pump(tester, ScheduleViewMode.troisJours);
+    final before = shownDays(tester).first;
+
+    await tester.fling(find.byType(ScheduleGrid), const Offset(-300, 0), 1000);
+    await tester.pumpAndSettle();
+
+    expect(shownDays(tester).first.difference(before).inDays, 3);
+  });
+
+  testWidgets('swiping changes the month', (tester) async {
+    await pump(tester, ScheduleViewMode.mois);
+    final before = tester.widget<MonthGrid>(find.byType(MonthGrid)).month;
+
+    await tester.fling(find.byType(MonthGrid), const Offset(-300, 0), 1000);
+    await tester.pumpAndSettle();
+
+    final after = tester.widget<MonthGrid>(find.byType(MonthGrid)).month;
+    expect((after.year - before.year) * 12 + after.month - before.month, 1);
   });
 
   testWidgets('the way back to today appears once it is off screen', (
