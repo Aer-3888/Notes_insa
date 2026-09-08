@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../core/campus_navigation.dart';
 import '../../theme/campus_context.dart';
 import '../../theme/tokens.dart';
 import '../campus_map/campus_places.dart';
@@ -102,12 +103,20 @@ class _EventSheet extends ConsumerWidget {
                 if (room.isResolved)
                   FilledButton.tonalIcon(
                     onPressed: () {
+                      final navigation = CampusNavigationScope.maybeOf(context);
                       final navigator = Navigator.of(context);
                       navigator.pop();
+                      final buildingCode = room.buildingCode!;
+                      if (navigation != null) {
+                        navigation.onOpenMap(buildingCode);
+                        return;
+                      }
                       navigator.push(
                         MaterialPageRoute<void>(
-                          builder: (_) =>
-                              MapScreen(initialQuery: room.mapQuery),
+                          builder: (_) => MapScreen(
+                            initialQuery: room.mapQuery,
+                            initialBuildingCode: buildingCode,
+                          ),
                         ),
                       );
                     },

@@ -1,0 +1,5 @@
+tags:
+  # Writes build/campus_preview.png for eyeballing the map. Excluded from the
+  # default run: it hangs the harness after rendering.
+  preview:
+    skip: 'run explicitly with --tags preview'

@@ -5,6 +5,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../core/auth/cas_guard.dart';
+import '../core/campus_navigation.dart';
 import '../core/auth/lock_controller.dart';
 import '../core/auth/pending_deep_link_controller.dart';
 import '../core/auth/splash_screens.dart';
@@ -41,6 +42,7 @@ class _CampusShellState extends ConsumerState<CampusShell>
   static const int _settingsIndex = 4;
 
   int _index = _homeIndex;
+  final CampusMapFocus _mapFocus = CampusMapFocus();
 
   /// Destinations that have been opened at least once. IndexedStack builds
   /// every child eagerly, which would construct the grades dashboard for a user
@@ -166,6 +168,7 @@ class _CampusShellState extends ConsumerState<CampusShell>
     _deepLinks?.dispose();
     _routeChannel.setMethodCallHandler(null);
     WidgetsBinding.instance.removeObserver(this);
+    _mapFocus.dispose();
     super.dispose();
   }
 
@@ -220,6 +223,12 @@ class _CampusShellState extends ConsumerState<CampusShell>
       );
       return;
     }
+  }
+
+  void _openMap(String buildingCode) {
+    _mapFocus.request(buildingCode);
+    _tabNavigators[3].currentState?.popUntil((route) => route.isFirst);
+    _select(3);
   }
 
   /// A module's screen, behind the lock when it needs an account.
@@ -281,24 +290,28 @@ class _CampusShellState extends ConsumerState<CampusShell>
         }
         SystemNavigator.pop();
       },
-      child: Scaffold(
-        body: IndexedStack(
-          index: _index,
-          children: <Widget>[
-            for (var i = 0; i < _destinations.length; i++) _destinationFor(i),
-          ],
-        ),
-        bottomNavigationBar: NavigationBar(
-          selectedIndex: _index,
-          onDestinationSelected: _select,
-          destinations: <NavigationDestination>[
-            for (final d in _destinations)
-              NavigationDestination(
-                icon: Icon(d.icon),
-                selectedIcon: Icon(d.selectedIcon ?? d.icon),
-                label: d.label,
-              ),
-          ],
+      child: CampusNavigationScope(
+        mapFocus: _mapFocus,
+        onOpenMap: _openMap,
+        child: Scaffold(
+          body: IndexedStack(
+            index: _index,
+            children: <Widget>[
+              for (var i = 0; i < _destinations.length; i++) _destinationFor(i),
+            ],
+          ),
+          bottomNavigationBar: NavigationBar(
+            selectedIndex: _index,
+            onDestinationSelected: _select,
+            destinations: <NavigationDestination>[
+              for (final d in _destinations)
+                NavigationDestination(
+                  icon: Icon(d.icon),
+                  selectedIcon: Icon(d.selectedIcon ?? d.icon),
+                  label: d.label,
+                ),
+            ],
+          ),
         ),
       ),
     );

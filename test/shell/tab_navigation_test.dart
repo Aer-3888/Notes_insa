@@ -5,6 +5,11 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:notes_insa/core/module_cache.dart';
 import 'package:notes_insa/core/time.dart';
+import 'package:notes_insa/modules/campus_map/campus_geo.dart';
+import 'package:notes_insa/modules/campus_map/campus_places.dart';
+import 'package:notes_insa/modules/campus_map/map_painter.dart';
+import 'package:notes_insa/modules/schedule/event_sheet.dart';
+import 'package:notes_insa/modules/schedule/schedule_event.dart';
 import 'package:notes_insa/modules/weather/weather_model.dart';
 import 'package:notes_insa/modules/weather/weather_provider.dart';
 import 'package:notes_insa/modules/schedule/schedule_focus.dart';
@@ -15,7 +20,11 @@ import 'package:notes_insa/theme/campus_theme.dart';
 void main() {
   setUpAll(initCampusTime);
 
-  Future<void> pumpShell(WidgetTester tester) async {
+  Future<void> pumpShell(
+    WidgetTester tester, {
+    CampusGeo? campusGeo,
+    List<CampusPlace>? campusPlaces,
+  }) async {
     tester.view.physicalSize = const Size(1200, 2400);
     tester.view.devicePixelRatio = 1.0;
     addTearDown(tester.view.reset);
@@ -31,6 +40,10 @@ void main() {
               ),
             ),
           ),
+          if (campusGeo != null)
+            campusGeoProvider.overrideWith((ref) async => campusGeo),
+          if (campusPlaces != null)
+            campusPlacesProvider.overrideWith((ref) async => campusPlaces),
         ],
         child: MaterialApp(
           theme: campusTheme(Brightness.light),
@@ -74,11 +87,88 @@ void main() {
     await tester.pumpAndSettle();
   }
 
+  final mapGeo = CampusGeo(
+    originLat: 48.122,
+    originLon: -1.635,
+    mPerDegLat: 111320,
+    mPerDegLon: 74000,
+    buildings: [
+      CampusBuilding(
+        code: '3',
+        name: 'Bâtiment 3',
+        levels: null,
+        ring: const [
+          Offset(0, 0),
+          Offset(20, 0),
+          Offset(20, 20),
+          Offset(0, 20),
+          Offset(0, 0),
+        ],
+      ),
+    ],
+    entrances: const [],
+    graph: const CampusGraph(nodes: [], edges: []),
+    unmapped: const {},
+    attribution: '© OpenStreetMap contributors, ODbL',
+  );
+
+  const mapPlaces = <CampusPlace>[
+    CampusPlace(code: '3', name: 'Amphi C', kind: PlaceKind.amphi),
+  ];
+
+  final mapEvent = ScheduleEvent(
+    title: 'Algèbre',
+    start: DateTime(2026, 9, 7, 8),
+    end: DateTime(2026, 9, 7, 10),
+    groups: const [],
+    teachers: const [],
+    room: 'Amphi C (V)',
+  );
+
+  Future<void> openEventSheet(WidgetTester tester) async {
+    unawaited(
+      tabNavigator(tester).push(
+        MaterialPageRoute<void>(
+          builder: (context) => Scaffold(
+            body: Center(
+              child: TextButton(
+                onPressed: () => showEventSheet(context, mapEvent),
+                child: const Text('ouvrir le cours'),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('ouvrir le cours'));
+    await tester.pumpAndSettle();
+  }
+
   testWidgets('a page opened from a tab keeps the bottom bar', (tester) async {
     await pumpShell(tester);
     await openDetail(tester);
     expect(find.text('détail'), findsOneWidget);
     expect(find.byType(NavigationBar), findsOneWidget);
+  });
+
+  testWidgets('the schedule map action selects and focuses the map tab', (
+    tester,
+  ) async {
+    await pumpShell(tester, campusGeo: mapGeo, campusPlaces: mapPlaces);
+    await openEventSheet(tester);
+
+    await tester.tap(find.text('Voir sur la carte'));
+    await tester.pumpAndSettle();
+
+    expect(selectedIndex(tester), 3);
+    expect(find.text('Bâtiment 3'), findsOneWidget);
+    final painter = tester
+        .widgetList<CustomPaint>(find.byType(CustomPaint))
+        .map((paint) => paint.painter)
+        .whereType<CampusMapPainter>()
+        .single;
+    expect(painter.selected, '3');
   });
 
   testWidgets('system back closes the page before leaving the tab', (

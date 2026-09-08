@@ -99,6 +99,7 @@ flutter:
   assets:
     - assets/data/ade_groups.json
     - assets/data/campus_places.json
+    - assets/data/campus_geo.json
 
   fonts:
     - family: PublicSans
