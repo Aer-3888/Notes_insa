@@ -162,7 +162,7 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(selectedIndex(tester), 3);
-    expect(find.text('Bâtiment 3'), findsOneWidget);
+    expect(find.text('Bâtiment 3'), findsNothing);
     final painter = tester
         .widgetList<CustomPaint>(find.byType(CustomPaint))
         .map((paint) => paint.painter)

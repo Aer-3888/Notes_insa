@@ -27,6 +27,11 @@ Future<void> showEventSheet(BuildContext context, ScheduleEvent event) =>
       context: context,
       showDragHandle: true,
       isScrollControlled: true,
+      // Material 3 otherwise constrains modal sheets to 640 dp, leaving a
+      // visible gap on either side on wider phones and tablets.
+      constraints: BoxConstraints.tightFor(
+        width: MediaQuery.sizeOf(context).width,
+      ),
       builder: (_) => _EventSheet(event: event),
     );
 
@@ -43,101 +48,106 @@ class _EventSheet extends ConsumerWidget {
     final hasRoom = event.room != null && event.room!.isNotEmpty;
     final title = event.module ?? event.title;
 
-    return SafeArea(
-      child: Padding(
-        padding: const EdgeInsets.fromLTRB(
-          CampusSpacing.gutter,
-          0,
-          CampusSpacing.gutter,
-          CampusSpacing.x6,
-        ),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(title, style: context.text.headlineMedium),
-            // The summary sometimes carries a group suffix the module name
-            // drops, so it is worth showing when the two differ.
-            if (event.module != null && event.title != event.module)
-              Text(
-                event.title,
-                style: context.text.bodyMedium?.copyWith(
-                  color: context.scheme.onSurfaceVariant,
-                ),
-              ),
-            const SizedBox(height: CampusSpacing.x4),
-            Text(
-              '${_hm(event.start)} à ${_hm(event.end)} · ${_duration(event.duration)}',
-              style: context.text.bodyLarge,
-            ),
-            if (hasRoom) ...[
-              const SizedBox(height: CampusSpacing.x2),
-              Text(room.raw, style: context.text.bodyLarge),
-              if (room.isResolved)
+    return SizedBox(
+      width: double.infinity,
+      child: SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(
+            CampusSpacing.gutter,
+            0,
+            CampusSpacing.gutter,
+            CampusSpacing.x6,
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(title, style: context.text.headlineMedium),
+              // The summary sometimes carries a group suffix the module name
+              // drops, so it is worth showing when the two differ.
+              if (event.module != null && event.title != event.module)
                 Text(
-                  'bâtiment ${room.buildingCode}',
+                  event.title,
                   style: context.text.bodyMedium?.copyWith(
                     color: context.scheme.onSurfaceVariant,
                   ),
                 ),
-            ],
-            if (event.teachers.isNotEmpty) ...[
               const SizedBox(height: CampusSpacing.x4),
-              for (final teacher in event.teachers)
-                Text(teacher, style: context.text.bodyMedium),
-            ],
-            if (event.groups.isNotEmpty) ...[
-              const SizedBox(height: CampusSpacing.x2),
               Text(
-                event.groups.join(', '),
-                style: context.text.bodyMedium?.copyWith(
-                  color: context.scheme.onSurfaceVariant,
-                ),
+                '${_hm(event.start)} à ${_hm(event.end)} · ${_duration(event.duration)}',
+                style: context.text.bodyLarge,
               ),
-            ],
-            const SizedBox(height: CampusSpacing.x6),
-            Wrap(
-              spacing: CampusSpacing.x2,
-              runSpacing: CampusSpacing.x2,
-              children: [
+              if (hasRoom) ...[
+                const SizedBox(height: CampusSpacing.x2),
+                Text(room.raw, style: context.text.bodyLarge),
                 if (room.isResolved)
-                  FilledButton.tonalIcon(
-                    onPressed: () {
-                      final navigation = CampusNavigationScope.maybeOf(context);
-                      final navigator = Navigator.of(context);
-                      navigator.pop();
-                      final buildingCode = room.buildingCode!;
-                      if (navigation != null) {
-                        navigation.onOpenMap(buildingCode);
-                        return;
-                      }
-                      navigator.push(
-                        MaterialPageRoute<void>(
-                          builder: (_) => MapScreen(
-                            initialQuery: room.mapQuery,
-                            initialBuildingCode: buildingCode,
-                          ),
-                        ),
-                      );
-                    },
-                    icon: const Icon(Icons.place_outlined),
-                    label: const Text('Voir sur la carte'),
-                  ),
-                if (hasRoom)
-                  TextButton.icon(
-                    onPressed: () async {
-                      final messenger = ScaffoldMessenger.of(context);
-                      await Clipboard.setData(ClipboardData(text: room.raw));
-                      messenger.showSnackBar(
-                        const SnackBar(content: Text('Salle copiée')),
-                      );
-                    },
-                    icon: const Icon(Icons.copy_outlined),
-                    label: const Text('Copier la salle'),
+                  Text(
+                    'bâtiment ${room.buildingCode}',
+                    style: context.text.bodyMedium?.copyWith(
+                      color: context.scheme.onSurfaceVariant,
+                    ),
                   ),
               ],
-            ),
-          ],
+              if (event.teachers.isNotEmpty) ...[
+                const SizedBox(height: CampusSpacing.x4),
+                for (final teacher in event.teachers)
+                  Text(teacher, style: context.text.bodyMedium),
+              ],
+              if (event.groups.isNotEmpty) ...[
+                const SizedBox(height: CampusSpacing.x2),
+                Text(
+                  event.groups.join(', '),
+                  style: context.text.bodyMedium?.copyWith(
+                    color: context.scheme.onSurfaceVariant,
+                  ),
+                ),
+              ],
+              const SizedBox(height: CampusSpacing.x6),
+              Wrap(
+                spacing: CampusSpacing.x2,
+                runSpacing: CampusSpacing.x2,
+                children: [
+                  if (room.isResolved)
+                    FilledButton.tonalIcon(
+                      onPressed: () {
+                        final navigation = CampusNavigationScope.maybeOf(
+                          context,
+                        );
+                        final navigator = Navigator.of(context);
+                        navigator.pop();
+                        final buildingCode = room.buildingCode!;
+                        if (navigation != null) {
+                          navigation.onOpenMap(buildingCode);
+                          return;
+                        }
+                        navigator.push(
+                          MaterialPageRoute<void>(
+                            builder: (_) => MapScreen(
+                              initialQuery: room.mapQuery,
+                              initialBuildingCode: buildingCode,
+                            ),
+                          ),
+                        );
+                      },
+                      icon: const Icon(Icons.place_outlined),
+                      label: const Text('Voir sur la carte'),
+                    ),
+                  if (hasRoom)
+                    TextButton.icon(
+                      onPressed: () async {
+                        final messenger = ScaffoldMessenger.of(context);
+                        await Clipboard.setData(ClipboardData(text: room.raw));
+                        messenger.showSnackBar(
+                          const SnackBar(content: Text('Salle copiée')),
+                        );
+                      },
+                      icon: const Icon(Icons.copy_outlined),
+                      label: const Text('Copier la salle'),
+                    ),
+                ],
+              ),
+            ],
+          ),
         ),
       ),
     );

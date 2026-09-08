@@ -61,6 +61,23 @@ void main() {
       );
     });
 
+    testWidgets('fills its grid allocation without side gutters', (
+      tester,
+    ) async {
+      await pump(
+        tester,
+        GridBlock(event: event('Systèmes d’exploitation'), onTap: () {}),
+      );
+      final material = find.descendant(
+        of: find.byType(GridBlock),
+        matching: find.byType(Material),
+      );
+      expect(
+        tester.getSize(material).width,
+        tester.getSize(find.byType(GridBlock)).width,
+      );
+    });
+
     testWidgets('two sessions of one module share a fill', (tester) async {
       await pump(
         tester,

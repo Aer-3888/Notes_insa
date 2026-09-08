@@ -110,7 +110,7 @@ class _MapScreenState extends ConsumerState<MapScreen> {
     if (hit?.code != null) _showPlaces(hit!.code!, geo);
   }
 
-  void _focus(String code, CampusGeo geo) {
+  void _focus(String code, CampusGeo geo, {bool showPlaces = true}) {
     final b = geo.byCode(code);
     setState(() {
       _selected = code;
@@ -119,12 +119,12 @@ class _MapScreenState extends ConsumerState<MapScreen> {
       }
     });
     FocusScope.of(context).unfocus();
-    _showPlaces(code, geo);
+    if (showPlaces) _showPlaces(code, geo);
   }
 
   void _queueFocus(String code, CampusGeo geo) {
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (mounted) _focus(code, geo);
+      if (mounted) _focus(code, geo, showPlaces: false);
     });
   }
 

@@ -6,6 +6,7 @@ import 'package:notes_insa/modules/campus_map/campus_places.dart';
 import 'package:notes_insa/modules/schedule/event_sheet.dart';
 import 'package:notes_insa/modules/schedule/schedule_event.dart';
 import 'package:notes_insa/theme/campus_theme.dart';
+import 'package:notes_insa/theme/tokens.dart';
 
 ScheduleEvent _event({String? room}) => ScheduleEvent(
   title: 'Algèbre 3 - GHIJKL',
@@ -21,8 +22,12 @@ const _places = <CampusPlace>[
   CampusPlace(code: '3', name: 'Amphi C', kind: PlaceKind.amphi),
 ];
 
-Future<void> _open(WidgetTester tester, ScheduleEvent event) async {
-  tester.view.physicalSize = const Size(384, 800);
+Future<void> _open(
+  WidgetTester tester,
+  ScheduleEvent event, {
+  Size size = const Size(384, 800),
+}) async {
+  tester.view.physicalSize = size;
   tester.view.devicePixelRatio = 1.0;
   addTearDown(tester.view.reset);
   await tester.pumpWidget(
@@ -75,6 +80,16 @@ void main() {
     expect(find.text('CAMAR-EDDINE MOHAMED'), findsOneWidget);
     expect(find.text('LEY OLIVIER'), findsOneWidget);
     expect(find.textContaining('S3-STPI-G'), findsWidgets);
+  });
+
+  testWidgets('the sheet uses the full available width', (tester) async {
+    await _open(
+      tester,
+      _event(room: 'Amphi C (V)'),
+      size: const Size(900, 800),
+    );
+    expect(tester.getSize(find.byType(BottomSheet)).width, 900);
+    expect(tester.getTopLeft(find.text('Algebre 3')).dx, CampusSpacing.gutter);
   });
 
   testWidgets('a resolved room offers the map action', (tester) async {

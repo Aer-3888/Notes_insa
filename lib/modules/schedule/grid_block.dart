@@ -43,53 +43,50 @@ class GridBlock extends StatelessWidget {
       ModulePalette.normalize(event.module ?? event.title),
       fallback: campus.surfaceContainerHighest,
     );
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 1),
-      child: Material(
-        color: tint,
+    return Material(
+      color: tint,
+      borderRadius: BorderRadius.circular(CampusRadii.bar),
+      child: InkWell(
+        onTap: onTap,
         borderRadius: BorderRadius.circular(CampusRadii.bar),
-        child: InkWell(
-          onTap: onTap,
-          borderRadius: BorderRadius.circular(CampusRadii.bar),
-          child: LayoutBuilder(
-            builder: (context, constraints) {
-              final density = blockLabelDensity(
-                width: constraints.maxWidth,
-                height: constraints.maxHeight,
-              );
-              if (density == BlockLabelDensity.none) {
-                return const SizedBox.expand();
-              }
-              return Padding(
-                padding: const EdgeInsets.all(CampusSpacing.x1),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Flexible(
-                      child: Text(
-                        event.module ?? event.title,
-                        style: context.text.labelMedium?.copyWith(
-                          color: campus.onModuleBlockTint,
-                        ),
-                        maxLines: 2,
-                        overflow: TextOverflow.ellipsis,
+        child: LayoutBuilder(
+          builder: (context, constraints) {
+            final density = blockLabelDensity(
+              width: constraints.maxWidth,
+              height: constraints.maxHeight,
+            );
+            if (density == BlockLabelDensity.none) {
+              return const SizedBox.expand();
+            }
+            return Padding(
+              padding: const EdgeInsets.all(CampusSpacing.x1),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Flexible(
+                    child: Text(
+                      event.module ?? event.title,
+                      style: context.text.labelMedium?.copyWith(
+                        color: campus.onModuleBlockTint,
                       ),
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
                     ),
-                    if (density == BlockLabelDensity.moduleAndRoom &&
-                        event.room != null)
-                      Text(
-                        event.room!,
-                        style: context.text.labelMedium?.copyWith(
-                          color: context.scheme.onSurfaceVariant,
-                        ),
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
+                  ),
+                  if (density == BlockLabelDensity.moduleAndRoom &&
+                      event.room != null)
+                    Text(
+                      event.room!,
+                      style: context.text.labelMedium?.copyWith(
+                        color: context.scheme.onSurfaceVariant,
                       ),
-                  ],
-                ),
-              );
-            },
-          ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                ],
+              ),
+            );
+          },
         ),
       ),
     );
