@@ -4,6 +4,7 @@ import io.flutter.embedding.android.FlutterFragmentActivity
 import io.flutter.embedding.engine.FlutterEngine
 import io.flutter.plugin.common.MethodChannel
 import android.content.Intent
+import android.hardware.GeomagneticField
 import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
@@ -13,6 +14,7 @@ import kotlin.concurrent.withLock
 import mobinsapi.Mobinsapi
 
 private const val CHANNEL = "com.aer.notes_insa/grades"
+private const val MAP_CHANNEL = "com.aer.notes_insa/campus_map"
 private const val TAG = "MainActivity"
 
 // Deep-link plumbing for background notifications. GradesBackgroundWorker sets
@@ -27,6 +29,10 @@ class MainActivity : FlutterFragmentActivity() {
     // Set once the Flutter channel is wired, so warm-start intents (onNewIntent)
     // can push the tapped route straight to Flutter.
     private var channel: MethodChannel? = null
+
+    // The map draws true-north geometry, so the Android compass (magnetic)
+    // needs the local declination. iOS resolves true north itself.
+    private var mapChannel: MethodChannel? = null
 
     // Holds a cold-start route (read in onCreate, before the engine is ready)
     // until Flutter pulls it via "ConsumeNotificationRoute".
@@ -68,6 +74,32 @@ class MainActivity : FlutterFragmentActivity() {
 
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
         super.configureFlutterEngine(flutterEngine)
+
+        mapChannel = MethodChannel(
+            flutterEngine.dartExecutor.binaryMessenger,
+            MAP_CHANNEL,
+        )
+        mapChannel!!.setMethodCallHandler { call, result ->
+            when (call.method) {
+                "MagneticDeclination" -> {
+                    val latitude = call.argument<Double>("latitude")
+                    val longitude = call.argument<Double>("longitude")
+                    if (latitude == null || longitude == null) {
+                        result.error("ERR_INVALID_ARGS", "latitude or longitude missing", null)
+                        return@setMethodCallHandler
+                    }
+                    val field = GeomagneticField(
+                        latitude.toFloat(),
+                        longitude.toFloat(),
+                        0f,
+                        System.currentTimeMillis(),
+                    )
+                    result.success(field.declination.toDouble())
+                }
+
+                else -> result.notImplemented()
+            }
+        }
 
         channel = MethodChannel(
             flutterEngine.dartExecutor.binaryMessenger,

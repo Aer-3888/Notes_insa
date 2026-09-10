@@ -2,7 +2,10 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:notes_insa/modules/campus_map/campus_geo.dart';
 import 'package:notes_insa/modules/campus_map/campus_places.dart';
+import 'package:notes_insa/modules/campus_map/map_painter.dart';
+import 'package:notes_insa/modules/campus_map/map_preview.dart';
 import 'package:notes_insa/modules/schedule/event_sheet.dart';
 import 'package:notes_insa/modules/schedule/schedule_event.dart';
 import 'package:notes_insa/theme/campus_theme.dart';
@@ -22,6 +25,33 @@ const _places = <CampusPlace>[
   CampusPlace(code: '3', name: 'Amphi C', kind: PlaceKind.amphi),
 ];
 
+final _geo = CampusGeo(
+  originLat: 48.122,
+  originLon: -1.635,
+  mPerDegLat: 111320,
+  mPerDegLon: 74000,
+  buildings: <CampusBuilding>[
+    CampusBuilding(
+      code: '3',
+      name: 'Bâtiment 3',
+      levels: 2,
+      ring: const <Offset>[
+        Offset(0, 0),
+        Offset(20, 0),
+        Offset(20, 20),
+        Offset(0, 20),
+        Offset(0, 0),
+      ],
+    ),
+  ],
+  entrances: const <CampusEntrance>[
+    CampusEntrance(code: '3', kind: 'main', node: 0, p: Offset(10, 0)),
+  ],
+  graph: const CampusGraph(nodes: <Offset>[Offset(10, 0)], edges: []),
+  unmapped: const <String, String>{},
+  attribution: '© OpenStreetMap contributors, ODbL',
+);
+
 Future<void> _open(
   WidgetTester tester,
   ScheduleEvent event, {
@@ -32,7 +62,10 @@ Future<void> _open(
   addTearDown(tester.view.reset);
   await tester.pumpWidget(
     ProviderScope(
-      overrides: [campusPlacesProvider.overrideWith((ref) async => _places)],
+      overrides: [
+        campusPlacesProvider.overrideWith((ref) async => _places),
+        campusGeoProvider.overrideWith((ref) async => _geo),
+      ],
       child: MaterialApp(
         theme: campusTheme(Brightness.light),
         home: Scaffold(
@@ -95,7 +128,15 @@ void main() {
   testWidgets('a resolved room offers the map action', (tester) async {
     await _open(tester, _event(room: 'Amphi C (V)'));
     expect(find.text('Voir sur la carte'), findsOneWidget);
+    expect(find.text('Me guider'), findsOneWidget);
     expect(find.textContaining('bâtiment 3'), findsOneWidget);
+    expect(find.byType(CampusMapPreview), findsOneWidget);
+    final painter = tester
+        .widgetList<CustomPaint>(find.byType(CustomPaint))
+        .map((paint) => paint.painter)
+        .whereType<CampusMapPainter>()
+        .single;
+    expect(painter.selected, '3');
   });
 
   testWidgets('an unresolved room shows the text and no map action', (
@@ -104,6 +145,8 @@ void main() {
     await _open(tester, _event(room: '*216* (V)'));
     expect(find.text('*216* (V)'), findsOneWidget);
     expect(find.text('Voir sur la carte'), findsNothing);
+    expect(find.text('Me guider'), findsNothing);
+    expect(find.byType(CampusMapPreview), findsNothing);
   });
 
   testWidgets('an event with no room shows neither', (tester) async {

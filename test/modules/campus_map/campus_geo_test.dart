@@ -3,6 +3,7 @@ import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:notes_insa/modules/campus_map/campus_geo.dart';
+import 'package:notes_insa/modules/campus_map/campus_route.dart';
 
 /// Guards on the baked asset. `scripts/fetch_campus_geo.py` validates at bake
 /// time; these check the same promises survive parsing, so a bad re-bake fails
@@ -39,6 +40,9 @@ void main() {
       ),
       isTrue,
     );
+    final start = geo.byCode('12')!.centroid;
+    expect(routeToBuilding(geo, start, 'RU-E'), isNotNull);
+    expect(routeToBuilding(geo, start, 'RU-A'), isNotNull);
   });
 
   test('every place code has a footprint unless declared unmapped', () {

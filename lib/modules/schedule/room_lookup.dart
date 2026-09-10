@@ -30,6 +30,18 @@ class ResolvedRoom {
 /// `bat 6`, `bât. 12`, case-insensitive.
 final RegExp _building = RegExp(r'b[aâ]t\.?\s*(\d+)', caseSensitive: false);
 
+/// Location labels whose building is explicit in the official campus plan,
+/// but whose ADE spelling is shorter than the public place name.
+const Map<String, String> _verifiedAliases = <String, String>{
+  'departement stpi': '2',
+  'departement eii': '10',
+  'departement gcu': '7',
+  'departement gma': '11',
+  'departement info': '18',
+  'departement src': '6',
+  'humanites': '6',
+};
+
 ResolvedRoom resolveRoom(String? raw, List<CampusPlace> places) {
   final text = (raw ?? '').trim();
   if (text.isEmpty) return ResolvedRoom(raw: text);
@@ -46,6 +58,15 @@ ResolvedRoom resolveRoom(String? raw, List<CampusPlace> places) {
   // trailing group.
   final name = foldForSearch(text.split('(').first);
   if (name.isEmpty) return ResolvedRoom(raw: text);
+
+  final alias = _verifiedAliases[name];
+  if (alias != null) return ResolvedRoom(raw: text, buildingCode: alias);
+
+  // The INFO department has a campus-wide room prefix. The official rentrée
+  // information also writes these as "INF-016, bâtiment 18".
+  if (name.startsWith('inf-')) {
+    return ResolvedRoom(raw: text, buildingCode: '18');
+  }
 
   for (final place in places) {
     if (foldForSearch(place.name) == name) {

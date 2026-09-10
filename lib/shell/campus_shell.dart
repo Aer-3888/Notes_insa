@@ -226,8 +226,8 @@ class _CampusShellState extends ConsumerState<CampusShell>
     }
   }
 
-  void _openMap(String buildingCode) {
-    _mapFocus.request(buildingCode);
+  void _openMap(String buildingCode, {bool startGuidance = false}) {
+    _mapFocus.request(buildingCode, startGuidance: startGuidance);
     _tabNavigators[3].currentState?.popUntil((route) => route.isFirst);
     _select(3);
   }
@@ -300,8 +300,10 @@ class _CampusShellState extends ConsumerState<CampusShell>
             body: IndexedStack(
               index: _index,
               children: <Widget>[
+                // IndexedStack keeps every visited tab alive, so a hidden one
+                // would keep animating and keep its sensors running.
                 for (var i = 0; i < _destinations.length; i++)
-                  _destinationFor(i),
+                  TickerMode(enabled: i == _index, child: _destinationFor(i)),
               ],
             ),
             bottomNavigationBar: NavigationBar(

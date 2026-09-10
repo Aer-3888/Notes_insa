@@ -62,6 +62,15 @@ void main() {
     expect(resolveRoom('AMPHI ANDRE BONNIN (V)', _places).buildingCode, '5');
   });
 
+  test('verified department aliases resolve without a fuzzy match', () {
+    expect(resolveRoom('Département INFO', _places).buildingCode, '18');
+    expect(resolveRoom('HUMANITES', _places).buildingCode, '6');
+  });
+
+  test('the official INFO room prefix resolves to building 18', () {
+    expect(resolveRoom('INF-016 (TD INFO) (VPI)', _places).buildingCode, '18');
+  });
+
   test('coverage over the real fixture rooms is 5 of 11', () {
     // Locks the number in the spec. If the places data grows, this test is
     // where the improvement gets recorded rather than silently drifting.

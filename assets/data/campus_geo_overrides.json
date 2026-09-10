@@ -1,0 +1,11 @@
+{
+  "_note": "Hand-maintained corrections applied on top of the OSM extraction by scripts/fetch_campus_geo.py.",
+
+  "levels": { "10": 2, "13": 4, "14": 4, "15": 4, "16": 4 },
+
+  "unmapped": {
+    "8": "Plateau d'hebergement informatique: no footprint in OSM and not identifiable on the official plan. Likely a technical floor inside another building rather than a standalone structure. Needs someone on site to confirm before a footprint is drawn."
+  },
+
+  "buildings": []
+}

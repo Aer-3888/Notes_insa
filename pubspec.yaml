@@ -67,6 +67,10 @@ dependencies:
   image_picker: ^1.2.2
   # Opens the official campus plan in the browser (Carte v0)
   url_launcher: ^6.3.1
+  # Foreground-only campus positioning and walking guidance
+  geolocator: ^14.0.2
+  # Device heading for north-up / direction-up map orientation
+  flutter_compass: ^0.8.1
 
 dev_dependencies:
   flutter_test:

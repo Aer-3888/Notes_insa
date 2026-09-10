@@ -1,3 +1,5 @@
+import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
 
 import 'campus_geo.dart';
@@ -6,41 +8,69 @@ import 'campus_geo.dart';
 /// north and the projection flips it for the screen.
 @immutable
 class MapCamera {
-  const MapCamera({required this.center, required this.metersPerPixel});
+  const MapCamera({
+    required this.center,
+    required this.metersPerPixel,
+    this.bearingDegrees = 0,
+  });
 
   final Offset center;
   final double metersPerPixel;
+  final double bearingDegrees;
 
   static const double minMpp = 0.06;
   static const double maxMpp = 1.6;
 
-  MapCamera copyWith({Offset? center, double? metersPerPixel}) => MapCamera(
+  MapCamera copyWith({
+    Offset? center,
+    double? metersPerPixel,
+    double? bearingDegrees,
+  }) => MapCamera(
     center: center ?? this.center,
     metersPerPixel: (metersPerPixel ?? this.metersPerPixel).clamp(
       minMpp,
       maxMpp,
     ),
+    bearingDegrees: bearingDegrees ?? this.bearingDegrees,
   );
 
-  /// World metres to screen pixels. A similarity transform for now; the
-  /// rotation and pitch terms arrive with the 3D camera.
+  /// World metres to screen pixels. [bearingDegrees] is the world direction
+  /// displayed at the top of the device: zero keeps north at the top.
   Matrix4 matrix(Size size) {
     final s = 1.0 / metersPerPixel;
+    final bearing = bearingDegrees * math.pi / 180;
     return Matrix4.identity()
       ..translateByDouble(size.width / 2, size.height / 2, 0, 1)
+      ..rotateZ(-bearing)
       ..scaleByDouble(s, -s, 1, 1)
       ..translateByDouble(-center.dx, -center.dy, 0, 1);
   }
 
-  Offset toScreen(Offset world, Size size) => Offset(
-    size.width / 2 + (world.dx - center.dx) / metersPerPixel,
-    size.height / 2 - (world.dy - center.dy) / metersPerPixel,
-  );
+  Offset toScreen(Offset world, Size size) {
+    final bearing = bearingDegrees * math.pi / 180;
+    final east = (world.dx - center.dx) / metersPerPixel;
+    final screenNorth = -(world.dy - center.dy) / metersPerPixel;
+    final cosine = math.cos(bearing);
+    final sine = math.sin(bearing);
+    return Offset(
+      size.width / 2 + cosine * east + sine * screenNorth,
+      size.height / 2 - sine * east + cosine * screenNorth,
+    );
+  }
 
-  Offset toWorld(Offset screen, Size size) => Offset(
-    center.dx + (screen.dx - size.width / 2) * metersPerPixel,
-    center.dy - (screen.dy - size.height / 2) * metersPerPixel,
-  );
+  Offset toWorld(Offset screen, Size size) {
+    final bearing = bearingDegrees * math.pi / 180;
+    final x = screen.dx - size.width / 2;
+    final y = screen.dy - size.height / 2;
+    final cosine = math.cos(bearing);
+    final sine = math.sin(bearing);
+    final east = cosine * x - sine * y;
+    final screenNorth = sine * x + cosine * y;
+    return Offset(
+      center.dx + east * metersPerPixel,
+      center.dy - screenNorth * metersPerPixel,
+    );
+  }
 
   /// Frames [bounds] with a margin, so the site opens fully visible.
   static MapCamera fit(Rect bounds, Size size, {double padding = 48}) {
@@ -81,6 +111,9 @@ class CampusMapPalette {
   final Color buildingEdge;
   final Color selected;
   final Color selectedEdge;
+
+  /// Disc under the marker, sized to the fix the phone claims.
+  Color get locationHalo => selected.withValues(alpha: 0.14);
 }
 
 /// World-space geometry built once per dataset. Only the projection runs
@@ -140,6 +173,10 @@ class CampusMapPainter extends CustomPainter {
     required this.labelStyle,
     required this.selectedLabelStyle,
     required this.selected,
+    this.route = const <Offset>[],
+    this.currentLocation,
+    this.currentAccuracyMeters,
+    this.currentHeadingDegrees,
   });
 
   final CampusMapGeometry geometry;
@@ -149,6 +186,10 @@ class CampusMapPainter extends CustomPainter {
   final TextStyle labelStyle;
   final TextStyle selectedLabelStyle;
   final String? selected;
+  final List<Offset> route;
+  final Offset? currentLocation;
+  final double? currentHeadingDegrees;
+  final double? currentAccuracyMeters;
 
   @override
   void paint(Canvas canvas, Size size) {
@@ -190,8 +231,64 @@ class CampusMapPainter extends CustomPainter {
           ..color = isSelected ? palette.selectedEdge : palette.buildingEdge,
       );
     }
+
+    if (route.length > 1) {
+      final path = Path()..moveTo(route.first.dx, route.first.dy);
+      for (final point in route.skip(1)) {
+        path.lineTo(point.dx, point.dy);
+      }
+      canvas.drawPath(
+        path,
+        Paint()
+          ..style = PaintingStyle.stroke
+          ..strokeWidth = 4 / scale
+          ..strokeCap = StrokeCap.round
+          ..strokeJoin = StrokeJoin.round
+          ..color = palette.selected,
+      );
+    }
     canvas.restore();
+    _paintCurrentLocation(canvas, size);
     _paintLabels(canvas, size);
+  }
+
+  void _paintCurrentLocation(Canvas canvas, Size size) {
+    final location = currentLocation;
+    if (location == null) return;
+    final at = camera.toScreen(location, size);
+    final accuracy = currentAccuracyMeters;
+    if (accuracy != null && accuracy > 0) {
+      // Only once the claimed error is wider than the marker itself, so a
+      // good fix stays a dot rather than a smudge.
+      final radius = accuracy / camera.metersPerPixel;
+      if (radius > 12) {
+        canvas.drawCircle(at, radius, Paint()..color = palette.locationHalo);
+      }
+    }
+    canvas.drawCircle(at, 9, Paint()..color = palette.ground);
+    canvas.drawCircle(at, 6, Paint()..color = palette.selected);
+    canvas.drawCircle(
+      at,
+      6,
+      Paint()
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 1.5
+        ..color = palette.selectedEdge,
+    );
+    final heading = currentHeadingDegrees;
+    if (heading == null || !heading.isFinite) return;
+    final relativeHeading = (heading - camera.bearingDegrees) * math.pi / 180;
+    canvas.save();
+    canvas.translate(at.dx, at.dy);
+    canvas.rotate(relativeHeading);
+    final arrow = Path()
+      ..moveTo(0, -15)
+      ..lineTo(6, 1)
+      ..lineTo(0, -2)
+      ..lineTo(-6, 1)
+      ..close();
+    canvas.drawPath(arrow, Paint()..color = palette.selected);
+    canvas.restore();
   }
 
   void _paintLabels(Canvas canvas, Size size) {
@@ -230,7 +327,12 @@ class CampusMapPainter extends CustomPainter {
   bool shouldRepaint(CampusMapPainter old) =>
       old.camera.center != camera.center ||
       old.camera.metersPerPixel != camera.metersPerPixel ||
+      old.camera.bearingDegrees != camera.bearingDegrees ||
       old.selected != selected ||
+      old.route != route ||
+      old.currentLocation != currentLocation ||
+      old.currentAccuracyMeters != currentAccuracyMeters ||
+      old.currentHeadingDegrees != currentHeadingDegrees ||
       old.palette != palette ||
       old.labelStyle != labelStyle ||
       !identical(old.geometry, geometry);

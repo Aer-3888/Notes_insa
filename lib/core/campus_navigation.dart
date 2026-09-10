@@ -6,17 +6,23 @@ import 'package:flutter/material.dart';
 /// map screen that is already open.
 class CampusMapFocus extends ChangeNotifier {
   String? _buildingCode;
+  bool _startGuidance = false;
   int _revision = 0;
 
   String? get buildingCode => _buildingCode;
+  bool get startGuidance => _startGuidance;
   int get revision => _revision;
 
-  void request(String buildingCode) {
+  void request(String buildingCode, {bool startGuidance = false}) {
     _buildingCode = buildingCode;
+    _startGuidance = startGuidance;
     _revision++;
     notifyListeners();
   }
 }
+
+typedef OpenCampusMap =
+    void Function(String buildingCode, {bool startGuidance});
 
 typedef CampusPlaceDetailsBuilder = Widget? Function(String placeCode);
 
@@ -53,7 +59,7 @@ class CampusNavigationScope extends InheritedNotifier<CampusMapFocus> {
     required super.child,
   }) : super(notifier: mapFocus);
 
-  final ValueChanged<String> onOpenMap;
+  final OpenCampusMap onOpenMap;
 
   static CampusNavigationScope? maybeOf(BuildContext context) =>
       context.dependOnInheritedWidgetOfExactType<CampusNavigationScope>();

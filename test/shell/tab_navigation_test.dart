@@ -6,6 +6,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:notes_insa/core/module_cache.dart';
 import 'package:notes_insa/core/time.dart';
 import 'package:notes_insa/modules/campus_map/campus_geo.dart';
+import 'package:notes_insa/modules/campus_map/campus_location.dart';
 import 'package:notes_insa/modules/campus_map/campus_places.dart';
 import 'package:notes_insa/modules/campus_map/map_painter.dart';
 import 'package:notes_insa/modules/schedule/event_sheet.dart';
@@ -16,6 +17,17 @@ import 'package:notes_insa/modules/schedule/schedule_focus.dart';
 import 'package:notes_insa/shell/campus_shell.dart';
 import 'package:notes_insa/shell/module_card.dart';
 import 'package:notes_insa/theme/campus_theme.dart';
+
+class _NoLocationSource implements CampusLocationSource {
+  const _NoLocationSource();
+
+  @override
+  Future<CampusPosition> current() async =>
+      throw const CampusLocationException(CampusLocationFailure.unavailable);
+
+  @override
+  Stream<CampusPosition> watch() => const Stream<CampusPosition>.empty();
+}
 
 void main() {
   setUpAll(initCampusTime);
@@ -39,6 +51,10 @@ void main() {
                 refreshState: RefreshState.failedUpstream,
               ),
             ),
+          ),
+          // The map asks for a fix as soon as it opens.
+          campusLocationSourceProvider.overrideWithValue(
+            const _NoLocationSource(),
           ),
           if (campusGeo != null)
             campusGeoProvider.overrideWith((ref) async => campusGeo),

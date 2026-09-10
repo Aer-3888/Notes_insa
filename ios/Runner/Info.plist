@@ -2,6 +2,8 @@
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
+	<key>NSLocationWhenInUseUsageDescription</key>
+	<string>Votre position sert uniquement à vous guider à pied jusqu’à l’entrée du bâtiment.</string>
     <key>NSFaceIDUsageDescription</key>
     <string>Nous avons besoin de FaceID pour sécuriser vos identifiants.</string>
 	<key>CFBundleDevelopmentRegion</key>
