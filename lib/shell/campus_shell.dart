@@ -10,6 +10,7 @@ import '../core/auth/lock_controller.dart';
 import '../core/auth/pending_deep_link_controller.dart';
 import '../core/auth/splash_screens.dart';
 import '../main.dart' show rootNavigatorKey;
+import '../modules/crous/crous_map_details.dart';
 import '../modules/grades/grades_provider.dart';
 import '../modules/grades/two_factor_screen.dart';
 import '../modules/registry.dart';
@@ -290,27 +291,31 @@ class _CampusShellState extends ConsumerState<CampusShell>
         }
         SystemNavigator.pop();
       },
-      child: CampusNavigationScope(
-        mapFocus: _mapFocus,
-        onOpenMap: _openMap,
-        child: Scaffold(
-          body: IndexedStack(
-            index: _index,
-            children: <Widget>[
-              for (var i = 0; i < _destinations.length; i++) _destinationFor(i),
-            ],
-          ),
-          bottomNavigationBar: NavigationBar(
-            selectedIndex: _index,
-            onDestinationSelected: _select,
-            destinations: <NavigationDestination>[
-              for (final d in _destinations)
-                NavigationDestination(
-                  icon: Icon(d.icon),
-                  selectedIcon: Icon(d.selectedIcon ?? d.icon),
-                  label: d.label,
-                ),
-            ],
+      child: CampusPlaceDetailsScope(
+        builder: (code) => CrousMapDetails(mapCode: code),
+        child: CampusNavigationScope(
+          mapFocus: _mapFocus,
+          onOpenMap: _openMap,
+          child: Scaffold(
+            body: IndexedStack(
+              index: _index,
+              children: <Widget>[
+                for (var i = 0; i < _destinations.length; i++)
+                  _destinationFor(i),
+              ],
+            ),
+            bottomNavigationBar: NavigationBar(
+              selectedIndex: _index,
+              onDestinationSelected: _select,
+              destinations: <NavigationDestination>[
+                for (final d in _destinations)
+                  NavigationDestination(
+                    icon: Icon(d.icon),
+                    selectedIcon: Icon(d.selectedIcon ?? d.icon),
+                    label: d.label,
+                  ),
+              ],
+            ),
           ),
         ),
       ),

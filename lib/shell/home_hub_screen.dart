@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../modules/registry.dart';
+import '../modules/crous/crous_today_card.dart';
 import '../modules/schedule/schedule_focus.dart';
 import '../modules/schedule/schedule_provider.dart';
 import '../modules/schedule/upcoming_courses_card.dart';
@@ -23,32 +24,37 @@ class HomeHubScreen extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     return Scaffold(
       appBar: AppBar(title: const Text('Aujourd’hui')),
-      body: Column(
-        children: [
-          const SizedBox(height: CampusSpacing.x2),
-          UpcomingCoursesCard(
-            onOpenEvent: onOpenModule == null
-                ? null
-                : (event) {
-                    ref.read(scheduleFocusProvider.notifier).request(event);
-                    onOpenModule!(kScheduleModuleId);
-                  },
+      body: CustomScrollView(
+        slivers: <Widget>[
+          const SliverToBoxAdapter(child: SizedBox(height: CampusSpacing.x2)),
+          SliverToBoxAdapter(
+            child: UpcomingCoursesCard(
+              onOpenEvent: onOpenModule == null
+                  ? null
+                  : (event) {
+                      ref.read(scheduleFocusProvider.notifier).request(event);
+                      onOpenModule!(kScheduleModuleId);
+                    },
+            ),
           ),
-          const WeatherStrip(),
-          Expanded(
-            child: GridView.count(
-              padding: const EdgeInsets.all(CampusSpacing.gutter),
-              crossAxisCount: 2,
-              mainAxisSpacing: CampusSpacing.x3,
-              crossAxisSpacing: CampusSpacing.x3,
-              childAspectRatio: 1.4,
-              children: [
+          const SliverToBoxAdapter(child: WeatherStrip()),
+          const SliverToBoxAdapter(child: CrousTodayCard()),
+          SliverPadding(
+            padding: const EdgeInsets.all(CampusSpacing.gutter),
+            sliver: SliverGrid(
+              gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                crossAxisCount: 2,
+                mainAxisSpacing: CampusSpacing.x3,
+                crossAxisSpacing: CampusSpacing.x3,
+                childAspectRatio: 1.4,
+              ),
+              delegate: SliverChildListDelegate(<Widget>[
                 for (final module in kCampusModules.whereType<ReadyModule>())
                   ModuleCard(
                     module: module,
                     onTap: () => onOpenModule?.call(module.id),
                   ),
-              ],
+              ]),
             ),
           ),
         ],

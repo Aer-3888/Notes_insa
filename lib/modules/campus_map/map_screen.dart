@@ -147,6 +147,10 @@ class _MapScreenState extends ConsumerState<MapScreen> {
         ref.read(campusPlacesProvider).value ?? const <CampusPlace>[];
     final here = places.where((p) => p.code == code).toList();
     final building = geo.byCode(code);
+    final placeDetails = CampusPlaceDetailsScope.maybeOf(context)?.builder(code);
+    final sheetTitle = code.startsWith('RU-')
+        ? building?.name ?? (here.isEmpty ? code : here.first.name)
+        : 'Bâtiment $code';
     showModalBottomSheet<void>(
       context: context,
       showDragHandle: true,
@@ -162,7 +166,7 @@ class _MapScreenState extends ConsumerState<MapScreen> {
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text('Bâtiment $code', style: context.text.titleLarge),
+              Text(sheetTitle, style: context.text.titleLarge),
               if (building?.levels != null)
                 Padding(
                   padding: const EdgeInsets.only(top: CampusSpacing.x1),
@@ -198,6 +202,10 @@ class _MapScreenState extends ConsumerState<MapScreen> {
                     color: context.scheme.onSurfaceVariant,
                   ),
                 ),
+              if (placeDetails != null) ...<Widget>[
+                const SizedBox(height: CampusSpacing.x3),
+                placeDetails,
+              ],
             ],
           ),
         ),
@@ -353,7 +361,9 @@ class _MapScreenState extends ConsumerState<MapScreen> {
                 child: Text(
                   p.code,
                   style: context.campusType.numeral,
-                  semanticsLabel: 'Bâtiment ${p.code}',
+                  semanticsLabel: p.code.startsWith('RU-')
+                      ? p.name
+                      : 'Bâtiment ${p.code}',
                 ),
               ),
               title: Text(p.name),

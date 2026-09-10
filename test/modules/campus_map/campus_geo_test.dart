@@ -24,6 +24,23 @@ void main() {
     expect(geo.graph.edges, isNotEmpty);
   });
 
+  test('includes both selected restaurants with routable entrances', () {
+    expect(geo.byCode('RU-E')?.name, 'Resto U’ Étoile');
+    expect(geo.byCode('RU-A')?.name, 'Resto U’ Astrolabe');
+    expect(
+      geo.entrances.any(
+        (entrance) => entrance.code == 'RU-E' && entrance.node == 235,
+      ),
+      isTrue,
+    );
+    expect(
+      geo.entrances.any(
+        (entrance) => entrance.code == 'RU-A' && entrance.node == 1388,
+      ),
+      isTrue,
+    );
+  });
+
   test('every place code has a footprint unless declared unmapped', () {
     final missing = codes
         .where((c) => geo.byCode(c) == null && !geo.unmapped.containsKey(c))
