@@ -210,6 +210,43 @@ void main() {
     });
   });
 
+  testWidgets('meets the tap target and contrast guidelines', (tester) async {
+    await _pump(
+      tester,
+      const AssociationsScreen(),
+      directory: <Association>[
+        _asso(
+          id: 'a',
+          name: 'Arts plastiques',
+          summary: 'Le club d’arts du campus',
+        ),
+        _asso(id: 'b', name: 'Basket', category: AssociationCategory.sport),
+      ],
+    );
+    await expectLater(tester, meetsGuideline(androidTapTargetGuideline));
+    await expectLater(tester, meetsGuideline(textContrastGuideline));
+    await expectLater(tester, meetsGuideline(labeledTapTargetGuideline));
+  });
+
+  testWidgets('the directory renders in dark mode', (tester) async {
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          associationsProvider.overrideWith(
+            (ref) async => <Association>[_asso(id: 'a', name: 'Arts')],
+          ),
+        ],
+        child: MaterialApp(
+          theme: campusTheme(Brightness.dark),
+          home: const AssociationsScreen(),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    expect(tester.takeException(), isNull);
+    await expectLater(tester, meetsGuideline(textContrastGuideline));
+  });
+
   group('initials stand in for a missing logo', () {
     test('two words give two letters', () {
       expect(associationInitials('Arts Plastiques'), 'AP');

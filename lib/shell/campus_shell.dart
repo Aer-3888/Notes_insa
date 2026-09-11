@@ -10,6 +10,9 @@ import '../core/auth/lock_controller.dart';
 import '../core/auth/pending_deep_link_controller.dart';
 import '../core/auth/splash_screens.dart';
 import '../main.dart' show rootNavigatorKey;
+import '../modules/associations/association_detail_screen.dart';
+import '../modules/associations/association_reminder_provider.dart';
+import '../modules/associations/association_reminders.dart';
 import '../modules/crous/crous_map_details.dart';
 import '../modules/grades/grades_provider.dart';
 import '../modules/grades/two_factor_screen.dart';
@@ -35,6 +38,7 @@ class _CampusShellState extends ConsumerState<CampusShell>
   StreamSubscription<String>? _notifSub;
   PendingDeepLinkController? _deepLinks;
   LockController? _lock;
+  AssociationReminderScheduler? _assoReminders;
 
   /// Aujourd'hui sits at the centre of the bar; it is where the app opens and
   /// where system back always lands.
@@ -93,6 +97,10 @@ class _CampusShellState extends ConsumerState<CampusShell>
     // Cached grades are read from local storage only, so this is cheap and
     // stays unconditional.
     ref.read(gradesProvider.notifier).loadStoredGrades();
+    // Association reminders belong to every student, not only the ones with
+    // an INSA account, so this is set up outside the signed-in bootstrap.
+    _assoReminders = AssociationReminderScheduler(container);
+    unawaited(_setupNotifications());
     unawaited(_bootstrapForSignedInUsers());
   }
 
@@ -102,11 +110,12 @@ class _CampusShellState extends ConsumerState<CampusShell>
     final hasCreds = await ref.read(hasCredentialsProvider.future);
     if (!hasCreds || !mounted) return;
     unawaited(WorkerSyncService.backfill());
-    await _setupNotifications();
   }
 
   Future<void> _setupNotifications() async {
+    if (_notifSub != null) return;
     await NotificationService.initialize();
+    if (!mounted) return;
     _notifSub = NotificationService.tapStream.listen(_onNotificationTap);
     final pendingPayload = NotificationService.consumePendingPayload();
     if (pendingPayload != null) _onNotificationTap(pendingPayload);
@@ -140,7 +149,23 @@ class _CampusShellState extends ConsumerState<CampusShell>
   /// module is unlocked. None of them may act on a locked session.
   void _onNotificationTap(String payload) {
     if (!mounted) return;
+    // An association reminder has nothing to do with grades, so it must not
+    // sit in the buffer waiting for a lock the student may never open.
+    final associationId = associationIdFromPayload(payload);
+    if (associationId != null) {
+      _openAssociation(associationId);
+      return;
+    }
     _deepLinks?.submit(payload);
+  }
+
+  void _openAssociation(String associationId) {
+    _select(_homeIndex);
+    _tabNavigators[_homeIndex].currentState?.push(
+      MaterialPageRoute<void>(
+        builder: (_) => AssociationDetailScreen(associationId: associationId),
+      ),
+    );
   }
 
   void _handleDeepLink(String payload) {
@@ -166,6 +191,7 @@ class _CampusShellState extends ConsumerState<CampusShell>
   @override
   void dispose() {
     _notifSub?.cancel();
+    _assoReminders?.dispose();
     _deepLinks?.dispose();
     _routeChannel.setMethodCallHandler(null);
     WidgetsBinding.instance.removeObserver(this);

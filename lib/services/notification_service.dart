@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:io';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:permission_handler/permission_handler.dart';
+import 'package:timezone/timezone.dart' as tz;
 
 // Simple cross-platform notification helper.
 class NotificationService {
@@ -109,8 +110,21 @@ class NotificationService {
               enableVibration: true,
             );
 
+        // Association reminders are opt-in per association and carry nothing
+        // private, so they are a public channel the user can silence on its
+        // own without losing grade alerts.
+        const AndroidNotificationChannel assosChannel =
+            AndroidNotificationChannel(
+              assosChannelId,
+              'Évènements des assos',
+              description: 'Rappels avant un évènement d\'une asso suivie',
+              importance: Importance.defaultImportance,
+              playSound: true,
+            );
+
         await android?.createNotificationChannel(gradesChannel);
         await android?.createNotificationChannel(reconnectChannel);
+        await android?.createNotificationChannel(assosChannel);
       }
 
       _isInitialized = true;
@@ -255,6 +269,70 @@ class NotificationService {
   static Future<void> cancelAllNotifications() async {
     try {
       await _notifications.cancelAll();
+    } catch (_) {}
+  }
+
+  static const String assosChannelId = 'assos_events';
+
+  /// Ids at or above this belong to association reminders. Kept as a range so
+  /// the whole set can be cleared without knowing what is currently pending.
+  static const int assosIdFloor = 900000;
+
+  /// Replaces every pending association reminder with [reminders].
+  ///
+  /// Takes plain records rather than the association model, so this service
+  /// stays independent of the module that drives it.
+  static Future<void> scheduleAssociationReminders(
+    List<({int id, DateTime fireAt, String title, String body, String payload})>
+    reminders,
+  ) async {
+    if (!_isInitialized) await initialize();
+    if (!_isInitialized) return;
+
+    await cancelAssociationReminders();
+
+    const details = NotificationDetails(
+      android: AndroidNotificationDetails(
+        assosChannelId,
+        'Évènements des assos',
+        channelDescription: 'Rappels avant un évènement d\'une asso suivie',
+        importance: Importance.defaultImportance,
+        priority: Priority.defaultPriority,
+      ),
+      iOS: DarwinNotificationDetails(),
+    );
+
+    for (final reminder in reminders) {
+      try {
+        await _notifications.zonedSchedule(
+          id: reminder.id,
+          title: reminder.title,
+          body: reminder.body,
+          scheduledDate: tz.TZDateTime.from(
+            reminder.fireAt,
+            reminder.fireAt is tz.TZDateTime
+                ? (reminder.fireAt as tz.TZDateTime).location
+                : tz.local,
+          ),
+          notificationDetails: details,
+          // An exact alarm needs a permission students should not have to
+          // grant for a club night. Inexact is close enough for a reminder.
+          androidScheduleMode: AndroidScheduleMode.inexactAllowWhileIdle,
+          payload: reminder.payload,
+        );
+      } catch (_) {
+        // One bad date must not cost the rest of the schedule.
+      }
+    }
+  }
+
+  /// Clears pending association reminders, leaving grade notifications alone.
+  static Future<void> cancelAssociationReminders() async {
+    try {
+      final pending = await _notifications.pendingNotificationRequests();
+      for (final request in pending) {
+        if (request.id >= assosIdFloor) await _notifications.cancel(id: request.id);
+      }
     } catch (_) {}
   }
 }

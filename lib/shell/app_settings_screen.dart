@@ -3,6 +3,8 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../modules/associations/association_reminder_provider.dart';
+import '../modules/associations/association_reminders.dart';
 import '../modules/grades/grades_provider.dart';
 import '../modules/grades/grades_settings_screen.dart';
 import '../modules/grades/raw_json_viewer_screen.dart';
@@ -27,6 +29,7 @@ class AppSettingsScreen extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final hasCreds = ref.watch(hasCredentialsProvider).value ?? false;
     final mode = ref.watch(themeModeProvider);
+    final reminderLead = ref.watch(associationReminderLeadProvider);
 
     return Scaffold(
       appBar: AppBar(title: const Text('Paramètres')),
@@ -73,6 +76,41 @@ class AppSettingsScreen extends ConsumerWidget {
               showSelectedIcon: false,
               onSelectionChanged: (selection) => unawaited(
                 ref.read(themeModeProvider.notifier).set(selection.first),
+              ),
+            ),
+          ),
+
+          const _SectionHeader('Associations'),
+          Padding(
+            padding: const EdgeInsets.fromLTRB(
+              CampusSpacing.gutter,
+              CampusSpacing.x1,
+              CampusSpacing.gutter,
+              CampusSpacing.x1,
+            ),
+            child: Text(
+              'Rappel avant un évènement d’une asso suivie',
+              style: context.text.bodyMedium?.copyWith(
+                color: context.scheme.onSurfaceVariant,
+              ),
+            ),
+          ),
+          Padding(
+            padding: const EdgeInsets.symmetric(
+              horizontal: CampusSpacing.gutter,
+              vertical: CampusSpacing.x2,
+            ),
+            child: SegmentedButton<AssociationReminderLead>(
+              segments: <ButtonSegment<AssociationReminderLead>>[
+                for (final lead in AssociationReminderLead.values)
+                  ButtonSegment(value: lead, label: Text(lead.label)),
+              ],
+              selected: <AssociationReminderLead>{reminderLead},
+              showSelectedIcon: false,
+              onSelectionChanged: (selection) => unawaited(
+                ref
+                    .read(associationReminderLeadProvider.notifier)
+                    .set(selection.first),
               ),
             ),
           ),
