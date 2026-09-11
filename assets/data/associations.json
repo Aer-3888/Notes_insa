@@ -1,4 +1,199 @@
 {
   "version": 1,
-  "associations": []
+  "associations": [
+    {
+      "id": "aeir",
+      "name": "Amicale des Élèves de l’INSA Rennes",
+      "shortName": "AEIR",
+      "category": "bde",
+      "summary": "L’amicale étudiante du campus, plus de 1 100 adhérent·es.",
+      "description": "Créée en 1967, l’AEIR est l’association des élèves-ingénieur·es de l’INSA Rennes. Elle compte plus de 1 100 adhérent·es. Son objectif est de développer des activités et d’organiser des événements sur le campus, mais aussi de tisser des liens avec les associations rennaises, les étudiant·es des autres INSA et les alumni.\n\nL’amicale se compose de trois sections : le Foyer et la K-Fet, les évènements, et les clubs. Le Foyer est un espace de rencontres entièrement géré par les membres de l’Amicale, et aussi un lieu de concerts, de soirées et de spectacles. La K-Fet est un espace de détente pour décompresser, prendre un café, faire un baby-foot.",
+      "buildingCode": "23",
+      "links": {
+        "website": "https://aeir.insa-rennes.fr/",
+        "instagram": "aeirennes",
+        "facebook": "https://www.facebook.com/AEIRennes"
+      },
+      "events": [
+        {
+          "id": "aeir-gala-2025",
+          "title": "Gala de l’INSA Rennes 2025",
+          "startsAt": "2025-11-29",
+          "description": "Édition 2025 sur le thème de la musique.",
+          "location": "Halle polyvalente Francis Querné",
+          "buildingCode": "17",
+          "url": "https://gala.asso.insa-rennes.fr/"
+        },
+        {
+          "id": "aeir-rocknsolex-59",
+          "title": "Rock’n Solex, 59ᵉ édition",
+          "startsAt": "2026-05-06",
+          "endsAt": "2026-05-10",
+          "description": "Courses de Solex et concerts sur le campus.",
+          "location": "Campus de l’INSA Rennes",
+          "url": "https://www.rocknsolex.fr/"
+        }
+      ]
+    },
+    {
+      "id": "as-insa-rennes",
+      "name": "Association Sportive de l’INSA Rennes",
+      "shortName": "AS INSA",
+      "category": "sport",
+      "summary": "Plus d’une trentaine de sports, et l’INSA Shop.",
+      "description": "L’AS permet aux élèves-ingénieur·es de pratiquer une activité physique en proposant plus d’une trentaine de sports. Elle organise également diverses manifestations : les championnats de France des grandes écoles, la Run INSA Orange, etc. L’association sportive gère également l’INSA Shop, la boutique officielle de l’INSA Rennes.",
+      "links": { "website": "https://asinsarennes.wordpress.com/" }
+    },
+    {
+      "id": "ouest-insa",
+      "name": "Ouest INSA",
+      "category": "entreprise",
+      "summary": "La Junior-Entreprise de l’INSA Rennes.",
+      "description": "Ouest INSA a pour objectif de lier les élèves-ingénieur·es et le monde du travail par le biais de la gestion de projets, l’organisation d’événements, la réalisation d’études ou encore le développement de relations avec les entreprises.",
+      "links": { "website": "https://ouest-insa.fr" }
+    },
+    {
+      "id": "forum-grand-ouest",
+      "name": "Forum Grand Ouest",
+      "category": "entreprise",
+      "summary": "Le forum annuel de rencontre étudiant·es / entreprises.",
+      "description": "Cette association organise le Forum Grand Ouest, manifestation annuelle de référence en matière de rencontre étudiant·es/entreprises dans le Grand Ouest.",
+      "links": { "website": "http://www.forumgrandouest.com/" }
+    },
+    {
+      "id": "eai",
+      "name": "EAI – Échange Afrique INSA",
+      "shortName": "EAI",
+      "category": "engagement",
+      "summary": "Actions humanitaires dans les pays en voie de développement.",
+      "description": "EAI mène un certain nombre d’actions humanitaires dans les pays en voie de développement : construction d’écoles, de centres d’apprentissage, etc.",
+      "links": { "website": "http://www.echange-afrique-insa.fr/" }
+    },
+    {
+      "id": "ins-india",
+      "name": "Ins’India",
+      "category": "engagement",
+      "summary": "Soutien à des orphelinats et écoles indiennes.",
+      "description": "L’association Ins’India a pour but de soutenir des orphelinats ou écoles indiennes. L’équipe d’étudiant·es INSA mène des actions sur le campus et aux alentours tout le long de l’année afin d’échanger, de sensibiliser et de récolter des fonds pour le voyage humanitaire."
+    },
+    {
+      "id": "solid-alim",
+      "name": "Solid’Alim",
+      "category": "engagement",
+      "links": { "instagram": "solidalim_insa_rennes" }
+    },
+    {
+      "id": "greensa-rennes",
+      "name": "Green’sa Rennes",
+      "category": "engagement",
+      "links": { "instagram": "greensa_rennes" }
+    },
+    {
+      "id": "insatisfaites",
+      "name": "INSAtisfait·e·s",
+      "category": "engagement"
+    },
+    {
+      "id": "ins-arc-en-ciel",
+      "name": "INS’Arc en Ciel",
+      "category": "engagement",
+      "links": { "instagram": "insarc.en.ciel" }
+    },
+    {
+      "id": "bebop",
+      "name": "Bebop",
+      "category": "culture"
+    },
+    {
+      "id": "son-et-lumiere",
+      "name": "Son et Lumière",
+      "category": "culture"
+    },
+    {
+      "id": "la-fanfare",
+      "name": "La Fanfare",
+      "category": "culture"
+    },
+    {
+      "id": "club-photo-video",
+      "name": "Club Photo-Vidéo",
+      "category": "culture"
+    },
+    {
+      "id": "club-cine",
+      "name": "Club Ciné",
+      "category": "culture"
+    },
+    {
+      "id": "biip",
+      "name": "BiiP",
+      "category": "culture"
+    },
+    {
+      "id": "radio-le-megaphone",
+      "name": "Radio Le Mégaphone",
+      "category": "culture"
+    },
+    {
+      "id": "festival-oeil-glauque",
+      "name": "Festival de l’Oeil Glauque",
+      "shortName": "FOG",
+      "category": "jeux"
+    },
+    {
+      "id": "club-poker",
+      "name": "Club Poker",
+      "category": "jeux"
+    },
+    {
+      "id": "jeux-de-roles",
+      "name": "Jeux de Rôles",
+      "category": "jeux"
+    },
+    {
+      "id": "jeux-en-reseaux",
+      "name": "Jeux en réseaux",
+      "category": "tech"
+    },
+    {
+      "id": "robotique",
+      "name": "Robotique",
+      "category": "tech"
+    },
+    {
+      "id": "oenologie",
+      "name": "Oenologie",
+      "category": "gastronomie"
+    },
+    {
+      "id": "gastronomie",
+      "name": "Gastronomie",
+      "category": "gastronomie"
+    },
+    {
+      "id": "trip-club",
+      "name": "Trip’Club",
+      "category": "international"
+    },
+    {
+      "id": "bear",
+      "name": "BEAR",
+      "category": "international"
+    },
+    {
+      "id": "wei",
+      "name": "WEI",
+      "category": "bde"
+    },
+    {
+      "id": "weipa",
+      "name": "WEIPA",
+      "category": "bde"
+    },
+    {
+      "id": "club-amour",
+      "name": "Club Amour",
+      "category": "bde"
+    }
+  ]
 }

@@ -109,7 +109,7 @@ class _AssociationAgendaState extends ConsumerState<AssociationAgenda> {
           title: Text(event.title),
           subtitle: Text(
             <String>[
-              _clock(event.startsAt),
+              if (!event.isAllDay) _clock(event.startsAt),
               ?association?.displayName,
               ?event.location,
             ].join(' · '),

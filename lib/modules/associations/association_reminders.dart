@@ -85,7 +85,7 @@ List<AssociationReminder> planAssociationReminders({
     // A follow can outlive the association that was removed from the seed.
     if (association == null) continue;
 
-    final fireAt = event.startsAt.subtract(lead.lead);
+    final fireAt = event.reminderAnchor.subtract(lead.lead);
     // Too late to warn about: either the event has passed, or the warning
     // window closed while the app was shut.
     if (!fireAt.isAfter(now)) continue;
@@ -107,9 +107,12 @@ List<AssociationReminder> planAssociationReminders({
 }
 
 String _body(AssociationEvent event) {
+  final where = event.location;
+  if (event.isAllDay) {
+    return where == null ? event.title : '${event.title} · $where';
+  }
   final hour = event.startsAt.hour.toString().padLeft(2, '0');
   final minute = event.startsAt.minute.toString().padLeft(2, '0');
-  final where = event.location;
   final when = where == null ? '$hour:$minute' : '$hour:$minute · $where';
   return '${event.title} · $when';
 }

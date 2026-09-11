@@ -67,7 +67,7 @@ void main() {
           _asso(id: 'b', name: 'Basket', category: AssociationCategory.sport),
         ],
       );
-      expect(find.text('Culture'), findsOneWidget);
+      expect(find.text('Art, musique et médias'), findsOneWidget);
       expect(find.text('Sport'), findsOneWidget);
       expect(find.text('Arts'), findsOneWidget);
       expect(find.text('Basket'), findsOneWidget);
@@ -128,7 +128,7 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(find.text('Suivies'), findsOneWidget);
-      expect(find.text('Culture'), findsNothing);
+      expect(find.text('Art, musique et médias'), findsNothing);
     });
   });
 

@@ -163,6 +163,42 @@ void main() {
     expect(reminders.map((r) => r.eventId), <String>['soon', 'mid', 'late']);
   });
 
+  group('an event with a date but no time', () {
+    AssociationEvent allDay() => AssociationEvent.fromJson(<String, Object?>{
+      'id': 'gala',
+      'title': 'Gala',
+      'startsAt': '2026-03-14',
+    }, 'a')!;
+
+    test('reads as all-day rather than as midnight', () {
+      expect(allDay().isAllDay, isTrue);
+      expect(
+        AssociationEvent.fromJson(<String, Object?>{
+          'id': 'e',
+          'title': 'Gala',
+          'startsAt': '2026-03-14T20:00:00',
+        }, 'a')!.isAllDay,
+        isFalse,
+      );
+    });
+
+    test('is reminded about in the morning, not at midnight', () {
+      // Counting a day back from midnight would fire at midnight too.
+      final reminders = plan(<AssociationEvent>[allDay()]);
+      expect(reminders.single.fireAt, at(13, 9));
+    });
+
+    test('keeps the campus timezone its start had', () {
+      expect(allDay().reminderAnchor.timeZoneOffset, at(14, 9).timeZoneOffset);
+    });
+
+    test('is announced without an invented hour', () {
+      final reminders = plan(<AssociationEvent>[allDay()]);
+      expect(reminders.single.body, isNot(contains('00:00')));
+      expect(reminders.single.body, contains('Gala'));
+    });
+  });
+
   group('the lead setting', () {
     test('every option names itself in French', () {
       for (final lead in AssociationReminderLead.values) {

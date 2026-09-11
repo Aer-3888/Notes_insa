@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
+import 'package:notes_insa/modules/associations/association.dart';
 import 'package:notes_insa/core/time.dart';
 import 'package:notes_insa/modules/associations/association_service.dart';
 
@@ -12,7 +13,12 @@ void main() {
   final raw = File(Associations.assetPath).readAsStringSync();
   final decoded = jsonDecode(raw) as Map<String, dynamic>;
   final rows = (decoded['associations'] as List).cast<Map<String, dynamic>>();
-  final parsed = Associations.parse(raw);
+
+  // Parsed per test, not here: event dates need the timezone database, which
+  // setUpAll loads after this function body has already run. Calling it too
+  // early hits the parser's own tolerance and quietly yields an empty list.
+  late List<Association> parsed;
+  setUp(() => parsed = Associations.parse(raw));
 
   test('the seed is at the version the app reads', () {
     expect(decoded['version'], Associations.supportedVersion);
@@ -60,12 +66,16 @@ void main() {
       'bde',
       'sport',
       'culture',
+      'jeux',
       'tech',
-      'solidarite',
-      'media',
+      'gastronomie',
+      'engagement',
+      'international',
+      'entreprise',
       'filiere',
       'autre',
     };
+
     for (final row in rows) {
       final category = row['category'];
       if (category == null) continue;
@@ -99,6 +109,39 @@ void main() {
       ]) {
         if (code == null) continue;
         expect(codes, contains(code), reason: '${association.id} uses $code');
+      }
+    }
+  });
+
+  test('the seed actually has content', () {
+    // The directory shows "Bientôt" while this is empty, so an accidental
+    // truncation would ship as a plausible-looking empty state.
+    expect(parsed.length, greaterThan(20));
+  });
+
+  test('every link is a URL the app can open', () {
+    for (final association in parsed) {
+      for (final url in <String?>[
+        association.links.website,
+        association.links.discord,
+        association.links.facebook,
+        ...association.events.map((e) => e.url),
+      ]) {
+        if (url == null) continue;
+        final uri = Uri.tryParse(url);
+        expect(uri?.hasScheme, isTrue, reason: '${association.id}: $url');
+        expect(uri!.scheme, anyOf('http', 'https'), reason: association.id);
+      }
+    }
+  });
+
+  test('an event that names a venue also says which building', () {
+    // The venue text alone gives no map action, which is the point of having
+    // a code. A campus-wide event legitimately has neither.
+    for (final association in parsed) {
+      for (final event in association.events) {
+        if (event.buildingCode == null) continue;
+        expect(event.location, isNotNull, reason: event.id);
       }
     }
   });

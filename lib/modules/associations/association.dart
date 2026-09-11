@@ -4,13 +4,21 @@ import '../../core/search_text.dart';
 import '../../core/time.dart';
 
 /// What kind of association this is, for grouping and filtering the list.
+///
+/// Close to the groups INSA uses on its own associations page, but coarser.
+/// A category here is a browsing heading a student reads while scrolling, so
+/// it names an activity, never the people who take part: an association's own
+/// name already says what it is, and a heading does not need to label anyone.
 enum AssociationCategory {
   bde,
   sport,
   culture,
+  jeux,
   tech,
-  solidarite,
-  media,
+  gastronomie,
+  engagement,
+  international,
+  entreprise,
   filiere,
   autre;
 
@@ -24,10 +32,13 @@ enum AssociationCategory {
   String get label => switch (this) {
     AssociationCategory.bde => 'Vie étudiante',
     AssociationCategory.sport => 'Sport',
-    AssociationCategory.culture => 'Culture',
-    AssociationCategory.tech => 'Technique',
-    AssociationCategory.solidarite => 'Solidarité',
-    AssociationCategory.media => 'Médias',
+    AssociationCategory.culture => 'Art, musique et médias',
+    AssociationCategory.jeux => 'Jeux',
+    AssociationCategory.tech => 'Informatique et technique',
+    AssociationCategory.gastronomie => 'Gastronomie',
+    AssociationCategory.engagement => 'Engagement et solidarité',
+    AssociationCategory.international => 'Voyage et international',
+    AssociationCategory.entreprise => 'Entreprises et carrières',
     AssociationCategory.filiere => 'Filières',
     AssociationCategory.autre => 'Autres',
   };
@@ -97,6 +108,7 @@ class AssociationEvent {
     this.location,
     this.buildingCode,
     this.url,
+    this.isAllDay = false,
   });
 
   final String id;
@@ -119,7 +131,19 @@ class AssociationEvent {
 
   final String? url;
 
+  /// The seed gave a day with no time, so no hour is shown and none is
+  /// invented. Posters often announce a date weeks before the schedule.
+  final bool isAllDay;
+
   bool isPast(DateTime now) => (endsAt ?? startsAt).isBefore(now);
+
+  /// When a reminder for this event should be counted back from.
+  ///
+  /// An all-day event has no real start, so it is anchored to the morning:
+  /// counting back from midnight would put "la veille" at midnight too.
+  DateTime get reminderAnchor => isAllDay
+      ? campusInstant(DateTime(startsAt.year, startsAt.month, startsAt.day, 9))
+      : startsAt;
 
   static AssociationEvent? fromJson(Object? raw, String associationId) {
     if (raw is! Map) return null;
@@ -138,6 +162,10 @@ class AssociationEvent {
     }
 
     final endsAt = DateTime.tryParse(raw['endsAt'] as String? ?? '');
+    // "2026-05-06" is a day; "2026-05-06T20:00:00" is a time.
+    final isAllDay = RegExp(
+      r'^\d{4}-\d{2}-\d{2}$',
+    ).hasMatch(raw['startsAt'] as String);
     return AssociationEvent(
       id: id,
       associationId: associationId,
@@ -151,6 +179,7 @@ class AssociationEvent {
       location: text('location'),
       buildingCode: text('buildingCode'),
       url: text('url'),
+      isAllDay: isAllDay,
     );
   }
 }

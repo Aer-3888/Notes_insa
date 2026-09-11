@@ -360,10 +360,12 @@ const List<String> _months = <String>[
   'décembre',
 ];
 
-/// "14 mars · 20:00", the way a poster would write it.
+/// "14 mars · 20:00", the way a poster would write it. An event the seed gave
+/// no time for shows the day alone rather than an invented midnight.
 String associationEventWhen(AssociationEvent event) {
   final start = event.startsAt;
   final day = '${start.day} ${_months[start.month - 1]}';
+  if (event.isAllDay) return day;
   final hour = start.hour.toString().padLeft(2, '0');
   final minute = start.minute.toString().padLeft(2, '0');
   return '$day · $hour:$minute';
