@@ -45,6 +45,18 @@ void main() {
     expect(routeToBuilding(geo, start, 'RU-A'), isNotNull);
   });
 
+  test('includes BU Beaulieu with a routable entrance', () {
+    expect(geo.byCode('BU-B')?.name, 'BU Beaulieu');
+    expect(
+      geo.entrances.any(
+        (entrance) => entrance.code == 'BU-B' && entrance.node == 1428,
+      ),
+      isTrue,
+    );
+    final start = geo.byCode('12')!.centroid;
+    expect(routeToBuilding(geo, start, 'BU-B'), isNotNull);
+  });
+
   test('every place code has a footprint unless declared unmapped', () {
     final missing = codes
         .where((c) => geo.byCode(c) == null && !geo.unmapped.containsKey(c))

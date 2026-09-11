@@ -25,6 +25,7 @@
   { "code": "12", "name": "Resto U’ INSA", "kind": "ru" },
   { "code": "RU-E", "name": "Resto U’ Étoile", "kind": "ru" },
   { "code": "RU-A", "name": "Resto U’ Astrolabe", "kind": "ru" },
+  { "code": "BU-B", "name": "BU Beaulieu", "kind": "bu" },
   { "code": "13", "name": "Résidence Arz", "kind": "residence" },
   { "code": "13", "name": "Service technique immobilier", "kind": "service" },
   { "code": "14", "name": "Résidence Bréhat", "kind": "residence" },

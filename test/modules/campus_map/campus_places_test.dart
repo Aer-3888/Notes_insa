@@ -1,3 +1,5 @@
+import 'dart:io';
+
 import 'package:flutter_test/flutter_test.dart';
 import 'package:notes_insa/modules/campus_map/campus_places.dart';
 
@@ -46,6 +48,16 @@ void main() {
     }
     expect(PlaceKind.parse('residence'), PlaceKind.residence);
     expect(PlaceKind.parse('gymnase'), isNull);
+  });
+
+  test('the bundled places include searchable BU Beaulieu', () {
+    final places = CampusPlaces.parse(
+      File('assets/data/campus_places.json').readAsStringSync(),
+    );
+    final beaulieu = places.singleWhere((place) => place.code == 'BU-B');
+    expect(beaulieu.name, 'BU Beaulieu');
+    expect(beaulieu.kind, PlaceKind.bu);
+    expect(beaulieu.matches('beaulieu'), isTrue);
   });
 
   test('the official plan URL is the INSA Rennes PDF', () {
