@@ -117,6 +117,13 @@ class _EventSheet extends ConsumerWidget {
                       style: context.text.bodyMedium?.copyWith(
                         color: context.scheme.onSurfaceVariant,
                       ),
+                    )
+                  else if (room.isRemote)
+                    Text(
+                      'à distance',
+                      style: context.text.bodyMedium?.copyWith(
+                        color: context.scheme.onSurfaceVariant,
+                      ),
                     ),
                 ],
                 if (event.teachers.isNotEmpty) ...[

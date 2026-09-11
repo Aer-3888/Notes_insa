@@ -142,8 +142,9 @@ void main() {
   testWidgets('an unresolved room shows the text and no map action', (
     tester,
   ) async {
-    await _open(tester, _event(room: '*216* (V)'));
-    expect(find.text('*216* (V)'), findsOneWidget);
+    // A room ADE gives no building for, and we refuse to guess one.
+    await _open(tester, _event(room: 'AUTRE  SALLE'));
+    expect(find.text('AUTRE  SALLE'), findsOneWidget);
     expect(find.text('Voir sur la carte'), findsNothing);
     expect(find.text('Me guider'), findsNothing);
     expect(find.byType(CampusMapPreview), findsNothing);

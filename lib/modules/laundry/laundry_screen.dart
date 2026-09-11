@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../theme/campus_context.dart';
 import '../../theme/state_view.dart';
 import '../../theme/tokens.dart';
 import 'laundry_model.dart';
@@ -243,8 +244,8 @@ class _GroupGrid extends StatelessWidget {
     final accent = group.total == 0
         ? scheme.onSurfaceVariant
         : hasFree
-        ? _stateColor(LaundryMachineState.free, scheme)
-        : _stateColor(LaundryMachineState.busy, scheme);
+        ? _stateColor(LaundryMachineState.free, context.campus, scheme)
+        : _stateColor(LaundryMachineState.busy, context.campus, scheme);
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -282,7 +283,7 @@ class _MachineCell extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
-    final color = _stateColor(machine.state, scheme);
+    final color = _stateColor(machine.state, context.campus, scheme);
     final text = Theme.of(context).textTheme;
     return Container(
       width: _cellWidth,
@@ -342,7 +343,12 @@ class _Banner extends StatelessWidget {
           Icon(icon, size: 18, color: scheme.onSurfaceVariant),
           const SizedBox(width: CampusSpacing.x3),
           Expanded(
-            child: Text(text, style: TextStyle(color: scheme.onSurfaceVariant)),
+            child: Text(
+              text,
+              style: context.text.bodyMedium?.copyWith(
+                color: scheme.onSurfaceVariant,
+              ),
+            ),
           ),
           ?action,
         ],
@@ -378,21 +384,16 @@ String _statusShort(LaundryMachine m) {
   return (title.isEmpty ? name.trim() : title, sub.isEmpty ? null : sub);
 }
 
-/// Theme-aware color per state, tuned so greens and ambers stay legible in both
-/// light and dark.
-Color _stateColor(LaundryMachineState state, ColorScheme scheme) {
-  final dark = scheme.brightness == Brightness.dark;
-  switch (state) {
-    case LaundryMachineState.free:
-      return dark ? const Color(0xFF66BB6A) : const Color(0xFF2E7D32);
-    case LaundryMachineState.busy:
-      return dark ? const Color(0xFFFFB74D) : const Color(0xFFEF6C00);
-    case LaundryMachineState.finished:
-      return dark ? const Color(0xFF64B5F6) : const Color(0xFF1565C0);
-    case LaundryMachineState.broken:
-      return scheme.error;
-    case LaundryMachineState.reserved:
-    case LaundryMachineState.unknown:
-      return scheme.onSurfaceVariant;
-  }
-}
+/// Colour per state, from the campus tokens so both themes stay legible.
+Color _stateColor(
+  LaundryMachineState state,
+  CampusColors campus,
+  ColorScheme scheme,
+) => switch (state) {
+  LaundryMachineState.free => campus.positive,
+  LaundryMachineState.busy => campus.attention,
+  LaundryMachineState.finished => campus.now,
+  LaundryMachineState.broken => scheme.error,
+  LaundryMachineState.reserved ||
+  LaundryMachineState.unknown => scheme.onSurfaceVariant,
+};
