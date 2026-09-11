@@ -247,6 +247,90 @@ void main() {
     await expectLater(tester, meetsGuideline(textContrastGuideline));
   });
 
+  group('the agenda', () {
+    List<Association> withEvents() => <Association>[
+      _asso(
+        id: 'a',
+        name: 'Arts',
+        events: <AssociationEvent>[
+          _event(
+            id: 'e1',
+            associationId: 'a',
+            title: 'Vernissage',
+            startsAt: campusNow().add(const Duration(days: 2)),
+          ),
+        ],
+      ),
+      _asso(
+        id: 'b',
+        name: 'Basket',
+        category: AssociationCategory.sport,
+        events: <AssociationEvent>[
+          _event(
+            id: 'e2',
+            associationId: 'b',
+            title: 'Tournoi',
+            startsAt: campusNow().add(const Duration(days: 4)),
+          ),
+        ],
+      ),
+    ];
+
+    testWidgets('is absent while nothing is dated', (tester) async {
+      await _pump(
+        tester,
+        const AssociationsScreen(),
+        directory: <Association>[_asso(id: 'a', name: 'Arts')],
+      );
+      expect(find.text('Agenda'), findsNothing);
+      expect(find.byType(TabBar), findsNothing);
+    });
+
+    testWidgets('appears as a tab once there is something on', (tester) async {
+      await _pump(tester, const AssociationsScreen(), directory: withEvents());
+      expect(find.text('Agenda'), findsOneWidget);
+
+      await tester.tap(find.text('Agenda'));
+      await tester.pumpAndSettle();
+      expect(find.text('Vernissage'), findsOneWidget);
+      expect(find.text('Tournoi'), findsOneWidget);
+    });
+
+    testWidgets('lists every asso, not only the followed ones', (tester) async {
+      SharedPreferences.setMockInitialValues(<String, Object>{
+        AssociationFollowsNotifier.key: <String>['a'],
+      });
+      await _pump(tester, const AssociationsScreen(), directory: withEvents());
+      await tester.tap(find.text('Agenda'));
+      await tester.pumpAndSettle();
+      expect(find.text('Tournoi'), findsOneWidget);
+    });
+
+    testWidgets('the filter narrows it to what is followed', (tester) async {
+      SharedPreferences.setMockInitialValues(<String, Object>{
+        AssociationFollowsNotifier.key: <String>['a'],
+      });
+      await _pump(tester, const AssociationsScreen(), directory: withEvents());
+      await tester.tap(find.text('Agenda'));
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.widgetWithText(FilterChip, 'Mes assos'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('Vernissage'), findsOneWidget);
+      expect(find.text('Tournoi'), findsNothing);
+    });
+
+    testWidgets('the filter is hidden when nothing is followed', (
+      tester,
+    ) async {
+      await _pump(tester, const AssociationsScreen(), directory: withEvents());
+      await tester.tap(find.text('Agenda'));
+      await tester.pumpAndSettle();
+      expect(find.byType(FilterChip), findsNothing);
+    });
+  });
+
   group('initials stand in for a missing logo', () {
     test('two words give two letters', () {
       expect(associationInitials('Arts Plastiques'), 'AP');

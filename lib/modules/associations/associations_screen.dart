@@ -5,6 +5,7 @@ import '../../theme/campus_context.dart';
 import '../../theme/state_view.dart';
 import '../../theme/tokens.dart';
 import 'association.dart';
+import 'association_agenda.dart';
 import 'association_detail_screen.dart';
 import 'association_follows.dart';
 import 'association_service.dart';
@@ -40,16 +41,41 @@ class _AssociationsScreenState extends ConsumerState<AssociationsScreen> {
     final async = ref.watch(associationsProvider);
     final follows = ref.watch(associationFollowsProvider);
 
-    return Scaffold(
-      appBar: AppBar(title: const Text('Associations')),
-      body: async.when(
-        loading: () => const Center(child: CircularProgressIndicator()),
-        error: (_, _) => const StateView(
-          icon: Icons.groups_outlined,
-          title: 'Annuaire indisponible',
-          body: 'La liste des associations n’a pas pu être lue.',
+    final directory = async.when(
+      loading: () => const Center(child: CircularProgressIndicator()),
+      error: (_, _) => const StateView(
+        icon: Icons.groups_outlined,
+        title: 'Annuaire indisponible',
+        body: 'La liste des associations n’a pas pu être lue.',
+      ),
+      data: (all) => _body(all, follows),
+    );
+
+    // One tab while there is nothing dated to show: an empty Agenda beside a
+    // full directory would read as something being broken.
+    final hasEvents = ref.watch(associationEventsProvider).isNotEmpty;
+    if (!hasEvents) {
+      return Scaffold(
+        appBar: AppBar(title: const Text('Associations')),
+        body: directory,
+      );
+    }
+
+    return DefaultTabController(
+      length: 2,
+      child: Scaffold(
+        appBar: AppBar(
+          title: const Text('Associations'),
+          bottom: const TabBar(
+            tabs: <Widget>[
+              Tab(text: 'Annuaire'),
+              Tab(text: 'Agenda'),
+            ],
+          ),
         ),
-        data: (all) => _body(all, follows),
+        body: TabBarView(
+          children: <Widget>[directory, const AssociationAgenda()],
+        ),
       ),
     );
   }
