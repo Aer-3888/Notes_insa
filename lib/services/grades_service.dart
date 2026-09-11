@@ -4,6 +4,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter/foundation.dart';
 import 'cas/cas_client.dart';
 import 'cas/http_session.dart';
+import 'mdw/grade.dart';
 import 'mdw/grade_parser.dart';
 import 'mdw/mdw_client.dart';
 import 'mdw/vaadin_nodes.dart';
@@ -202,13 +203,46 @@ class GradesService {
     });
   }
 
-  /// Not ported yet. Coefficients are a fallback tier that already degrades to
-  /// the community list, so this fails fast rather than holding up a fetch.
+  /// Reads every row's coefficient from its details dialog.
+  ///
+  /// MDW only exposes one coefficient at a time, so this opens and closes a
+  /// dialog per row and is much slower than a grade fetch.
   static Future<String> coefficients(int id) async {
-    throw PlatformException(
-      code: 'ERR_COEFFICIENTS',
-      message: 'coefficients are not available from MDW in this build',
-    );
+    final mdw = _requireMdw;
+
+    return _mdwCall('ERR_COEFFICIENTS', () async {
+      final data = await mdw.openGrades(id);
+      final root = GradeParser.parse(data);
+      if (root == null) {
+        await mdw.closeGrades();
+        throw VaadinException('no grade rows to read coefficients from');
+      }
+
+      final targets = <Grade>[];
+      root.forEach((_, Grade grade) {
+        if (grade.key.isNotEmpty) targets.add(grade);
+      });
+
+      var filled = 0;
+      for (final Grade grade in targets) {
+        final opened = await mdw.openCoefficient(grade.key);
+        if (opened.coefficient != null) {
+          grade.coeff = opened.coefficient;
+          filled++;
+        }
+        await mdw.closeCoefficient(opened.node);
+      }
+
+      await mdw.closeGrades();
+
+      if (kDebugMode) {
+        debugPrint(
+          '[GradesService] group $id: $filled/${targets.length} coefficients',
+        );
+      }
+
+      return jsonEncode(root.toJson());
+    });
   }
 
   // ---------------------------------------------------------------------------

@@ -75,6 +75,24 @@ extension VaadinNodeLookup on VaadinData {
     return 0;
   }
 
+  /// The coefficient shown in the details dialog.
+  ///
+  /// The dialog carries it as the text node immediately before the one reading
+  /// "coefficient", so the label is what locates the value.
+  String? get coefficient {
+    final texts = <String>[];
+    for (final VaadinNode node in changes) {
+      if (node.key != 'text') continue;
+      final value = node.value;
+      if (value is String) texts.add(value);
+    }
+
+    final label = texts.indexWhere(
+      (String t) => t.trim().toLowerCase() == 'coefficient',
+    );
+    return label > 0 ? texts[label - 1] : null;
+  }
+
   /// A short type-and-shape summary used in error messages when the server
   /// changes format. Reports names and sizes, never transported values.
   String describe() {

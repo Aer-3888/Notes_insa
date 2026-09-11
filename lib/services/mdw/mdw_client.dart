@@ -193,6 +193,57 @@ class MdwClient {
     ], label: 'requestChildren');
   }
 
+  /// Opens a row's details dialog and reads its coefficient.
+  ///
+  /// Selecting the row, showing its details and clicking it are all needed
+  /// before MDW renders the dialog.
+  Future<({String? coefficient, int node})> openCoefficient(String key) async {
+    final rpc = <VaadinRpc>[
+      for (final String method in <String>['select', 'setDetailsVisible'])
+        VaadinRpc(
+          node: gridNode,
+          type: 'publishedEventHandler',
+          promise: 0,
+          templateEventMethodName: method,
+          templateEventMethodArgs: <String>[key],
+        ),
+      VaadinRpc(
+        node: gridNode,
+        type: 'event',
+        event: 'item-click',
+        data: <String, Object>{
+          ..._clickData(),
+          'event.detail.internalColumnId': 'col0',
+          'event.detail.itemKey': key,
+        },
+      ),
+    ];
+
+    final data = await session.send(rpc, label: 'openCoefficient');
+    final node = data.coefficientNode;
+
+    if (node != 0) {
+      await session.send(<VaadinRpc>[
+        VaadinRpc(node: node, type: 'event', event: 'opened-changed'),
+      ], label: 'openCoefficient.ack');
+    }
+
+    return (coefficient: data.coefficient, node: node);
+  }
+
+  Future<void> closeCoefficient(int node) async {
+    if (node == 0) return;
+    await session.send(<VaadinRpc>[
+      VaadinRpc(
+        node: node,
+        type: 'publishedEventHandler',
+        promise: 0,
+        templateEventMethodName: 'handleClientClose',
+        templateEventMethodArgs: const <Object>[],
+      ),
+    ], label: 'closeCoefficient');
+  }
+
   Future<void> closeGrades() async {
     if (closeButtonNode == 0) return;
     await session.send(<VaadinRpc>[
