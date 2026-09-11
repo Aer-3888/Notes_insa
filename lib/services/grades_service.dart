@@ -233,26 +233,38 @@ class GradesService {
       );
     }
 
-    if (groupCount == 1) {
-      final json = await grades(0);
-      await saveGrades(json);
-      return (json: json, groupCount: groupCount);
-    }
-
-    final firstJson = await grades(0);
-    final merged = jsonDecode(firstJson) as Map<String, dynamic>;
+    // A card can hold no results at all (a second cursus not yet graded), and
+    // MDW then answers with the page chrome and no rows. That must not lose the
+    // cards that did return grades.
+    Map<String, dynamic>? merged;
     final mergedDetails = <dynamic>[];
+    final failures = <String>[];
 
-    if (merged['details'] is List) {
-      _mergeDetails(mergedDetails, merged['details'] as List<dynamic>);
+    for (var i = 0; i < groupCount; i++) {
+      final Map<String, dynamic> group;
+      try {
+        group = jsonDecode(await grades(i)) as Map<String, dynamic>;
+      } on PlatformException catch (e) {
+        if (kDebugMode) debugPrint('[GradesService] group $i skipped: $e');
+        failures.add('$i');
+        continue;
+      }
+
+      merged ??= group;
+      if (group['details'] is List) {
+        _mergeDetails(mergedDetails, group['details'] as List<dynamic>);
+      }
     }
 
-    for (int i = 1; i < groupCount; i++) {
-      final extraJson = await grades(i);
-      final extra = jsonDecode(extraJson) as Map<String, dynamic>;
-      if (extra['details'] is List) {
-        _mergeDetails(mergedDetails, extra['details'] as List<dynamic>);
-      }
+    if (merged == null) {
+      throw PlatformException(
+        code: 'ERR_GRADES',
+        message: 'no grades in any of the $groupCount card(s)',
+      );
+    }
+
+    if (kDebugMode && failures.isNotEmpty) {
+      debugPrint('[GradesService] empty card(s): ${failures.join(', ')}');
     }
 
     merged['details'] = mergedDetails;
