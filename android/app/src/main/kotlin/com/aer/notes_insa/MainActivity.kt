@@ -11,7 +11,6 @@ import android.os.Looper
 import android.util.Log
 import android.view.WindowManager
 import kotlin.concurrent.withLock
-import mobinsapi.Mobinsapi
 
 private const val CHANNEL = "com.aer.notes_insa/grades"
 private const val MAP_CHANNEL = "com.aer.notes_insa/campus_map"
@@ -107,107 +106,6 @@ class MainActivity : FlutterFragmentActivity() {
         )
         channel!!.setMethodCallHandler { call, result ->
             when (call.method) {
-
-                "Auth" -> {
-                    val username = call.argument<String>("username") ?: ""
-                    val password = call.argument<String>("password") ?: ""
-                    if (username.isBlank() || password.isBlank()) {
-                        result.error("ERR_INVALID_ARGS", "username or password missing", null)
-                        return@setMethodCallHandler
-                    }
-                    runInBackground("Auth", result) {
-                        Mobinsapi.auth(username, password)
-                        null
-                    }
-                }
-
-                "IsTokenNeeded" -> {
-                    runInBackground("IsTokenNeeded", result) {
-                        Mobinsapi.isTokenNeeded()
-                    }
-                }
-
-                "TriggerEmail" -> {
-                    runInBackground("TriggerEmail", result) {
-                        Mobinsapi.triggerEmail()
-                        null
-                    }
-                }
-
-                "Validate" -> {
-                    val code = call.argument<String>("code") ?: ""
-                    if (code.isBlank()) {
-                        result.error("ERR_INVALID_ARGS", "code missing", null)
-                        return@setMethodCallHandler
-                    }
-                    runInBackground("Validate", result) {
-                        Mobinsapi.validate(code)
-                        null
-                    }
-                }
-
-                "AutoValidate" -> {
-                    val secret = call.argument<String>("secret") ?: ""
-                    if (secret.isBlank()) {
-                        result.error("ERR_INVALID_ARGS", "secret missing", null)
-                        return@setMethodCallHandler
-                    }
-                    runInBackground("AutoValidate", result) {
-                        Mobinsapi.autoValidate(secret)
-                        null
-                    }
-                }
-
-                "IsAuthenticated" -> {
-                    runInBackground("IsAuthenticated", result) {
-                        Mobinsapi.isAuthenticated()
-                    }
-                }
-
-                "LoadGroups" -> {
-                    runInBackground("LoadGroups", result) {
-                        Mobinsapi.loadGroups().toInt()
-                    }
-                }
-
-                "Grades" -> {
-                    val id = call.argument<Int>("id") ?: 0
-                    runInBackground("Grades", result) {
-                        Mobinsapi.grades(id.toLong())
-                    }
-                }
-
-                "Coefficients" -> {
-                    val id = call.argument<Int>("id") ?: 0
-                    runInBackground("Coefficients", result) {
-                        Mobinsapi.coefficients(id.toLong())
-                    }
-                }
-
-                "NewCAS" -> {
-                    runInBackground("NewCAS", result) {
-                        Mobinsapi.newCAS()
-                        null
-                    }
-                }
-
-                "ExportCAS" -> {
-                    runInBackground("ExportCAS", result) {
-                        Mobinsapi.exportCAS()
-                    }
-                }
-
-                "ImportCAS" -> {
-                    val token = call.argument<String>("token") ?: ""
-                    if (token.isBlank()) {
-                        result.error("ERR_INVALID_ARGS", "token missing", null)
-                        return@setMethodCallHandler
-                    }
-                    runInBackground("ImportCAS", result) {
-                        Mobinsapi.importCAS(token)
-                        null
-                    }
-                }
 
                 "SyncWorkerStore" -> {
                     val values = call.argument<Map<String, String?>>("values")

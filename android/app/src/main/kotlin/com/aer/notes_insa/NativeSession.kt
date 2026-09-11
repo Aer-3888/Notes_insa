@@ -4,7 +4,7 @@ import java.util.concurrent.Executors
 import java.util.concurrent.locks.ReentrantLock
 
 /**
- * Serializes all access to the Mobinsapi native library, which keeps a single
+ * Serializes access to the worker store, which keeps a single
  * shared CAS session. Without this, an abandoned foreground call (one whose Dart
  * future already timed out) could overlap the next call, or a background worker
  * run could interleave with a foreground call, corrupting the shared session.
@@ -20,7 +20,7 @@ internal object NativeSession {
     }
 
     /**
-     * Scheduler operations must not queue behind a slow or hung Mobinsapi call.
+     * Scheduler operations must not queue behind a slow fetch.
      * Keep them serial so rapid settings changes still reach WorkManager in
      * order, while using a separate thread from the native CAS session.
      */

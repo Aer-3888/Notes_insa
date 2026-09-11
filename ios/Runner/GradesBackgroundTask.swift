@@ -12,7 +12,8 @@ import UserNotifications
 /// are consequently far less reliable on iOS than on Android — a server push
 /// (worker → APNs) would be the only way to reach Android parity.
 ///
-/// The task runs in the app's own process, calls `Mobinsapi` directly (no
+/// The task runs in the app's own process and runs the fetch in a headless
+/// Dart isolate (see HeadlessFetch.swift), so it shares the app's network path (no
 /// Flutter engine), and reads credentials / the previous snapshot from the
 /// Keychain-backed `WorkerStore`.
 @available(iOS 13.0, *)
@@ -96,7 +97,7 @@ enum GradesBackgroundTask {
         }
 
         let queue = DispatchQueue(label: "com.aer.notes_insa.grades.work")
-        // Shared flag so doWork() can stop between Mobinsapi calls once the
+        // Shared flag so doWork() can stop between steps once the
         // system asks for the task back, rather than running to completion.
         let token = CancellationToken()
         let completion = TaskCompletionGate(task: task)
@@ -147,102 +148,56 @@ enum GradesBackgroundTask {
             let otpSecret = try WorkerStore.get(WorkerStore.keyOtpSecret)
             let casSession = try WorkerStore.get(WorkerStore.keyCasSession)
 
-            // Try to restore the previous CAS session to skip a full re-auth.
-            if let casSession = casSession {
-                do {
-                    try MobinsApiClient.importCAS(token: casSession)
-                } catch {
-                    if isCancelled() { return false }
-                    try WorkerStore.write(values: [WorkerStore.keyCasSession: nil])
-                    try MobinsApiClient.newCAS()
-                }
-            } else {
-                try MobinsApiClient.newCAS()
-            }
-            if isCancelled() { return false }
-
-            // Re-auth only if the restored session is no longer valid.
-            let authenticated = try MobinsApiClient.isAuthenticated()
-            if isCancelled() { return false }
-            if !authenticated {
-                do {
-                    try MobinsApiClient.auth(username: username, password: password)
-                } catch {
-                    if isCancelled() { return false }
-                    NSLog("[GradesBackgroundTask] Authentication attempt failed")
-                    recordRetryableFailure(defaults: defaults)
-                    return false
-                }
-                if isCancelled() { return false }
-
-                if MobinsApiClient.isTokenNeeded() {
-                    guard let otpSecret = otpSecret else {
-                        resetFailureWindow(defaults: defaults)
-                        showReauthNotification()
-                        return true
-                    }
-                    // TOTP replay guard: the foreground app shares this OTP
-                    // secret, so if the current 30s step was already claimed
-                    // (here or by grades_provider.dart), submitting now would
-                    // replay the identical code and be rejected. Skip and let the
-                    // next run (a new step) handle it. Keep in sync with the Dart
-                    // and Kotlin implementations.
-                    let currentStep = Self.totpStep()
-                    let claimedValue = try WorkerStore.get(WorkerStore.keyLastTotpStep)
-                    let claimedStep = claimedValue.flatMap { Int64($0) }
-                    if claimedStep == currentStep {
-                        NSLog("[GradesBackgroundTask] TOTP step \(currentStep) already claimed, skipping this run")
-                        return true
-                    }
-                    if isCancelled() { return false }
-                    try WorkerStore.write(values: [WorkerStore.keyLastTotpStep: String(currentStep)])
-                    do {
-                        try MobinsApiClient.autoValidate(secret: otpSecret)
-                    } catch {
-                        if isCancelled() { return false }
-                        NSLog("[GradesBackgroundTask] Auto-validate attempt failed")
-                        recordRetryableFailure(defaults: defaults)
-                        return false
-                    }
-                    if isCancelled() { return false }
-                }
-            }
-
-            if isCancelled() { return false }
-
-            // Export the (possibly refreshed) session for next time.
-            if let newSession = try? MobinsApiClient.exportCAS() {
-                if isCancelled() { return false }
-                try WorkerStore.write(values: [WorkerStore.keyCasSession: newSession])
-            }
-
-            // Read the previous snapshot before overwriting it.
             let previousJson = try WorkerStore.get(WorkerStore.keyGradesJson)
 
+            let claimedStep = try WorkerStore.get(WorkerStore.keyLastTotpStep)
+                .flatMap { Int64($0) }
+
+            let outcome = HeadlessFetch.run(
+                request: HeadlessFetch.Request(
+                    username: username,
+                    password: password,
+                    otpSecret: otpSecret,
+                    casSession: casSession,
+                    claimedTotpStep: claimedStep
+                ),
+                onTotpStepClaimed: { step in
+                    try? WorkerStore.write(
+                        values: [WorkerStore.keyLastTotpStep: String(step)]
+                    )
+                }
+            )
             if isCancelled() { return false }
-            let groupCount = try MobinsApiClient.loadGroups()
-            if groupCount <= 0 {
-                NSLog("[GradesBackgroundTask] No groups available")
+
+            switch outcome.status {
+            case "needsReauth":
+                NSLog("[GradesBackgroundTask] 2FA required, notifying user")
+                resetFailureWindow(defaults: defaults)
+                showReauthNotification()
+                return true
+
+            case "totpStepClaimed":
+                NSLog("[GradesBackgroundTask] TOTP step already claimed, skipping")
+                return true
+
+            case "ok":
+                break
+
+            default:
+                NSLog("[GradesBackgroundTask] Fetch did not complete")
                 recordRetryableFailure(defaults: defaults)
                 return false
             }
-            if isCancelled() { return false }
 
-            let newJson: String
-            if groupCount == 1 {
-                newJson = try MobinsApiClient.grades(id: 0)
-            } else {
-                var first = try parseObject(MobinsApiClient.grades(id: 0))
-                var mergedDetails: [Any] = []
-                if let d = first["details"] as? [Any] { mergeDetails(&mergedDetails, d) }
-                for i in 1..<groupCount {
-                    if isCancelled() { return false }
-                    let extra = try parseObject(MobinsApiClient.grades(id: i))
-                    if let d = extra["details"] as? [Any] { mergeDetails(&mergedDetails, d) }
-                }
-                first["details"] = mergedDetails
-                newJson = try serialize(first)
+            guard let newJson = outcome.gradesJson else {
+                recordRetryableFailure(defaults: defaults)
+                return false
             }
+
+            if let session = outcome.casSession {
+                try WorkerStore.write(values: [WorkerStore.keyCasSession: session])
+            }
+
             _ = try parseObject(newJson)
 
             // Bail before persisting/notifying if the system reclaimed our time

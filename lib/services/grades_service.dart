@@ -5,6 +5,7 @@ import 'package:flutter/foundation.dart';
 import 'cas/cas_client.dart';
 import 'cas/http_session.dart';
 import 'mdw/grade.dart';
+import 'mdw/grade_merge.dart';
 import 'mdw/grade_parser.dart';
 import 'mdw/mdw_client.dart';
 import 'mdw/vaadin_nodes.dart';
@@ -14,19 +15,8 @@ import '../constants.dart';
 import 'worker_sync_service.dart';
 
 class GradesService {
-  static const MethodChannel _channel = MethodChannel(
-    'com.aer.notes_insa/grades',
-  );
   static const _storage = kSecureStorage;
   static const String _gradesKey = kStorageGradesJson;
-
-  /// Caps native calls so a hung one can't strand the UI on a control-less
-  /// splash (see CasGuard).
-  static const Duration _nativeTimeout = Duration(seconds: 30);
-
-  static Future<T?> _invoke<T>(String method, [dynamic arguments]) {
-    return _channel.invokeMethod<T>(method, arguments).timeout(_nativeTimeout);
-  }
 
   // ---------------------------------------------------------------------------
   // CAS: pure Dart. MDW below still runs in the native bridge.
@@ -64,11 +54,6 @@ class GradesService {
     if (kDebugMode) debugPrint('[CAS] newCAS (had session: ${_cas != null})');
     _cas?.close();
     _cas = _newCasClient();
-    try {
-      await _invoke<void>('NewCAS');
-    } catch (e) {
-      if (kDebugMode) debugPrint('[GradesService] native NewCAS failed: $e');
-    }
   }
 
   static Future<void> auth(String username, String password) =>
@@ -296,7 +281,7 @@ class GradesService {
 
       merged ??= group;
       if (group['details'] is List) {
-        _mergeDetails(mergedDetails, group['details'] as List<dynamic>);
+        mergeGradeDetails(mergedDetails, group['details'] as List<dynamic>);
       }
     }
 
@@ -315,46 +300,6 @@ class GradesService {
     final result = jsonEncode(merged);
     await saveGrades(result);
     return (json: result, groupCount: groupCount);
-  }
-
-  /// Merge [incoming] nodes into [target], deduplicating by name. When a node
-  /// with the same name already exists and both carry child `details` lists
-  /// (e.g. two "ANNEE 3" wrappers from different cards holding different
-  /// semesters), their children are merged recursively instead of dropping the
-  /// second wrapper wholesale , otherwise distinct semesters would be lost.
-  static void _mergeDetails(List<dynamic> target, List<dynamic> incoming) {
-    for (final item in incoming) {
-      if (item is! Map<String, dynamic>) {
-        target.add(item);
-        continue;
-      }
-      final name = item['name'] as String?;
-      if (name == null) {
-        target.add(item);
-        continue;
-      }
-
-      final existing = target.firstWhere(
-        (e) => e is Map<String, dynamic> && e['name'] == name,
-        orElse: () => null,
-      );
-
-      if (existing == null) {
-        target.add(item);
-        continue;
-      }
-
-      // Same name: if both are containers, merge their children; otherwise the
-      // node is a true duplicate (same leaf) and is skipped.
-      if (existing is Map<String, dynamic> &&
-          existing['details'] is List &&
-          item['details'] is List) {
-        _mergeDetails(
-          existing['details'] as List<dynamic>,
-          item['details'] as List<dynamic>,
-        );
-      }
-    }
   }
 
   // ---------------------------------------------------------------------------

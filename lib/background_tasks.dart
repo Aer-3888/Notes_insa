@@ -3,7 +3,7 @@ import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'services/auth_service.dart';
 
-// The custom MethodChannel used for all Mobinsapi calls.
+// Channel for scheduling the native WorkManager job.
 const _channel = MethodChannel('com.aer.notes_insa/grades');
 
 /// Initialize or reschedule the native Android background task.
@@ -11,8 +11,8 @@ const _channel = MethodChannel('com.aer.notes_insa/grades');
 /// Reads the configured fetch interval from SharedPreferences and passes it to
 /// the native scheduler via MethodChannel.
 ///
-/// - Android: schedules a WorkManager [GradesBackgroundWorker] that calls
-///   Mobinsapi directly, so it runs even after the app process is killed.
+/// - Android: schedules a WorkManager [GradesBackgroundWorker] that runs the
+///   fetch in a headless Dart isolate, so it survives process death.
 /// - iOS: schedules a BGTaskScheduler processing task (GradesBackgroundTask.swift)
 ///   that runs in-process when the system grants background time. The interval
 ///   is an earliest-begin hint, not a guaranteed schedule.

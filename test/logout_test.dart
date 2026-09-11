@@ -101,11 +101,7 @@ void main() {
       expect(prefs.get('last_background_failure_alert_ms'), isNull);
       expect(
         nativeCalls,
-        containsAll(<String>[
-          'StopBackgroundTask',
-          'ClearWorkerStore',
-          'NewCAS',
-        ]),
+        containsAll(<String>['StopBackgroundTask', 'ClearWorkerStore']),
       );
     },
   );
@@ -159,7 +155,6 @@ void main() {
             return 'old-session';
           case 'StopBackgroundTask':
           case 'ClearWorkerStore':
-          case 'NewCAS':
             return null;
         }
         return null;

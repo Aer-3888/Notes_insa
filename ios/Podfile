@@ -34,11 +34,6 @@ target 'Runner' do
 
   flutter_install_all_ios_pods File.dirname(File.realpath(__FILE__))
 
-  # Native Go data layer (gomobile-built xcframework). Produced by
-  # scripts/ios_bootstrap.sh into ios/Frameworks/Mobinsapi.xcframework
-  # BEFORE `pod install` runs. The module imported in Swift is `Mobinsapi`,
-  # independent of this pod's name. See ios/mobinsapi.podspec.
-  pod 'mobinsapi', :path => '.'
 
   target 'RunnerTests' do
     inherit! :search_paths

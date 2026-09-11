@@ -15,7 +15,7 @@ typedef CoeffKey = ({String ue, String subject});
 /// 3-tier coefficient fetching:
 ///   1. Local cache (FlutterSecureStorage)
 ///   2. Cloudflare D1 community database
-///   3. Mobinsapi Coefficients() API (last resort)
+///   3. MDW coefficient dialogs (last resort)
 ///
 /// Only tier 3 (API) results are pushed to Cloudflare and cached locally.
 /// Tier 2 results are cached locally but never re-pushed.
@@ -78,7 +78,7 @@ class CoefficientsService {
   }
 
   /// Call right after fetchAndSaveGrades() while the Vaadin session is alive.
-  /// Fetches coefficients from the Mobinsapi API, caches all semesters
+  /// Fetches coefficients from MDW, caches all semesters
   /// locally, and pushes to Cloudflare. [groupCount] is the value already
   /// returned by fetchAndSaveGrades(), so this doesn't need to call
   /// loadGroups() again.
@@ -272,7 +272,7 @@ class CoefficientsService {
     }
   }
 
-  // ── Tier 3: Mobinsapi API ────────────────────────────────────────────────
+  // ── Tier 3: MDW coefficient dialogs ──────────────────────────────────────
 
   static Future<Map<String, Map<String, double>>?> _fetchFromApi(
     int groupCount,

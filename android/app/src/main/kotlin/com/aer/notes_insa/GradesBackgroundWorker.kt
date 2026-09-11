@@ -13,7 +13,6 @@ import androidx.core.app.NotificationManagerCompat
 import androidx.work.*
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
-import mobinsapi.Mobinsapi
 import org.json.JSONArray
 import org.json.JSONObject
 import java.util.concurrent.TimeUnit
@@ -33,11 +32,6 @@ private const val KEY_GRADES_JSON = WorkerStore.KEY_GRADES_JSON
 private const val KEY_GRADES_UPDATED_AT = WorkerStore.KEY_GRADES_UPDATED_AT
 private const val KEY_LAST_TOTP_STEP = WorkerStore.KEY_LAST_TOTP_STEP
 
-// TOTP codes change once per step (RFC 6238 default period). Used to coordinate
-// autoValidate with the foreground so they don't submit the same one-time code
-// in the same step. If the real period differs the worst case is an unnecessary
-// skip (harmless retry), never a new failure.
-private const val TOTP_STEP_SECONDS = 30L
 
 // SharedPreferences key written by the Flutter shared_preferences plugin (flutter.* prefix)
 private const val PREF_FETCH_ENABLED = "flutter.background_fetch_enabled"
@@ -56,7 +50,8 @@ internal const val TASK_UNIQUE_NAME = "grades_fetch_native"
  *
  * The Flutter-side callbackDispatcher approach registers the custom channel in MainActivity only,
  * so MethodChannel calls fail in the headless isolate when the app process was killed.
- * This worker calls Mobinsapi directly, making background fetch reliable across process restarts.
+ * The fetch itself runs in a headless Dart isolate (see HeadlessFetch), so the whole
+ * network path is shared with the foreground app.
  *
  * Reads credentials and the previous grades snapshot from [WorkerStore], a Keystore-encrypted
  * store the Flutter app mirrors on every credential change. The worker cannot read
@@ -119,113 +114,57 @@ class GradesBackgroundWorker(
             // The lock is held from the credential read through every native and
             // worker-store write. It is released in the finally below.
 
-            // Try to restore the previous CAS session to skip full re-auth
-            if (casSession != null) {
-                try {
-                    Mobinsapi.importCAS(casSession)
-                    Log.d(TAG, "CAS session restored")
-                } catch (e: Exception) {
-                    Log.w(TAG, "ImportCAS failed, starting new session")
-                    WorkerStore.write(appContext, mapOf(KEY_CAS_SESSION to null))
-                    Mobinsapi.newCAS()
-                }
-            } else {
-                Mobinsapi.newCAS()
+            // Snapshot read up front (see store read above), before overwriting.
+            val previousJson = store[KEY_GRADES_JSON]
+
+            val outcome = HeadlessFetch.run(
+                appContext,
+                FetchRequest(
+                    username = username,
+                    password = password,
+                    otpSecret = otpSecret,
+                    casSession = casSession,
+                    claimedTotpStep = WorkerStore
+                        .read(appContext, listOf(KEY_LAST_TOTP_STEP))[KEY_LAST_TOTP_STEP]
+                        ?.toLongOrNull(),
+                ),
+            ) { step ->
+                WorkerStore.write(appContext, mapOf(KEY_LAST_TOTP_STEP to step.toString()))
             }
             if (isStopped) return@withContext Result.retry()
 
-            // Re-auth only if the restored session is no longer valid
-            if (!Mobinsapi.isAuthenticated()) {
-                Log.d(TAG, "Not authenticated, running re-auth")
-                try {
-                    Mobinsapi.auth(username, password)
-                } catch (e: Exception) {
-                    if (isStopped) return@withContext Result.retry()
-                    // Mobinsapi exposes only a generic exception here, so it is
-                    // unsafe to claim the password is invalid: an INSA outage or
-                    // captive network looks identical. Track a truthful generic
-                    // failure incident and let WorkManager back off.
-                    Log.w(TAG, "Authentication attempt failed")
+            when (outcome.status) {
+                "needsReauth" -> {
+                    Log.d(TAG, "2FA required but no OTP secret stored, notifying user")
+                    resetFailureWindow(prefs)
+                    showReauthNotification()
+                    return@withContext Result.success()
+                }
+
+                "totpStepClaimed" -> {
+                    Log.d(TAG, "TOTP step already claimed, skipping this run")
+                    return@withContext Result.success()
+                }
+
+                "ok" -> Unit
+
+                else -> {
+                    Log.w(TAG, "Fetch did not complete")
                     recordRetryableFailure(prefs)
                     return@withContext Result.retry()
                 }
-                if (isStopped) return@withContext Result.retry()
-
-                if (Mobinsapi.isTokenNeeded()) {
-                    if (otpSecret == null) {
-                        Log.d(TAG, "2FA required but no OTP secret stored — notifying user")
-                        resetFailureWindow(prefs)
-                        showReauthNotification()
-                        return@withContext Result.success()
-                    }
-                    // TOTP replay guard: the foreground app shares this OTP
-                    // secret, so if the current 30s step was already claimed
-                    // (here or by grades_provider.dart), submitting now would
-                    // replay the identical code and be rejected. Skip and let the
-                    // next run (a new step) handle it. Keep in sync with the Dart
-                    // and Swift implementations.
-                    val currentStep = totpStep()
-                    // Read the claimed step fresh rather than from the up-front
-                    // snapshot, so the race window with a concurrent foreground
-                    // claim stays as small as possible (avoids replaying the
-                    // same one-time code in the same step).
-                    val claimedStep = WorkerStore.read(appContext, listOf(KEY_LAST_TOTP_STEP))
-                        .get(KEY_LAST_TOTP_STEP)?.toLongOrNull()
-                    if (claimedStep == currentStep) {
-                        Log.d(TAG, "TOTP step $currentStep already claimed, skipping this run")
-                        return@withContext Result.success()
-                    }
-                    WorkerStore.write(
-                        appContext,
-                        mapOf(KEY_LAST_TOTP_STEP to currentStep.toString()),
-                    )
-                    try {
-                        Mobinsapi.autoValidate(otpSecret)
-                    } catch (e: Exception) {
-                        if (isStopped) return@withContext Result.retry()
-                        // Validation/network failures are indistinguishable at
-                        // this API boundary. Do not claim the secret is invalid.
-                        Log.w(TAG, "Auto-validate attempt failed")
-                        recordRetryableFailure(prefs)
-                        return@withContext Result.retry()
-                    }
-                    if (isStopped) return@withContext Result.retry()
-                }
             }
 
-            // Export the (possibly refreshed) session for next time
-            try {
-                val newSession = Mobinsapi.exportCAS()
-                if (isStopped) return@withContext Result.retry()
-                WorkerStore.write(appContext, mapOf(KEY_CAS_SESSION to newSession))
-            } catch (e: Exception) {
-                Log.w(TAG, "ExportCAS failed (non-fatal)")
-            }
-
-            // Snapshot read up front (see store read above), before overwriting.
-            val previousJson = store[KEY_GRADES_JSON]
-            val groupCount = Mobinsapi.loadGroups().toInt()
-            if (isStopped) return@withContext Result.retry()
-            if (groupCount <= 0) {
-                Log.w(TAG, "No groups available")
+            val newJson = outcome.gradesJson
+            if (newJson == null) {
                 recordRetryableFailure(prefs)
                 return@withContext Result.retry()
             }
 
-            val newJson = if (groupCount == 1) {
-                Mobinsapi.grades(0)
-            } else {
-                val first = JSONObject(Mobinsapi.grades(0))
-                val mergedDetails = JSONArray()
-
-                first.optJSONArray("details")?.let { mergeDetails(mergedDetails, it) }
-                for (i in 1 until groupCount) {
-                    val extra = JSONObject(Mobinsapi.grades(i.toLong()))
-                    extra.optJSONArray("details")?.let { mergeDetails(mergedDetails, it) }
-                }
-                first.put("details", mergedDetails)
-                first.toString()
+            outcome.casSession?.let {
+                WorkerStore.write(appContext, mapOf(KEY_CAS_SESSION to it))
             }
+
             GradeChangeDetector.validate(newJson)
             if (isStopped) return@withContext Result.retry()
             // Stamp the write so the foreground can tell this snapshot is newer
@@ -400,7 +339,6 @@ class GradesBackgroundWorker(
 
     // Current TOTP step: floor(epochSeconds / period). Two autoValidate calls in
     // the same step generate the same one-time code.
-    private fun totpStep(): Long = System.currentTimeMillis() / 1000L / TOTP_STEP_SECONDS
 
     private fun showReauthNotification() {
         val prefs = appContext.getSharedPreferences(SHARED_PREFS_FILE, Context.MODE_PRIVATE)

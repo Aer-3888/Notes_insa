@@ -5,9 +5,9 @@ import Foundation
 ///
 /// Bridges the Dart `MethodChannel('com.aer.notes_insa/grades')` (see
 /// lib/services/grades_service.dart and worker_sync_service.dart) to the native
-/// `Mobinsapi` data layer and the Keychain-backed `WorkerStore`.
+/// Keychain-backed `WorkerStore` and the background task scheduler.
 ///
-/// Each Mobinsapi call runs off the main thread and posts its result/error back
+/// Each call runs off the main thread and posts its result/error back
 /// on the main thread, preserving the `ERR_<METHOD>` error-code contract the
 /// Dart side relies on.
 enum GradesBridge {
@@ -29,85 +29,6 @@ enum GradesBridge {
         let args = call.arguments as? [String: Any]
 
         switch call.method {
-
-        case "Auth":
-            let username = args?["username"] as? String ?? ""
-            let password = args?["password"] as? String ?? ""
-            guard !username.isEmpty, !password.isEmpty else {
-                return result(invalidArgs("username or password missing"))
-            }
-            runInBackground("Auth", result) {
-                try MobinsApiClient.auth(username: username, password: password)
-                return nil
-            }
-
-        case "IsTokenNeeded":
-            runInBackground("IsTokenNeeded", result) {
-                MobinsApiClient.isTokenNeeded()
-            }
-
-        case "TriggerEmail":
-            runInBackground("TriggerEmail", result) {
-                try MobinsApiClient.triggerEmail()
-                return nil
-            }
-
-        case "Validate":
-            let code = args?["code"] as? String ?? ""
-            guard !code.isEmpty else { return result(invalidArgs("code missing")) }
-            runInBackground("Validate", result) {
-                try MobinsApiClient.validate(code: code)
-                return nil
-            }
-
-        case "AutoValidate":
-            let secret = args?["secret"] as? String ?? ""
-            guard !secret.isEmpty else { return result(invalidArgs("secret missing")) }
-            runInBackground("AutoValidate", result) {
-                try MobinsApiClient.autoValidate(secret: secret)
-                return nil
-            }
-
-        case "IsAuthenticated":
-            runInBackground("IsAuthenticated", result) {
-                try MobinsApiClient.isAuthenticated()
-            }
-
-        case "LoadGroups":
-            runInBackground("LoadGroups", result) {
-                try MobinsApiClient.loadGroups()
-            }
-
-        case "Grades":
-            let id = args?["id"] as? Int ?? 0
-            runInBackground("Grades", result) {
-                try MobinsApiClient.grades(id: id)
-            }
-
-        case "Coefficients":
-            let id = args?["id"] as? Int ?? 0
-            runInBackground("Coefficients", result) {
-                try MobinsApiClient.coefficients(id: id)
-            }
-
-        case "NewCAS":
-            runInBackground("NewCAS", result) {
-                try MobinsApiClient.newCAS()
-                return nil
-            }
-
-        case "ExportCAS":
-            runInBackground("ExportCAS", result) {
-                try MobinsApiClient.exportCAS()
-            }
-
-        case "ImportCAS":
-            let token = args?["token"] as? String ?? ""
-            guard !token.isEmpty else { return result(invalidArgs("token missing")) }
-            runInBackground("ImportCAS", result) {
-                try MobinsApiClient.importCAS(token: token)
-                return nil
-            }
 
         case "SyncWorkerStore":
             guard let values = args?["values"] as? [String: Any] else {
