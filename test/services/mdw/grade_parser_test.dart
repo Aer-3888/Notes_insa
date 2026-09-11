@@ -44,7 +44,7 @@ class _ResponseBuilder {
       'level': level,
       if (children) ...<String, dynamic>{'children': true, 'expanded': true},
       'lr_89c27c9fba1d48d5_nodeid': nameNode,
-      if (valueNode != null) 'lr_8c127e4141854e82_nodeid': valueNode,
+      'lr_8c127e4141854e82_nodeid': ?valueNode,
     };
     _execute.add(<dynamic>[
       <String, dynamic>{'@v-node': 222},

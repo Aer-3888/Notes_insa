@@ -4,6 +4,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:notes_insa/constants.dart';
+import 'package:notes_insa/services/grades_service.dart';
 import 'package:notes_insa/providers/auth_providers.dart';
 import 'package:notes_insa/modules/grades/grades_provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -156,17 +157,22 @@ void main() {
         switch (call.method) {
           case 'ExportCAS':
             return 'old-session';
-          case 'LoadGroups':
-            return 1;
-          case 'Grades':
-            gradesStarted.complete();
-            return gradesResult.future;
           case 'StopBackgroundTask':
           case 'ClearWorkerStore':
           case 'NewCAS':
             return null;
         }
         return null;
+      });
+
+      GradesService.loadGroupsOverride = () async => 1;
+      GradesService.gradesOverride = (_) {
+        gradesStarted.complete();
+        return gradesResult.future;
+      };
+      addTearDown(() {
+        GradesService.loadGroupsOverride = null;
+        GradesService.gradesOverride = null;
       });
 
       final container = ProviderContainer();

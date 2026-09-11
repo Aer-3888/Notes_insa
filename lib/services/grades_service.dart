@@ -3,6 +3,11 @@ import 'dart:convert';
 import 'package:flutter/services.dart';
 import 'package:flutter/foundation.dart';
 import 'cas/cas_client.dart';
+import 'cas/http_session.dart';
+import 'mdw/grade_parser.dart';
+import 'mdw/mdw_client.dart';
+import 'mdw/vaadin_nodes.dart';
+import 'mdw/vaadin_types.dart';
 import 'secure_storage.dart';
 import '../constants.dart';
 import 'worker_sync_service.dart';
@@ -94,47 +99,100 @@ class GradesService {
   }
 
   // ---------------------------------------------------------------------------
-  // MDW: native bridge
+  // MDW: pure Dart over the Vaadin UIDL protocol
   // ---------------------------------------------------------------------------
 
-  /// Hands the native side the cookies the Dart sign-in obtained. Its
-  /// ImportCAS resets the MDW session, so this runs before loadGroups only.
-  static Future<void> _syncSessionToNative() async {
-    await _invoke<void>('ImportCAS', {'token': _requireCas.exportSession()});
-  }
+  /// How many times to ask for rows a parent claims but did not send.
+  static const int _maxChildPages = 8;
 
-  static Future<int> loadGroups() async {
-    await _syncSessionToNative();
-    final result = await _invoke<int>('LoadGroups');
-    if (result == null) {
+  static MdwClient? _mdw;
+
+  /// Test seams for the MDW half, which otherwise needs a live Vaadin session.
+  @visibleForTesting
+  static Future<int> Function()? loadGroupsOverride;
+  @visibleForTesting
+  static Future<String> Function(int id)? gradesOverride;
+
+  static MdwClient get _requireMdw {
+    final mdw = _mdw;
+    if (mdw == null) {
       throw PlatformException(
-        code: 'ERR_LOADGROUPS',
-        message: 'Null response from LoadGroups',
+        code: 'ERR_NoMDW',
+        message: 'grade groups are not loaded',
       );
     }
-    return result;
+    return mdw;
+  }
+
+  /// Maps MDW transport failures onto the codes the screens already handle.
+  static Future<T> _mdwCall<T>(String code, Future<T> Function() body) async {
+    try {
+      return await body();
+    } on VaadinException catch (e) {
+      throw PlatformException(code: code, message: e.message);
+    } on HttpSessionException catch (e) {
+      throw PlatformException(code: code, message: e.message);
+    }
+  }
+
+  /// Opens an MDW session on the CAS cookies and counts the grade cards.
+  static Future<int> loadGroups() async {
+    final override = loadGroupsOverride;
+    if (override != null) return override();
+
+    final cas = _requireCas;
+
+    return _mdwCall('ERR_LOADGROUPS', () async {
+      await _mdw?.dispose();
+      _mdw = null;
+
+      final mdw = MdwClient(cas.session);
+      await mdw.init();
+      final count = await mdw.loadGroups();
+      _mdw = mdw;
+      return count;
+    });
   }
 
   static Future<String> grades(int id) async {
-    final result = await _invoke<String>('Grades', {'id': id});
-    if (result == null) {
-      throw PlatformException(
-        code: 'ERR_GRADES',
-        message: 'Null response from Grades',
-      );
-    }
-    return result;
+    final override = gradesOverride;
+    if (override != null) return override(id);
+
+    final mdw = _requireMdw;
+
+    return _mdwCall('ERR_GRADES', () async {
+      final responses = <VaadinData>[await mdw.openGrades(id)];
+
+      for (var page = 0; page < _maxChildPages; page++) {
+        final merged = VaadinData.merge(responses);
+        final missing = GradeParser.missingChildKeys(
+          GradeParser.rowsOf(merged),
+        );
+        if (missing.isEmpty) break;
+        responses.add(await mdw.requestChildren(missing));
+      }
+
+      final root = GradeParser.parse(VaadinData.merge(responses));
+      await mdw.closeGrades();
+
+      if (root == null) {
+        throw VaadinException(
+          'no grade rows in the response '
+          '(${VaadinData.merge(responses).describe()})',
+        );
+      }
+
+      return jsonEncode(root.toJson());
+    });
   }
 
+  /// Not ported yet. Coefficients are a fallback tier that already degrades to
+  /// the community list, so this fails fast rather than holding up a fetch.
   static Future<String> coefficients(int id) async {
-    final result = await _invoke<String>('Coefficients', {'id': id});
-    if (result == null) {
-      throw PlatformException(
-        code: 'ERR_COEFFICIENTS',
-        message: 'Null response from Coefficients',
-      );
-    }
-    return result;
+    throw PlatformException(
+      code: 'ERR_COEFFICIENTS',
+      message: 'coefficients are not available from MDW in this build',
+    );
   }
 
   // ---------------------------------------------------------------------------

@@ -41,6 +41,17 @@ class VaadinData {
     raw: json,
   );
 
+  /// Combines several responses so rows delivered in a later page can still
+  /// resolve text that arrived with an earlier one.
+  static VaadinData merge(List<VaadinData> parts) {
+    if (parts.length == 1) return parts.first;
+    return VaadinData(
+      changes: <VaadinNode>[for (final VaadinData p in parts) ...p.changes],
+      execute: <List<dynamic>>[for (final VaadinData p in parts) ...p.execute],
+      raw: const <String, dynamic>{},
+    );
+  }
+
   final List<VaadinNode> changes;
   final List<List<dynamic>> execute;
 
