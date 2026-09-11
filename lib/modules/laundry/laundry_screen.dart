@@ -241,11 +241,22 @@ class _GroupGrid extends StatelessWidget {
     final scheme = Theme.of(context).colorScheme;
     final text = Theme.of(context).textTheme;
     final hasFree = group.free > 0;
-    final accent = group.total == 0
+    final unavailable = group.total == 0;
+    final availability = unavailable
+        ? 'Indisponible'
+        : group.free == 0
+        ? 'Complet'
+        : '${group.free}/${group.total} libres';
+    final availabilityBackground = unavailable
+        ? scheme.surfaceContainerHighest
+        : hasFree
+        ? context.campus.positiveContainer
+        : context.campus.attentionContainer;
+    final availabilityForeground = unavailable
         ? scheme.onSurfaceVariant
         : hasFree
-        ? _stateColor(LaundryMachineState.free, context.campus, scheme)
-        : _stateColor(LaundryMachineState.busy, context.campus, scheme);
+        ? context.campus.onPositiveContainer
+        : context.campus.onAttentionContainer;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -255,9 +266,22 @@ class _GroupGrid extends StatelessWidget {
             Icon(icon, size: 18, color: scheme.onSurfaceVariant),
             const SizedBox(width: CampusSpacing.x2),
             Expanded(child: Text(label, style: text.labelMedium)),
-            Text(
-              group.total == 0 ? '—' : '${group.free}/${group.total} libres',
-              style: text.labelMedium?.copyWith(color: accent),
+            Container(
+              padding: const EdgeInsets.symmetric(
+                horizontal: CampusSpacing.x2,
+                vertical: CampusSpacing.x1 / 2,
+              ),
+              decoration: BoxDecoration(
+                color: availabilityBackground,
+                borderRadius: CampusRadii.controlRadius,
+              ),
+              child: Text(
+                availability,
+                style: text.labelMedium?.copyWith(
+                  color: availabilityForeground,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
             ),
           ],
         ),
@@ -385,6 +409,9 @@ String _statusShort(LaundryMachine m) {
 }
 
 /// Colour per state, from the campus tokens so both themes stay legible.
+/// A broken machine intentionally uses neutral ink: the theme's error and
+/// attention roles share a hue, while a running cycle needs to stay distinct
+/// from one that is unavailable.
 Color _stateColor(
   LaundryMachineState state,
   CampusColors campus,
@@ -393,7 +420,7 @@ Color _stateColor(
   LaundryMachineState.free => campus.positive,
   LaundryMachineState.busy => campus.attention,
   LaundryMachineState.finished => campus.now,
-  LaundryMachineState.broken => scheme.error,
+  LaundryMachineState.broken => scheme.onSurface,
   LaundryMachineState.reserved ||
   LaundryMachineState.unknown => scheme.onSurfaceVariant,
 };
