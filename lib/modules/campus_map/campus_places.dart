@@ -4,6 +4,11 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart' show rootBundle;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../core/search_text.dart';
+
+// Re-exported: callers of this file have always searched through it.
+export '../../core/search_text.dart' show foldForSearch;
+
 /// The official INSA Rennes site plan (July 2025 edition).
 const String kCampusPlanUrl =
     'https://www.insa-rennes.fr/fileadmin/ressources/Rubriques/02-INSA/PlanCampusINSA-Rennes_juil2025.pdf';
@@ -61,19 +66,6 @@ class CampusPlace {
     if (q.isEmpty) return true;
     return foldForSearch(name).contains(q) || foldForSearch(code).contains(q);
   }
-}
-
-/// Lower-cases and strips the accents students will not bother typing.
-String foldForSearch(String s) {
-  const from = 'àâäéèêëîïôöùûüç';
-  const to = 'aaaeeeeiioouuuc';
-  final out = StringBuffer();
-  for (final rune in s.toLowerCase().runes) {
-    final ch = String.fromCharCode(rune);
-    final i = from.indexOf(ch);
-    out.write(i >= 0 ? to[i] : ch);
-  }
-  return out.toString().trim();
 }
 
 abstract final class CampusPlaces {

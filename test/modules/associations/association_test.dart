@@ -1,0 +1,180 @@
+import 'package:flutter_test/flutter_test.dart';
+import 'package:notes_insa/modules/associations/association.dart';
+import 'package:notes_insa/modules/associations/association_service.dart';
+
+Map<String, Object?> _row({
+  Object? id = 'ktulu',
+  Object? name = 'Association Ktulu',
+  Object? category = 'culture',
+  Object? events,
+  Object? links,
+  Object? logoAsset,
+}) => <String, Object?>{
+  'id': id,
+  'name': name,
+  'category': category,
+  if (events != null) 'events': events,
+  if (links != null) 'links': links,
+  if (logoAsset != null) 'logoAsset': logoAsset,
+};
+
+Map<String, Object?> _event({
+  Object? id = 'e1',
+  Object? title = 'Gala',
+  Object? startsAt = '2026-03-14T20:00:00',
+  Object? endsAt,
+}) => <String, Object?>{
+  'id': id,
+  'title': title,
+  'startsAt': startsAt,
+  if (endsAt != null) 'endsAt': endsAt,
+};
+
+void main() {
+  group('a row the seed gets wrong is dropped, not crashed on', () {
+    test('an entry with no id or no name is not an association', () {
+      expect(Association.fromJson(_row(id: null)), isNull);
+      expect(Association.fromJson(_row(id: '')), isNull);
+      expect(Association.fromJson(_row(name: null)), isNull);
+      expect(Association.fromJson(_row(name: 42)), isNull);
+      expect(Association.fromJson(null), isNull);
+      expect(Association.fromJson('ktulu'), isNull);
+    });
+
+    test('an event with no parseable date is dropped, the asso survives', () {
+      final association = Association.fromJson(
+        _row(
+          events: <Object?>[
+            _event(id: 'ok'),
+            _event(id: 'bad', startsAt: 'le 14 mars'),
+            _event(id: null),
+            'not an event',
+          ],
+        ),
+      );
+      expect(association, isNotNull);
+      expect(association!.events.map((e) => e.id), <String>['ok']);
+    });
+
+    test('an unknown category falls back rather than dropping the row', () {
+      expect(
+        Association.fromJson(_row(category: 'sportif'))?.category,
+        AssociationCategory.autre,
+      );
+      expect(
+        Association.fromJson(_row(category: null))?.category,
+        AssociationCategory.autre,
+      );
+    });
+  });
+
+  test('an event carries the id of the association it came from', () {
+    final association = Association.fromJson(
+      _row(id: 'bds', events: <Object?>[_event()]),
+    );
+    expect(association!.events.single.associationId, 'bds');
+  });
+
+  test('an end before the start is discarded', () {
+    final good = Association.fromJson(
+      _row(events: <Object?>[_event(endsAt: '2026-03-15T02:00:00')]),
+    );
+    expect(good!.events.single.endsAt, isNotNull);
+
+    final backwards = Association.fromJson(
+      _row(events: <Object?>[_event(endsAt: '2026-03-13T02:00:00')]),
+    );
+    expect(backwards!.events.single.endsAt, isNull);
+  });
+
+  test('an Instagram handle loses its arobase', () {
+    final links = AssociationLinks.fromJson(<String, Object?>{
+      'instagram': '@ktulu',
+    });
+    expect(links.instagram, 'ktulu');
+    expect(links.instagramUri.toString(), 'https://www.instagram.com/ktulu/');
+  });
+
+  test('blank links read as absent', () {
+    final links = AssociationLinks.fromJson(<String, Object?>{
+      'instagram': '   ',
+      'website': '',
+      'email': 42,
+    });
+    expect(links.isEmpty, isTrue);
+  });
+
+  group('events split on the clock, not on a flag', () {
+    final now = DateTime(2026, 3, 14, 21);
+    final association = Association.fromJson(
+      _row(
+        events: <Object?>[
+          _event(id: 'before', startsAt: '2026-01-10T20:00:00'),
+          // Started, not finished: still what is on tonight.
+          _event(
+            id: 'running',
+            startsAt: '2026-03-14T20:00:00',
+            endsAt: '2026-03-15T02:00:00',
+          ),
+          _event(id: 'after', startsAt: '2026-06-01T20:00:00'),
+        ],
+      ),
+    )!;
+
+    test('an event still running counts as upcoming', () {
+      expect(association.upcoming(now).map((e) => e.id), <String>[
+        'running',
+        'after',
+      ]);
+    });
+
+    test('past events come back newest first', () {
+      expect(association.past(now).map((e) => e.id), <String>['before']);
+    });
+  });
+
+  group('parsing the file', () {
+    test('a version the app does not know is refused whole', () {
+      const json = '{"version": 99, "associations": [{"id":"a","name":"A"}]}';
+      expect(Associations.parse(json), isEmpty);
+    });
+
+    test('associations come back sorted by name', () {
+      const json = '''
+      {"version": 1, "associations": [
+        {"id":"z","name":"Zythologie"},
+        {"id":"a","name":"Arts"}
+      ]}''';
+      expect(Associations.parse(json).map((a) => a.id), <String>['a', 'z']);
+    });
+
+    test('junk does not take the whole list down', () {
+      expect(Associations.parse('not json'), isEmpty);
+      expect(Associations.parse('[]'), isEmpty);
+      expect(Associations.parse('{"version": 1}'), isEmpty);
+    });
+  });
+
+  test('the display name prefers the short one', () {
+    expect(Association.fromJson(_row())!.displayName, 'Association Ktulu');
+    final short = Association.fromJson(<String, Object?>{
+      ..._row(),
+      'shortName': 'Ktulu',
+    });
+    expect(short!.displayName, 'Ktulu');
+  });
+
+  test('search covers the name, the short name and the summary', () {
+    final association = Association.fromJson(<String, Object?>{
+      ..._row(),
+      'shortName': 'Ktulu',
+      'summary': 'Le club théâtre du campus',
+    })!;
+    expect(association.matches(''), isTrue);
+    expect(association.matches('ktu'), isTrue);
+    // Nobody types the accents into a search field.
+    expect(association.matches('THEATRE'), isTrue);
+    expect(association.matches('théâtre'), isTrue);
+    expect(association.matches('robotique'), isFalse);
+  });
+}
