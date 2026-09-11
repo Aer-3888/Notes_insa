@@ -1,5 +1,6 @@
 package com.aer.notes_insa
 
+import android.app.ActivityManager
 import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.app.PendingIntent
@@ -66,6 +67,13 @@ class GradesBackgroundWorker(
     params: WorkerParameters,
 ) : CoroutineWorker(appContext, params) {
 
+    private fun isAppInForeground(): Boolean {
+        val state = ActivityManager.RunningAppProcessInfo()
+        ActivityManager.getMyMemoryState(state)
+        return state.importance <=
+            ActivityManager.RunningAppProcessInfo.IMPORTANCE_FOREGROUND_SERVICE
+    }
+
     override suspend fun doWork(): Result = withContext(Dispatchers.IO) {
         val prefs = appContext.getSharedPreferences(SHARED_PREFS_FILE, Context.MODE_PRIVATE)
         try {
@@ -73,6 +81,14 @@ class GradesBackgroundWorker(
                 Log.d(TAG, "Background fetch disabled, skipping")
                 resetFailureWindow(prefs)
                 return@withContext Result.success()
+            }
+
+            // A foreground fetch owns the account's MDW session. Re-authenticating
+            // underneath it resets that session server-side and the grid comes back
+            // empty, so wait for the next run instead.
+            if (isAppInForeground()) {
+                Log.d(TAG, "App is in the foreground, deferring")
+                return@withContext Result.retry()
             }
 
             // Acquire the same lock used by foreground MethodChannel cleanup

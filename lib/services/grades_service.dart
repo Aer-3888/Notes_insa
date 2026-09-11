@@ -172,8 +172,18 @@ class GradesService {
         responses.add(await mdw.requestChildren(missing));
       }
 
-      final root = GradeParser.parse(VaadinData.merge(responses));
+      final merged = VaadinData.merge(responses);
+      final root = GradeParser.parse(merged);
       await mdw.closeGrades();
+
+      if (kDebugMode) {
+        var nodes = 0;
+        root?.forEach((_, _) => nodes++);
+        debugPrint(
+          '[GradesService] group $id: ${merged.changes.length} changes, '
+          '${merged.execute.length} calls, $nodes grades',
+        );
+      }
 
       if (root == null) {
         throw VaadinException(
