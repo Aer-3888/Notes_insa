@@ -10,11 +10,21 @@ import 'dart:convert';
 import 'dart:io';
 
 import 'package:notes_insa/services/cas/cas_client.dart';
+import 'package:notes_insa/services/mdw/grade.dart';
+import 'package:notes_insa/services/mdw/grade_parser.dart';
 import 'package:notes_insa/services/mdw/mdw_client.dart';
 import 'package:notes_insa/services/mdw/vaadin_nodes.dart';
+import 'package:notes_insa/services/mdw/vaadin_types.dart';
 
 Future<void> main(List<String> args) async {
+  final reparseIndex = args.indexOf('--reparse');
+  if (reparseIndex >= 0 && reparseIndex + 1 < args.length) {
+    _reparse(args[reparseIndex + 1]);
+    return;
+  }
+
   final raw = args.contains('--raw');
+  final show = args.contains('--show');
   final outIndex = args.indexOf('--out');
   final outDir = Directory(
     outIndex >= 0 && outIndex + 1 < args.length
@@ -73,6 +83,11 @@ Future<void> main(List<String> args) async {
     stdout.writeln('  ${data.describe()}');
     stdout.writeln('  grid=${mdw.gridNode} close=${mdw.closeButtonNode}');
 
+    // Parsed from memory, where the values are still intact; the files on disk
+    // are redacted separately.
+    stdout.writeln('\n> parse');
+    _report(data, show: show);
+
     await mdw.closeGrades();
     await mdw.dispose();
   } on Object catch (e) {
@@ -107,6 +122,93 @@ Future<void> main(List<String> args) async {
       'enough, and review before sharing.',
     );
   }
+}
+
+/// Reports what the parser made of a response. Prints only shapes and lengths
+/// unless [show] is set, so the marks stay on this machine by default.
+void _report(VaadinData data, {required bool show}) {
+  final rows = GradeParser.rowsOf(data);
+  final missing = GradeParser.missingChildKeys(rows);
+  stdout.writeln(
+    '  ${rows.length} rows, '
+    '${missing.isEmpty ? 'no' : missing.length} missing child set(s)',
+  );
+
+  final root = GradeParser.parse(data);
+  if (root == null) {
+    stdout.writeln('  FAILED: no grade tree');
+    exitCode = 1;
+    return;
+  }
+
+  var nodes = 0;
+  var deepest = 0;
+  var scored = 0;
+  root.forEach((int depth, Grade grade) {
+    nodes++;
+    if (depth > deepest) deepest = depth;
+    if (grade.score.isNotEmpty) scored++;
+  });
+
+  stdout.writeln('  OK: $nodes nodes, depth $deepest, $scored with a result');
+
+  if (!show) {
+    stdout.writeln(
+      '\n  Shape only (pass --show to print the tree and check '
+      'it against your real marks):',
+    );
+    root.forEach((int depth, Grade grade) {
+      stdout.writeln(
+        '  ${'  ' * depth}name(${grade.name.length}) '
+        'score(${grade.score.length})',
+      );
+    });
+    return;
+  }
+
+  stdout.writeln('');
+  root.forEach((int depth, Grade grade) {
+    final score = grade.score.isEmpty ? '' : '   ${grade.score.join(' | ')}';
+    stdout.writeln('  ${'  ' * depth}${grade.name}$score');
+  });
+}
+
+/// Re-runs the parser over a saved dump, so a capture can be re-examined
+/// without signing in again.
+void _reparse(String path) {
+  final decoded = jsonDecode(File(path).readAsStringSync());
+  if (decoded is! Map<String, dynamic>) {
+    stdout.writeln('not a UIDL response: $path');
+    exitCode = 1;
+    return;
+  }
+
+  final data = VaadinData.fromJson(decoded);
+  final rows = GradeParser.rowsOf(data);
+  stdout.writeln(
+    '${data.changes.length} changes, ${data.execute.length} '
+    'calls, ${rows.length} rows',
+  );
+
+  final missing = GradeParser.missingChildKeys(rows);
+  if (missing.isNotEmpty) {
+    stdout.writeln('children still to request: ${missing.join(', ')}');
+  }
+
+  final root = GradeParser.parse(data);
+  if (root == null) {
+    stdout.writeln('no grade tree');
+    exitCode = 1;
+    return;
+  }
+
+  var count = 0;
+  root.forEach((int depth, Grade grade) {
+    count++;
+    final score = grade.score.isEmpty ? '' : '  ${grade.score.join(' | ')}';
+    stdout.writeln('${'  ' * depth}${grade.name}$score');
+  });
+  stdout.writeln('\n$count nodes parsed');
 }
 
 /// Walks the whole response looking for grid rows, so the parser can be
