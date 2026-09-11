@@ -83,6 +83,18 @@ Future<void> main(List<String> args) async {
   }
 
   for (final MapEntry<String, Map<String, dynamic>> entry in captures.entries) {
+    final hits = <String>[];
+    _findGradeItems(entry.value, entry.key, hits);
+    if (hits.isNotEmpty) {
+      stdout.writeln('\nGRADE ROWS in ${entry.key}:');
+      for (final String hit in hits.take(8)) {
+        stdout.writeln('  $hit');
+      }
+      if (hits.length > 8) stdout.writeln('  ... ${hits.length - 8} more');
+    }
+  }
+
+  for (final MapEntry<String, Map<String, dynamic>> entry in captures.entries) {
     final file = File('${outDir.path}/${entry.key}.json');
     final content = raw ? entry.value : _redact(entry.value);
     file.writeAsStringSync(const JsonEncoder.withIndent('  ').convert(content));
@@ -94,6 +106,34 @@ Future<void> main(List<String> args) async {
       '\nValues are redacted. Re-run with --raw if the shape alone is not '
       'enough, and review before sharing.',
     );
+  }
+}
+
+/// Walks the whole response looking for grid rows, so the parser can be
+/// pointed at wherever MDW puts them rather than where it used to.
+///
+/// A row is an object carrying a "key" plus at least one "lr_" column.
+void _findGradeItems(Object? value, String path, List<String> hits) {
+  if (value is Map) {
+    final hasKey = value['key'] is String;
+    final hasColumn = value.keys.any((Object? k) => '$k'.startsWith('lr_'));
+    if (hasKey && hasColumn) {
+      final columns = value.keys.where((Object? k) => '$k'.startsWith('lr_'));
+      hits.add(
+        '$path  (${value.length} fields, columns: '
+        '${columns.join(', ')})',
+      );
+      return;
+    }
+    for (final MapEntry<Object?, Object?> e in value.entries) {
+      _findGradeItems(e.value, '$path.${e.key}', hits);
+    }
+    return;
+  }
+  if (value is List) {
+    for (var i = 0; i < value.length; i++) {
+      _findGradeItems(value[i], '$path[$i]', hits);
+    }
   }
 }
 
