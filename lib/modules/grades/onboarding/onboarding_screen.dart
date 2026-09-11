@@ -137,8 +137,8 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
       }
 
       await _buildStepsAndAdvance(needs2fa: needs2fa);
-    } on PlatformException catch (_) {
-      setState(() => _error = 'Erreur d\'authentification');
+    } on PlatformException catch (e) {
+      setState(() => _error = _platformError(e, 'Erreur d\'authentification'));
     } catch (e) {
       setState(
         () => _error = kDebugMode
@@ -217,11 +217,17 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
       await GradesService.validate(code);
       _twoFactorValidated = true;
       await _advanceOrComplete();
-    } on PlatformException catch (_) {
-      setState(() => _error = 'Code invalide ou expiré');
+    } on PlatformException catch (e) {
+      setState(() => _error = _platformError(e, 'Code invalide ou expiré'));
     } finally {
       if (mounted) setState(() => _isLoading = false);
     }
+  }
+
+  /// Shows the underlying code while debugging; users still see [fallback].
+  String _platformError(PlatformException e, String fallback) {
+    debugPrint('[Onboarding] ${e.code}: ${e.message}');
+    return kDebugMode ? '${e.code}: ${e.message}' : fallback;
   }
 
   // ─── TOTP ────────────────────────────────────────────────────────────────────
@@ -251,8 +257,8 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
       if (_saveOtpSecret) await _authService.storeOtpSecret(_scannedSecret!);
       _twoFactorValidated = true;
       await _advanceOrComplete();
-    } on PlatformException catch (_) {
-      setState(() => _error = 'Secret OTP invalide');
+    } on PlatformException catch (e) {
+      setState(() => _error = _platformError(e, 'Secret OTP invalide'));
     } finally {
       if (mounted) setState(() => _isLoading = false);
     }

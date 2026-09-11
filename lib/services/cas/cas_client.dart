@@ -16,6 +16,9 @@ enum CasFailure {
   /// A code was submitted when none was pending, or vice versa.
   tokenStateMismatch,
 
+  /// The CAS is refusing further attempts for now.
+  throttled,
+
   /// The CAS answered, but not with anything the flow recognises.
   unexpectedResponse,
 
@@ -78,6 +81,8 @@ class CasClient {
         'deviceFingerprint': '',
       }),
     );
+
+    _rejectIfThrottled(response.statusCode, 'ERR_Auth');
 
     if (response.statusCode == HttpStatus.unauthorized) {
       throw CasException(
@@ -213,11 +218,22 @@ class CasClient {
   // Internals
   // ---------------------------------------------------------------------------
 
+  /// The CAS answers 423 once it has seen too many failures from a caller.
+  static void _rejectIfThrottled(int statusCode, String code) {
+    if (statusCode != HttpStatus.locked) return;
+    throw CasException(
+      code,
+      CasFailure.throttled,
+      'Trop de tentatives de connexion. Réessayez dans quelques minutes.',
+    );
+  }
+
   Future<void> _fetchExecution() async {
     final response = await _send(
       'ERR_Auth',
       () => session.get(endpoints.loginUri),
     );
+    _rejectIfThrottled(response.statusCode, 'ERR_Auth');
     if (response.statusCode != HttpStatus.ok) {
       throw CasException(
         'ERR_Auth',

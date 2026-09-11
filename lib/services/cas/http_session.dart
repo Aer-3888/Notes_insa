@@ -35,7 +35,8 @@ class HttpSession {
 
   void close() => _http.close(force: true);
 
-  Future<HttpResult> get(Uri uri) => send(uri);
+  /// Reads are safe to replay, so they absorb a dropped connection.
+  Future<HttpResult> get(Uri uri) => send(uri, retries: 2);
 
   Future<HttpResult> postForm(Uri uri, Map<String, String> form) => send(
     uri,
@@ -54,15 +55,38 @@ class HttpSession {
   /// Sends [body] with [contentType], following redirects and applying the jar
   /// at every hop. Throws [HttpSessionException] when the request cannot
   /// complete or redirects too many times.
+  ///
+  /// [retries] replays the whole request after a connection-level failure. It
+  /// defaults to none because replaying a POST can submit a one-time code
+  /// twice; only reads opt in.
   Future<HttpResult> send(
     Uri uri, {
     String method = 'GET',
     String? body,
     ContentType? contentType,
+    int retries = 0,
   }) async {
+    for (var attempt = 0; ; attempt++) {
+      try {
+        return await _sendOnce(uri, method, body, contentType);
+      } on HttpSessionException {
+        if (attempt >= retries) rethrow;
+        await Future<void>.delayed(
+          Duration(milliseconds: 300 * (1 << attempt)),
+        );
+      }
+    }
+  }
+
+  Future<HttpResult> _sendOnce(
+    Uri uri,
+    String method,
+    String? body,
+    ContentType? contentType,
+  ) async {
     var current = uri;
     var currentMethod = method;
-    String? currentBody = body;
+    var currentBody = body;
 
     for (var hop = 0; ; hop++) {
       if (hop > _maxRedirects) {
