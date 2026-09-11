@@ -18,6 +18,12 @@ id = "KV_NAMESPACE_ID"
 binding = "ADE_CACHE"
 id = "ADE_KV_NAMESPACE_ID"
 
+# Caches the WASHiN token and shared laundry snapshot (see laundry.ts).
+# Short-lived, non-sensitive data only.
+[[kv_namespaces]]
+binding = "LAUNDRY_CACHE"
+id = "LAUNDRY_KV_NAMESPACE_ID"
+
 [triggers]
 crons = ["17 4 * * *"]
 
@@ -29,3 +35,5 @@ crons = ["17 4 * * *"]
 # USER_HASH_SALT  — random string used to hash usernames server-side
 # APP_SECRET      — shared with the Flutter app via --dart-define
 # IP_SALT         — random string used to hash IPs for rate limiting
+# WASHIN_USER     — dedicated WASHiN account email for the laundry proxy
+# WASHIN_PASS     — password for that WASHiN account

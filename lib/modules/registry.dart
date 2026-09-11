@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'campus_map/map_screen.dart';
 import 'grades/dashboard_screen.dart';
 import 'grades/two_factor_screen.dart';
+import 'laundry/laundry_screen.dart';
 import 'schedule/schedule_screen.dart';
 import 'weather/weather_screen.dart';
 
@@ -72,6 +73,12 @@ const List<CampusModule> kCampusModules = <CampusModule>[
     icon: Icons.map_outlined,
     builder: _map,
   ),
+  ReadyModule(
+    id: 'laverie',
+    label: 'Laverie',
+    icon: Icons.local_laundry_service_outlined,
+    builder: _laundry,
+  ),
 ];
 
 Widget _schedule(BuildContext context) => const ScheduleScreen();
@@ -79,6 +86,8 @@ Widget _schedule(BuildContext context) => const ScheduleScreen();
 Widget _weather(BuildContext context) => const WeatherScreen();
 
 Widget _map(BuildContext context) => const MapScreen();
+
+Widget _laundry(BuildContext context) => const LaundryScreen();
 
 Widget _gradesDashboard(BuildContext context) => DashboardScreen(
   onReauthRequired: () => Navigator.of(

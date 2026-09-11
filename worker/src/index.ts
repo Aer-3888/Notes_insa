@@ -3,6 +3,7 @@ import {
   readAdeGroups,
   refreshAdeGroups,
 } from "./ade_groups";
+import { getLaundryStatus } from "./laundry";
 
 export interface Env {
   DB: D1Database;
@@ -11,6 +12,10 @@ export interface Env {
   APP_SECRET: string;
   IP_SALT: string;
   USER_HASH_SALT: string;
+  // WASHiN laundry proxy (see laundry.ts).
+  LAUNDRY_CACHE: KVNamespace;
+  WASHIN_USER: string;
+  WASHIN_PASS: string;
 }
 
 // ── Types ──────────────────────────────────────────────────────────────────
@@ -509,6 +514,10 @@ export default {
       return handleAdeGroups(env);
     }
 
+    if (url.pathname === "/laundry" && request.method === "GET") {
+      return handleLaundry(request, env);
+    }
+
     return error("Not found", 404);
   },
 
@@ -536,4 +545,20 @@ async function handleAdeGroups(env: Env): Promise<Response> {
       "Cache-Control": "public, max-age=86400",
     },
   });
+}
+
+// Live washer/dryer availability for the two INSA Rennes laundries. Gated by
+// APP_SECRET since it drives real upstream calls. See laundry.ts for caching.
+async function handleLaundry(request: Request, env: Env): Promise<Response> {
+  const secret = request.headers.get("X-App-Secret");
+  if (!secret || secret !== env.APP_SECRET) {
+    return error("Unauthorized: APP_SECRET mismatch or missing header", 401);
+  }
+  try {
+    const payload = await getLaundryStatus(env);
+    return json(payload);
+  } catch {
+    // Nothing cached and the upstream is unreachable, a transient outage.
+    return error("Laundry status unavailable", 503);
+  }
 }

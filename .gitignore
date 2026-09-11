@@ -68,3 +68,4 @@ key.properties
 worker/wrangler.toml
 
 scripts/*
+worker/.dev.vars
