@@ -1,0 +1,111 @@
+{
+  "data": {
+    "status": {
+      "isOpen": true,
+      "openingText": null,
+      "openingAt": null,
+      "isOpeningSoon": false,
+      "closingText": "Ferme à 18:00",
+      "closingAt": "2026-09-11 18:00:00",
+      "isClosingSoon": false
+    },
+    "notices": [],
+    "liveAttendance": {
+      "flow": null,
+      "occupancy": 15,
+      "waitingTime": null,
+      "maxWaitingTime": null
+    },
+    "todayForecasts": [
+      {
+        "hourRange": [
+          "2026-09-11 14:30:00",
+          "2026-09-11 16:00:00"
+        ],
+        "flow": null,
+        "flowEvolution": null,
+        "occupancy": 10,
+        "occupancyEvolution": "DECREASE",
+        "waitingTime": null,
+        "waitingTimeEvolution": null
+      },
+      {
+        "hourRange": [
+          "2026-09-11 16:00:00",
+          "2026-09-11 17:00:00"
+        ],
+        "flow": null,
+        "flowEvolution": null,
+        "occupancy": 15,
+        "occupancyEvolution": "INCREASE",
+        "waitingTime": null,
+        "waitingTimeEvolution": null
+      },
+      {
+        "hourRange": [
+          "2026-09-11 17:00:00",
+          "2026-09-11 17:30:00"
+        ],
+        "flow": null,
+        "flowEvolution": null,
+        "occupancy": 10,
+        "occupancyEvolution": "DECREASE",
+        "waitingTime": null,
+        "waitingTimeEvolution": null
+      }
+    ],
+    "forecasts": [
+      {
+        "day": "2026-09-11",
+        "todayOffset": 0,
+        "forecasts": [
+          {
+            "hourRange": null,
+            "flow": null,
+            "flowEvolution": null,
+            "occupancy": 15,
+            "occupancyEvolution": null,
+            "waitingTime": null,
+            "waitingTimeEvolution": null
+          },
+          {
+            "hourRange": [
+              "2026-09-11 14:30:00",
+              "2026-09-11 16:00:00"
+            ],
+            "flow": null,
+            "flowEvolution": null,
+            "occupancy": 10,
+            "occupancyEvolution": "DECREASE",
+            "waitingTime": null,
+            "waitingTimeEvolution": null
+          },
+          {
+            "hourRange": [
+              "2026-09-11 16:00:00",
+              "2026-09-11 17:00:00"
+            ],
+            "flow": null,
+            "flowEvolution": null,
+            "occupancy": 15,
+            "occupancyEvolution": "INCREASE",
+            "waitingTime": null,
+            "waitingTimeEvolution": null
+          },
+          {
+            "hourRange": [
+              "2026-09-11 17:00:00",
+              "2026-09-11 17:30:00"
+            ],
+            "flow": null,
+            "flowEvolution": null,
+            "occupancy": 10,
+            "occupancyEvolution": "DECREASE",
+            "waitingTime": null,
+            "waitingTimeEvolution": null
+          }
+        ]
+      }
+    ]
+  }
+}

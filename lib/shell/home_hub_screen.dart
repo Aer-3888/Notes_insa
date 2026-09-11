@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../modules/registry.dart';
 import '../modules/associations/associations_today_card.dart';
 import '../modules/crous/crous_today_card.dart';
+import '../modules/library/library_today_card.dart';
 import '../modules/schedule/schedule_focus.dart';
 import '../modules/schedule/schedule_provider.dart';
 import '../modules/schedule/upcoming_courses_card.dart';
@@ -40,6 +41,7 @@ class HomeHubScreen extends ConsumerWidget {
           ),
           const SliverToBoxAdapter(child: WeatherStrip()),
           const SliverToBoxAdapter(child: CrousTodayCard()),
+          const SliverToBoxAdapter(child: LibraryTodayCard()),
           const SliverToBoxAdapter(child: AssociationsTodayCard()),
           SliverPadding(
             padding: const EdgeInsets.all(CampusSpacing.gutter),

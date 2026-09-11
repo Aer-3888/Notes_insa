@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:notes_insa/modules/library/library_today_card.dart';
 import 'package:notes_insa/modules/registry.dart';
 import 'package:notes_insa/shell/home_hub_screen.dart';
 import 'package:notes_insa/shell/module_card.dart';
@@ -47,6 +48,12 @@ void main() {
       findsNothing,
     );
     expect(find.textContaining('Bientôt'), findsNothing);
+  });
+
+  testWidgets('the day essentials sit above the grid', (tester) async {
+    await pumpHub(tester);
+    expect(find.byType(LibraryTodayCard), findsOneWidget);
+    expect(find.text('Bibliothèques'), findsOneWidget);
   });
 
   testWidgets('the hub renders without any credentials', (tester) async {
