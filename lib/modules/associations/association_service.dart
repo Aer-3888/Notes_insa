@@ -5,6 +5,7 @@ import 'package:flutter/services.dart' show rootBundle;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'association.dart';
+import 'association_follows.dart';
 
 /// The association directory.
 ///
@@ -62,4 +63,19 @@ final associationEventsProvider = Provider<List<AssociationEvent>>((ref) {
   return <AssociationEvent>[
     for (final association in associations) ...association.events,
   ]..sort((a, b) => a.startsAt.compareTo(b.startsAt));
+});
+
+/// Events from the associations the student follows, soonest first.
+///
+/// Not filtered on the clock: the caller passes the moment it cares about, so
+/// a card with its own minute timer stays correct without invalidating this.
+final followedAssociationEventsProvider = Provider<List<AssociationEvent>>((
+  ref,
+) {
+  final follows = ref.watch(associationFollowsProvider);
+  if (follows.isEmpty) return const <AssociationEvent>[];
+  return ref
+      .watch(associationEventsProvider)
+      .where((event) => follows.contains(event.associationId))
+      .toList(growable: false);
 });

@@ -1,4 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
+import 'package:notes_insa/core/time.dart';
 import 'package:notes_insa/modules/associations/association.dart';
 import 'package:notes_insa/modules/associations/association_service.dart';
 
@@ -13,9 +14,9 @@ Map<String, Object?> _row({
   'id': id,
   'name': name,
   'category': category,
-  if (events != null) 'events': events,
-  if (links != null) 'links': links,
-  if (logoAsset != null) 'logoAsset': logoAsset,
+  'events': ?events,
+  'links': ?links,
+  'logoAsset': ?logoAsset,
 };
 
 Map<String, Object?> _event({
@@ -27,10 +28,11 @@ Map<String, Object?> _event({
   'id': id,
   'title': title,
   'startsAt': startsAt,
-  if (endsAt != null) 'endsAt': endsAt,
+  'endsAt': ?endsAt,
 };
 
 void main() {
+  setUpAll(initCampusTime);
   group('a row the seed gets wrong is dropped, not crashed on', () {
     test('an entry with no id or no name is not an association', () {
       expect(Association.fromJson(_row(id: null)), isNull);
@@ -105,8 +107,9 @@ void main() {
   });
 
   group('events split on the clock, not on a flag', () {
-    final now = DateTime(2026, 3, 14, 21);
-    final association = Association.fromJson(
+    // Built per test: fromJson needs the timezone database, which setUpAll
+    // loads after a group body has already run.
+    Association subject() => Association.fromJson(
       _row(
         events: <Object?>[
           _event(id: 'before', startsAt: '2026-01-10T20:00:00'),
@@ -120,16 +123,17 @@ void main() {
         ],
       ),
     )!;
+    DateTime now() => campusInstant(DateTime(2026, 3, 14, 21));
 
     test('an event still running counts as upcoming', () {
-      expect(association.upcoming(now).map((e) => e.id), <String>[
+      expect(subject().upcoming(now()).map((e) => e.id), <String>[
         'running',
         'after',
       ]);
     });
 
     test('past events come back newest first', () {
-      expect(association.past(now).map((e) => e.id), <String>['before']);
+      expect(subject().past(now()).map((e) => e.id), <String>['before']);
     });
   });
 

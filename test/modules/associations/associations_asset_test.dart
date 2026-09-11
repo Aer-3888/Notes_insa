@@ -2,11 +2,13 @@ import 'dart:convert';
 import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
+import 'package:notes_insa/core/time.dart';
 import 'package:notes_insa/modules/associations/association_service.dart';
 
 /// Guards the seed while it is filled in by hand. A row the app would silently
 /// drop fails here instead, naming the row.
 void main() {
+  setUpAll(initCampusTime);
   final raw = File(Associations.assetPath).readAsStringSync();
   final decoded = jsonDecode(raw) as Map<String, dynamic>;
   final rows = (decoded['associations'] as List).cast<Map<String, dynamic>>();

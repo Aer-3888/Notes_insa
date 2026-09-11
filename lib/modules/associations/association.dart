@@ -1,6 +1,7 @@
 import 'package:flutter/foundation.dart';
 
 import '../../core/search_text.dart';
+import '../../core/time.dart';
 
 /// What kind of association this is, for grouping and filtering the list.
 enum AssociationCategory {
@@ -102,8 +103,8 @@ class AssociationEvent {
   final String associationId;
   final String title;
 
-  /// Local time. The seed carries ISO 8601 without a zone, which reads as
-  /// campus time, the only zone this app cares about.
+  /// Campus wall-clock time. The seed carries ISO 8601 without a zone, so it
+  /// is reinterpreted as Europe/Paris rather than the device's own timezone.
   final DateTime startsAt;
   final DateTime? endsAt;
 
@@ -141,9 +142,11 @@ class AssociationEvent {
       id: id,
       associationId: associationId,
       title: title.trim(),
-      startsAt: startsAt,
+      startsAt: campusInstant(startsAt),
       // An end before the start is worse than no end at all.
-      endsAt: endsAt != null && endsAt.isAfter(startsAt) ? endsAt : null,
+      endsAt: endsAt != null && endsAt.isAfter(startsAt)
+          ? campusInstant(endsAt)
+          : null,
       description: text('description'),
       location: text('location'),
       buildingCode: text('buildingCode'),

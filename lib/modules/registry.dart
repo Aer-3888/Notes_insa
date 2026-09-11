@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import 'associations/associations_screen.dart';
 import 'campus_map/map_screen.dart';
 import 'grades/dashboard_screen.dart';
 import 'grades/two_factor_screen.dart';
@@ -74,6 +75,13 @@ const List<CampusModule> kCampusModules = <CampusModule>[
     builder: _map,
   ),
   ReadyModule(
+    id: 'assos',
+    label: 'Associations',
+    shortLabel: 'Assos',
+    icon: Icons.groups_outlined,
+    builder: _associations,
+  ),
+  ReadyModule(
     id: 'laverie',
     label: 'Laverie',
     icon: Icons.local_laundry_service_outlined,
@@ -88,6 +96,8 @@ Widget _weather(BuildContext context) => const WeatherScreen();
 Widget _map(BuildContext context) => const MapScreen();
 
 Widget _laundry(BuildContext context) => const LaundryScreen();
+
+Widget _associations(BuildContext context) => const AssociationsScreen();
 
 Widget _gradesDashboard(BuildContext context) => DashboardScreen(
   onReauthRequired: () => Navigator.of(
