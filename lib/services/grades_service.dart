@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:convert';
 import 'package:flutter/services.dart';
 import 'package:flutter/foundation.dart';
+import 'cas/cas_client.dart';
 import 'secure_storage.dart';
 import '../constants.dart';
 import 'worker_sync_service.dart';
@@ -13,47 +14,97 @@ class GradesService {
   static const _storage = kSecureStorage;
   static const String _gradesKey = kStorageGradesJson;
 
-  /// Native calls go through the CAS server; cap them so a hung native call
-  /// can't strand the UI on a control-less splash (see CasGuard).
+  /// Caps native calls so a hung one can't strand the UI on a control-less
+  /// splash (see CasGuard).
   static const Duration _nativeTimeout = Duration(seconds: 30);
 
-  /// Wraps [MethodChannel.invokeMethod] with a timeout. Throws
-  /// [TimeoutException] if the native side does not respond in time.
   static Future<T?> _invoke<T>(String method, [dynamic arguments]) {
     return _channel.invokeMethod<T>(method, arguments).timeout(_nativeTimeout);
   }
 
   // ---------------------------------------------------------------------------
-  // Auth step primitives
+  // CAS: pure Dart. MDW below still runs in the native bridge.
   // ---------------------------------------------------------------------------
 
-  static Future<void> auth(String username, String password) async {
-    await _invoke<void>('Auth', {'username': username, 'password': password});
+  static CasClient? _cas;
+
+  static CasClient get _requireCas {
+    final cas = _cas;
+    if (cas == null) {
+      throw PlatformException(
+        code: 'ERR_NoCAS',
+        message: 'CAS session is not initialized',
+      );
+    }
+    return cas;
   }
 
-  static Future<bool> isTokenNeeded() async {
-    final result = await _invoke<bool>('IsTokenNeeded');
-    return result ?? false;
+  /// Preserves the PlatformException contract the screens already catch.
+  static Future<T> _casCall<T>(Future<T> Function() body) async {
+    try {
+      return await body();
+    } on CasException catch (e) {
+      throw PlatformException(code: e.code, message: e.message);
+    }
   }
 
-  static Future<void> triggerEmail() async {
-    await _invoke<void>('TriggerEmail');
+  /// Drops both halves of the session. The native side keeps its own cookies
+  /// until told otherwise, so logout has to reach it too.
+  static Future<void> newCAS() async {
+    _cas?.close();
+    _cas = CasClient();
+    try {
+      await _invoke<void>('NewCAS');
+    } catch (e) {
+      if (kDebugMode) debugPrint('[GradesService] native NewCAS failed: $e');
+    }
   }
 
-  static Future<void> validate(String code) async {
-    await _invoke<void>('Validate', {'code': code});
-  }
+  static Future<void> auth(String username, String password) =>
+      _casCall(() => _requireCas.auth(username, password));
 
-  static Future<void> autoValidate(String secret) async {
-    await _invoke<void>('AutoValidate', {'secret': secret});
-  }
+  static Future<bool> isTokenNeeded() async => _cas?.isTokenNeeded ?? false;
+
+  static Future<void> triggerEmail() =>
+      _casCall(() => _requireCas.triggerEmail());
+
+  static Future<void> validate(String code) =>
+      _casCall(() => _requireCas.validate(code));
+
+  static Future<void> autoValidate(String secret) =>
+      _casCall(() => _requireCas.autoValidate(secret));
 
   static Future<bool> isAuthenticated() async {
-    final result = await _invoke<bool>('IsAuthenticated');
-    return result ?? false;
+    if (_cas == null) return false;
+    return _casCall(() => _requireCas.isAuthenticated());
+  }
+
+  static Future<String> exportCAS() async => _requireCas.exportSession();
+
+  static Future<void> importCAS(String token) async {
+    final cas = CasClient();
+    try {
+      cas.importSession(token);
+    } on FormatException catch (e) {
+      cas.close();
+      throw PlatformException(code: 'ERR_ImportCAS', message: e.message);
+    }
+    _cas?.close();
+    _cas = cas;
+  }
+
+  // ---------------------------------------------------------------------------
+  // MDW: native bridge
+  // ---------------------------------------------------------------------------
+
+  /// Hands the native side the cookies the Dart sign-in obtained. Its
+  /// ImportCAS resets the MDW session, so this runs before loadGroups only.
+  static Future<void> _syncSessionToNative() async {
+    await _invoke<void>('ImportCAS', {'token': _requireCas.exportSession()});
   }
 
   static Future<int> loadGroups() async {
+    await _syncSessionToNative();
     final result = await _invoke<int>('LoadGroups');
     if (result == null) {
       throw PlatformException(
@@ -86,27 +137,8 @@ class GradesService {
     return result;
   }
 
-  static Future<void> newCAS() async {
-    await _invoke<void>('NewCAS');
-  }
-
-  static Future<String> exportCAS() async {
-    final result = await _invoke<String>('ExportCAS');
-    if (result == null) {
-      throw PlatformException(
-        code: 'ERR_EXPORTCAS',
-        message: 'Null response from ExportCAS',
-      );
-    }
-    return result;
-  }
-
-  static Future<void> importCAS(String token) async {
-    await _invoke<void>('ImportCAS', {'token': token});
-  }
-
   // ---------------------------------------------------------------------------
-  // High-level helper — call only after auth + 2FA are complete
+  // High-level helper , call only after auth + 2FA are complete
   // ---------------------------------------------------------------------------
 
   /// Fetches grades for all groups, merges their details into a single JSON
@@ -159,7 +191,7 @@ class GradesService {
   /// with the same name already exists and both carry child `details` lists
   /// (e.g. two "ANNEE 3" wrappers from different cards holding different
   /// semesters), their children are merged recursively instead of dropping the
-  /// second wrapper wholesale — otherwise distinct semesters would be lost.
+  /// second wrapper wholesale , otherwise distinct semesters would be lost.
   static void _mergeDetails(List<dynamic> target, List<dynamic> incoming) {
     for (final item in incoming) {
       if (item is! Map<String, dynamic>) {
@@ -239,8 +271,8 @@ class GradesService {
   }
 
   /// Adopt a snapshot the background worker produced as the canonical local
-  /// copy. Does not mirror back to the worker store — the value already lives
-  /// there — and preserves the worker's timestamp so freshness stays accurate.
+  /// copy. Does not mirror back to the worker store , the value already lives
+  /// there , and preserves the worker's timestamp so freshness stays accurate.
   static Future<void> adoptGrades(String gradesJson, int updatedAt) async {
     try {
       await _storage.write(key: _gradesKey, value: gradesJson);
