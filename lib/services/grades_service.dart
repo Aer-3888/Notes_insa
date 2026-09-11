@@ -55,9 +55,14 @@ class GradesService {
 
   /// Drops both halves of the session. The native side keeps its own cookies
   /// until told otherwise, so logout has to reach it too.
+  static CasClient _newCasClient() => CasClient(
+    logger: kDebugMode ? (String m) => debugPrint('[CAS] $m') : null,
+  );
+
   static Future<void> newCAS() async {
+    if (kDebugMode) debugPrint('[CAS] newCAS (had session: ${_cas != null})');
     _cas?.close();
-    _cas = CasClient();
+    _cas = _newCasClient();
     try {
       await _invoke<void>('NewCAS');
     } catch (e) {
@@ -87,7 +92,8 @@ class GradesService {
   static Future<String> exportCAS() async => _requireCas.exportSession();
 
   static Future<void> importCAS(String token) async {
-    final cas = CasClient();
+    if (kDebugMode) debugPrint('[CAS] importCAS');
+    final cas = _newCasClient();
     try {
       cas.importSession(token);
     } on FormatException catch (e) {

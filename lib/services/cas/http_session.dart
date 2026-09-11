@@ -33,7 +33,12 @@ class HttpSession {
   final void Function(String message)? logger;
   final CookieJar jar = CookieJar();
 
-  void close() => _http.close(force: true);
+  /// Never forced: a forced close aborts requests that are still in flight and
+  /// surfaces as an unexplained connection error at the call site.
+  void close() {
+    logger?.call('closing session');
+    _http.close();
+  }
 
   /// Reads are safe to replay, so they absorb a dropped connection.
   Future<HttpResult> get(Uri uri) => send(uri, retries: 2);
@@ -67,9 +72,16 @@ class HttpSession {
     int retries = 0,
   }) async {
     for (var attempt = 0; ; attempt++) {
+      logger?.call('$method ${uri.host}${uri.path} attempt ${attempt + 1}');
       try {
-        return await _sendOnce(uri, method, body, contentType);
-      } on HttpSessionException {
+        final result = await _sendOnce(uri, method, body, contentType);
+        logger?.call(
+          '$method ${uri.host}${uri.path} -> ${result.statusCode} '
+          '(${result.body.length} bytes)',
+        );
+        return result;
+      } on HttpSessionException catch (e) {
+        logger?.call('$method ${uri.host}${uri.path} FAILED: ${e.message}');
         if (attempt >= retries) rethrow;
         await Future<void>.delayed(
           Duration(milliseconds: 300 * (1 << attempt)),
