@@ -10,6 +10,7 @@ import 'package:notes_insa/modules/campus_map/campus_places.dart';
 import 'package:notes_insa/modules/campus_map/map_painter.dart';
 import 'package:notes_insa/modules/campus_map/map_screen.dart';
 import 'package:notes_insa/theme/campus_theme.dart';
+import 'package:notes_insa/theme/tokens.dart';
 
 const List<CampusPlace> fixture = <CampusPlace>[
   CampusPlace(code: '19', name: 'Bibliothèque', kind: PlaceKind.bu),
@@ -57,7 +58,13 @@ Future<void> pumpMap(
   CampusHeadingSource? headingSource,
   String? initialBuildingCode,
   bool startGuidance = false,
+  Size? size,
 }) async {
+  if (size != null) {
+    tester.view.physicalSize = size;
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+  }
   await tester.pumpWidget(
     ProviderScope(
       overrides: [
@@ -420,6 +427,20 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.text('Amphi A'), findsWidgets);
     expect(find.text('Amphi B'), findsOneWidget);
+  });
+
+  testWidgets('the building sheet uses the full width and shared text gutter', (
+    tester,
+  ) async {
+    await pumpMap(tester, fixture, size: const Size(900, 800));
+    await openSearch(tester);
+    await tester.enterText(find.byType(TextField), 'amphi a');
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Amphi A').last);
+    await tester.pumpAndSettle();
+
+    expect(tester.getSize(find.byType(BottomSheet)).width, 900);
+    expect(tester.getTopLeft(find.text('Bâtiment 3')).dx, CampusSpacing.gutter);
   });
 
   testWidgets('a building with levels says so', (tester) async {

@@ -698,87 +698,97 @@ class _MapScreenState extends ConsumerState<MapScreen>
       context: context,
       isScrollControlled: true,
       showDragHandle: true,
-      builder: (context) => SafeArea(
-        child: SingleChildScrollView(
-          child: Padding(
-            padding: const EdgeInsets.fromLTRB(
-              CampusSpacing.gutter,
-              0,
-              CampusSpacing.gutter,
-              CampusSpacing.x4,
-            ),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(sheetTitle, style: context.text.titleLarge),
-                if (building?.levels != null)
-                  Padding(
-                    padding: const EdgeInsets.only(top: CampusSpacing.x1),
-                    child: Text(
-                      '${building!.levels} niveaux',
+      // Material 3 otherwise constrains modal sheets to 640 dp, leaving a
+      // visible gap on either side on wider phones and tablets.
+      constraints: BoxConstraints.tightFor(
+        width: MediaQuery.sizeOf(context).width,
+      ),
+      builder: (context) => SizedBox(
+        width: double.infinity,
+        child: SafeArea(
+          child: SingleChildScrollView(
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(
+                CampusSpacing.gutter,
+                0,
+                CampusSpacing.gutter,
+                CampusSpacing.x4,
+              ),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(sheetTitle, style: context.text.titleLarge),
+                  if (building?.levels != null)
+                    Padding(
+                      padding: const EdgeInsets.only(top: CampusSpacing.x1),
+                      child: Text(
+                        '${building!.levels} niveaux',
+                        style: context.text.bodyMedium?.copyWith(
+                          color: context.scheme.onSurfaceVariant,
+                        ),
+                      ),
+                    ),
+                  if (geo.unmapped.containsKey(code))
+                    Padding(
+                      padding: const EdgeInsets.only(top: CampusSpacing.x2),
+                      child: Text(
+                        'Ce bâtiment n’est pas encore situé sur la carte.',
+                        style: context.text.bodyMedium?.copyWith(
+                          color: context.scheme.onSurfaceVariant,
+                        ),
+                      ),
+                    ),
+                  const SizedBox(height: CampusSpacing.x3),
+                  for (final p in here)
+                    ListTile(
+                      contentPadding: EdgeInsets.zero,
+                      dense: true,
+                      title: Text(p.name),
+                      subtitle: Text(p.kind.label),
+                    ),
+                  if (here.isEmpty)
+                    Text(
+                      'Aucun lieu répertorié ici.',
                       style: context.text.bodyMedium?.copyWith(
                         color: context.scheme.onSurfaceVariant,
                       ),
                     ),
-                  ),
-                if (geo.unmapped.containsKey(code))
-                  Padding(
-                    padding: const EdgeInsets.only(top: CampusSpacing.x2),
-                    child: Text(
-                      'Ce bâtiment n’est pas encore situé sur la carte.',
-                      style: context.text.bodyMedium?.copyWith(
-                        color: context.scheme.onSurfaceVariant,
+                  if (placeDetails != null) ...<Widget>[
+                    const SizedBox(height: CampusSpacing.x3),
+                    placeDetails,
+                  ],
+                  if (geo.entrances.any(
+                    (entrance) => entrance.code == code && entrance.node >= 0,
+                  )) ...[
+                    const SizedBox(height: CampusSpacing.x3),
+                    FilledButton.icon(
+                      onPressed: () {
+                        Navigator.of(context).pop();
+                        if (guidancePaused) {
+                          _resumeGuidance(geo);
+                        } else if (guidanceActive) {
+                          unawaited(_locate(geo));
+                        } else {
+                          unawaited(_guideTo(code, geo));
+                        }
+                      },
+                      icon: Icon(
+                        guidancePaused
+                            ? Icons.play_arrow
+                            : Icons.directions_walk,
+                      ),
+                      label: Text(
+                        guidancePaused
+                            ? 'Reprendre le guidage'
+                            : guidanceActive
+                            ? 'Revenir au guidage'
+                            : 'Démarrer le guidage',
                       ),
                     ),
-                  ),
-                const SizedBox(height: CampusSpacing.x3),
-                for (final p in here)
-                  ListTile(
-                    contentPadding: EdgeInsets.zero,
-                    dense: true,
-                    title: Text(p.name),
-                    subtitle: Text(p.kind.label),
-                  ),
-                if (here.isEmpty)
-                  Text(
-                    'Aucun lieu répertorié ici.',
-                    style: context.text.bodyMedium?.copyWith(
-                      color: context.scheme.onSurfaceVariant,
-                    ),
-                  ),
-                if (placeDetails != null) ...<Widget>[
-                  const SizedBox(height: CampusSpacing.x3),
-                  placeDetails,
+                  ],
                 ],
-                if (geo.entrances.any(
-                  (entrance) => entrance.code == code && entrance.node >= 0,
-                )) ...[
-                  const SizedBox(height: CampusSpacing.x3),
-                  FilledButton.icon(
-                    onPressed: () {
-                      Navigator.of(context).pop();
-                      if (guidancePaused) {
-                        _resumeGuidance(geo);
-                      } else if (guidanceActive) {
-                        unawaited(_locate(geo));
-                      } else {
-                        unawaited(_guideTo(code, geo));
-                      }
-                    },
-                    icon: Icon(
-                      guidancePaused ? Icons.play_arrow : Icons.directions_walk,
-                    ),
-                    label: Text(
-                      guidancePaused
-                          ? 'Reprendre le guidage'
-                          : guidanceActive
-                          ? 'Revenir au guidage'
-                          : 'Démarrer le guidage',
-                    ),
-                  ),
-                ],
-              ],
+              ),
             ),
           ),
         ),
