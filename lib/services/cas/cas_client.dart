@@ -1,9 +1,8 @@
-import 'dart:convert';
 import 'dart:io';
 
 import 'cas_endpoints.dart';
 import 'cas_session.dart';
-import 'cookie_jar.dart';
+import 'http_session.dart';
 import 'totp.dart';
 
 /// Why a CAS call failed, for the cases the UI treats differently.
@@ -45,26 +44,12 @@ class CasClient {
     this.endpoints = CasEndpoints.insa,
     HttpClient? httpClient,
     void Function(String message)? logger,
-  }) : _http = httpClient ?? HttpClient(),
-       _log = logger {
-    _http.userAgent = _userAgent;
-  }
+  }) : session = HttpSession(httpClient: httpClient, logger: logger);
 
   final CasEndpoints endpoints;
 
-  /// Traces the redirect chain. Null in the app, set by the probe tools.
-  final void Function(String message)? _log;
-
-  /// The CAS serves a different login form to some mobile agents.
-  static const String _userAgent =
-      'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 '
-      '(KHTML, like Gecko) Chrome/124.0 Safari/537.36';
-
-  static const int _maxRedirects = 10;
-  static const Duration _timeout = Duration(seconds: 30);
-
-  final HttpClient _http;
-  final CookieJar _jar = CookieJar();
+  /// Shared with the MDW session, which needs the same authenticated cookies.
+  final HttpSession session;
 
   String _username = '';
   String _userHash = '';
@@ -83,17 +68,15 @@ class CasClient {
     await _fetchExecution();
 
     final response = await _send(
-      endpoints.loginUri,
-      method: 'POST',
-      form: <String, String>{
+      'ERR_Auth',
+      () => session.postForm(endpoints.loginUri, <String, String>{
         'username': username,
         'password': password,
         'execution': _execution,
         '_eventId': 'submit',
         'geolocation': '',
         'deviceFingerprint': '',
-      },
-      errorCode: 'ERR_Auth',
+      }),
     );
 
     if (response.statusCode == HttpStatus.unauthorized) {
@@ -133,9 +116,11 @@ class CasClient {
     }
 
     final response = await _send(
-      endpoints.mailCodeUri(_username, _userHash),
-      method: 'POST',
-      errorCode: 'ERR_TriggerEmail',
+      'ERR_TriggerEmail',
+      () => session.send(
+        endpoints.mailCodeUri(_username, _userHash),
+        method: 'POST',
+      ),
     );
 
     if (response.statusCode != HttpStatus.ok) {
@@ -165,14 +150,12 @@ class CasClient {
     }
 
     final response = await _send(
-      endpoints.loginUri,
-      method: 'POST',
-      form: <String, String>{
+      'ERR_Validate',
+      () => session.postForm(endpoints.loginUri, <String, String>{
         '_eventId_submit': 'Login',
         'execution': _execution,
         'token': token,
-      },
-      errorCode: 'ERR_Validate',
+      }),
     );
 
     // An accepted code redirects out to the service.
@@ -207,30 +190,34 @@ class CasClient {
   /// Asks the CAS whether the current cookies still represent a signed-in user.
   Future<bool> isAuthenticated() async {
     final response = await _send(
-      endpoints.statusUri,
-      errorCode: 'ERR_IsAuthenticated',
+      'ERR_IsAuthenticated',
+      () => session.get(endpoints.statusUri),
     );
     return response.body.contains('Log In Successful');
   }
 
   /// Serializes the session cookies. Never credentials or OTP secrets.
-  String exportSession() => CasSession.export(_jar, endpoints.sessionHosts);
+  String exportSession() =>
+      CasSession.export(session.jar, endpoints.sessionHosts);
 
   /// Restores a session from [exportSession] or the native `ExportCAS`.
   void importSession(String serialized) {
-    _jar.clear();
-    CasSession.import(_jar, serialized);
+    session.jar.clear();
+    CasSession.import(session.jar, serialized);
     _tokenNeeded = false;
   }
 
-  void close() => _http.close(force: true);
+  void close() => session.close();
 
   // ---------------------------------------------------------------------------
   // Internals
   // ---------------------------------------------------------------------------
 
   Future<void> _fetchExecution() async {
-    final response = await _send(endpoints.loginUri, errorCode: 'ERR_Auth');
+    final response = await _send(
+      'ERR_Auth',
+      () => session.get(endpoints.loginUri),
+    );
     if (response.statusCode != HttpStatus.ok) {
       throw CasException(
         'ERR_Auth',
@@ -272,103 +259,15 @@ class CasClient {
     return match?.group(1) ?? '';
   }
 
-  Future<_CasResponse> _send(
-    Uri uri, {
-    String method = 'GET',
-    Map<String, String>? form,
-    required String errorCode,
-  }) async {
-    var current = uri;
-    var currentMethod = method;
-    Map<String, String>? currentForm = form;
-
-    for (var hop = 0; ; hop++) {
-      if (hop > _maxRedirects) {
-        throw CasException(
-          errorCode,
-          CasFailure.unexpectedResponse,
-          'Trop de redirections depuis ${uri.host}.',
-        );
-      }
-
-      final int statusCode;
-      final String body;
-      final String? location;
-      try {
-        final request = await _http
-            .openUrl(currentMethod, current)
-            .timeout(_timeout);
-        request.followRedirects = false;
-
-        final cookies = _jar.headerFor(current);
-        if (cookies != null) request.headers.set('cookie', cookies);
-
-        if (currentForm != null) {
-          request.headers.contentType = ContentType(
-            'application',
-            'x-www-form-urlencoded',
-          );
-          request.write(_encodeForm(currentForm));
-        }
-
-        final response = await request.close().timeout(_timeout);
-        body = await response.transform(utf8.decoder).join().timeout(_timeout);
-
-        statusCode = response.statusCode;
-        location = response.headers.value(HttpHeaders.locationHeader);
-        _jar.storeAll(
-          current,
-          response.headers[HttpHeaders.setCookieHeader] ?? const <String>[],
-        );
-      } on CasException {
-        rethrow;
-      } on Exception catch (e) {
-        throw CasException(
-          errorCode,
-          CasFailure.network,
-          'Connexion au service impossible: $e',
-        );
-      }
-
-      if (!_isRedirect(statusCode) || location == null) {
-        return _CasResponse(statusCode, body, current);
-      }
-
-      current = current.resolve(location);
-      // 301/302/303 drop the body and switch to GET. 307/308 replay as-is.
-      if (statusCode != HttpStatus.temporaryRedirect &&
-          statusCode != HttpStatus.permanentRedirect) {
-        currentMethod = 'GET';
-        currentForm = null;
-      }
-
-      _log?.call('$statusCode -> ${current.host}${current.path}');
+  /// Maps transport failures onto the CAS error vocabulary.
+  static Future<HttpResult> _send(
+    String errorCode,
+    Future<HttpResult> Function() request,
+  ) async {
+    try {
+      return await request();
+    } on HttpSessionException catch (e) {
+      throw CasException(errorCode, CasFailure.network, e.message);
     }
   }
-
-  static String _encodeForm(Map<String, String> form) => form.entries
-      .map(
-        (MapEntry<String, String> e) =>
-            '${Uri.encodeQueryComponent(e.key)}='
-            '${Uri.encodeQueryComponent(e.value)}',
-      )
-      .join('&');
-
-  static bool _isRedirect(int status) =>
-      status == HttpStatus.movedPermanently ||
-      status == HttpStatus.found ||
-      status == HttpStatus.seeOther ||
-      status == HttpStatus.temporaryRedirect ||
-      status == HttpStatus.permanentRedirect;
-}
-
-class _CasResponse {
-  const _CasResponse(this.statusCode, this.body, this.finalUri);
-
-  final int statusCode;
-  final String body;
-
-  /// Where the redirect chain ended, which is how a refused 2FA code is told
-  /// apart from an accepted one.
-  final Uri finalUri;
 }
