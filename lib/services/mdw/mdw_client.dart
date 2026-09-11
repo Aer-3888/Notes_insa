@@ -21,6 +21,7 @@ class MdwClient {
 
   int openedGroup = 0;
   int gridNode = 0;
+  int dialogNode = 0;
   int closeButtonNode = 0;
 
   Future<void> init() async {
@@ -139,13 +140,17 @@ class MdwClient {
     final nodes = data.gridNodes;
     openedGroup = nodeId;
     gridNode = nodes.grid;
+    dialogNode = nodes.dialog;
     closeButtonNode = data.closeButton;
 
     return data;
   }
 
   /// Acknowledges the rows Vaadin sent and opens the dialog.
-  Future<void> confirmRows(int dialogNode, Iterable<String> parentKeys) async {
+  ///
+  /// MDW keeps the grid's server-side state pending until each parent update is
+  /// confirmed, and leaving it pending makes the next card open empty.
+  Future<void> confirmRows(Iterable<String> parentKeys) async {
     final rpc = <VaadinRpc>[
       VaadinRpc(
         node: dialogNode,
@@ -257,6 +262,7 @@ class MdwClient {
 
     openedGroup = 0;
     gridNode = 0;
+    dialogNode = 0;
     closeButtonNode = 0;
   }
 }

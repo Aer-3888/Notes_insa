@@ -170,6 +170,8 @@ class GradesService {
     return _mdwCall('ERR_GRADES', () async {
       final responses = <VaadinData>[await mdw.openGrades(id)];
 
+      await mdw.confirmRows(_parentKeysOf(responses));
+
       for (var page = 0; page < _maxChildPages; page++) {
         final merged = VaadinData.merge(responses);
         final missing = GradeParser.missingChildKeys(
@@ -177,6 +179,7 @@ class GradesService {
         );
         if (missing.isEmpty) break;
         responses.add(await mdw.requestChildren(missing));
+        await mdw.confirmRows(_parentKeysOf(responses));
       }
 
       final merged = VaadinData.merge(responses);
@@ -202,6 +205,13 @@ class GradesService {
       return jsonEncode(root.toJson());
     });
   }
+
+  /// Keys of the rows that carry children, which is what MDW expects back.
+  static List<String> _parentKeysOf(List<VaadinData> responses) =>
+      GradeParser.rowsOf(VaadinData.merge(responses))
+          .where((GradeRow r) => r.hasChildren)
+          .map((GradeRow r) => r.key)
+          .toList();
 
   /// Reads every row's coefficient from its details dialog.
   ///
