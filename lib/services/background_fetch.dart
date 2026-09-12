@@ -134,23 +134,7 @@ Future<BackgroundFetchResult> runBackgroundFetch({
 }
 
 Future<Grade?> _fetchGroup(MdwClient mdw, int index) async {
-  final responses = <VaadinData>[await mdw.openGrades(index)];
-  await mdw.confirmRows(_parentKeys(responses));
-
-  for (var page = 0; page < 8; page++) {
-    final missing = GradeParser.missingChildKeys(
-      GradeParser.rowsOf(VaadinData.merge(responses)),
-    );
-    if (missing.isEmpty) break;
-    responses.add(await mdw.requestChildren(missing));
-    await mdw.confirmRows(_parentKeys(responses));
-  }
-
-  final root = GradeParser.parse(VaadinData.merge(responses));
+  final root = GradeParser.parse(await mdw.openAllRows(index));
   await mdw.closeGrades();
   return root;
 }
-
-List<String> _parentKeys(List<VaadinData> responses) => GradeParser.rowsOf(
-  VaadinData.merge(responses),
-).where((GradeRow r) => r.hasChildren).map((GradeRow r) => r.key).toList();

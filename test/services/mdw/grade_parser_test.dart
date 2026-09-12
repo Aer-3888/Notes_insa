@@ -237,6 +237,37 @@ void main() {
       );
     });
 
+    test('reports a parent whose later sibling was filled instead', () {
+      final b = _ResponseBuilder();
+      b.row(
+        index: 0,
+        key: '0',
+        level: 0,
+        nameNode: b.textNode(['ANNEE 3']),
+        children: true,
+      );
+      b.row(
+        index: 1,
+        key: '1',
+        level: 1,
+        nameNode: b.textNode(['SEMESTRE 5']),
+        children: true,
+      );
+      b.row(
+        index: 2,
+        key: '2',
+        level: 1,
+        nameNode: b.textNode(['SEMESTRE 6']),
+        children: true,
+      );
+      b.row(index: 3, key: '3', level: 2, nameNode: b.textNode(['MATHS']));
+
+      expect(
+        GradeParser.missingChildKeys(GradeParser.rowsOf(b.build())),
+        <String>['1'],
+      );
+    });
+
     test('reports nothing when every parent was filled', () {
       final b = _ResponseBuilder();
       b.row(

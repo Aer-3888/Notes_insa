@@ -6,6 +6,8 @@ class VaadinNode {
     required this.key,
     required this.value,
     required this.addNodes,
+    this.feature = -1,
+    this.add,
   });
 
   factory VaadinNode.fromJson(Map<String, dynamic> json) => VaadinNode(
@@ -16,6 +18,8 @@ class VaadinNode {
     addNodes: (json['addNodes'] as List<dynamic>?)
         ?.map((Object? e) => (e as num).toInt())
         .toList(),
+    feature: (json['feat'] as num?)?.toInt() ?? -1,
+    add: json['add'] as List<dynamic>?,
   );
 
   final int node;
@@ -23,6 +27,13 @@ class VaadinNode {
   final String key;
   final Object? value;
   final List<int>? addNodes;
+
+  /// Which node feature the change belongs to, or -1.
+  final int feature;
+
+  /// Values spliced into a list feature, such as the names of the methods the
+  /// client may call.
+  final List<dynamic>? add;
 }
 
 /// The useful payload of a UIDL response: node changes plus the JS calls

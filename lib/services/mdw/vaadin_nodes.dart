@@ -93,6 +93,68 @@ extension VaadinNodeLookup on VaadinData {
     return label > 0 ? texts[label - 1] : null;
   }
 
+  /// Feature holding the names of the methods the client may call on a node.
+  static const int _clientDelegateHandlers = 19;
+
+  /// Methods [nodeId] publishes to the client. Vaadin renames these between
+  /// versions, so the names it declares are the only reliable list: a call to
+  /// one it does not publish is dropped without an error.
+  List<String> publishedMethods(int nodeId) {
+    final names = <String>[];
+    for (final VaadinNode node in changes) {
+      if (node.node != nodeId) continue;
+      if (node.feature != _clientDelegateHandlers) continue;
+      names.addAll((node.add ?? const <dynamic>[]).whereType<String>());
+    }
+    return names;
+  }
+
+  /// Total rows the grid claims, read from the size it pushes, or null when
+  /// the response did not carry one.
+  int? get gridSize {
+    int? size;
+    for (final List<dynamic> call in execute) {
+      if (!_expressionOf(call).contains(r'$connector.updateSize(')) continue;
+      final Object? value = call.length > 1 ? call[1] : null;
+      if (value is num) size = value.toInt();
+    }
+    return size;
+  }
+
+  /// Update ids the grid wants confirmed. Leaving one pending keeps the rows
+  /// it covers active server-side, which stalls the next range request.
+  List<int> get updateIds {
+    final ids = <int>[];
+    for (final List<dynamic> call in execute) {
+      if (!_expressionOf(call).contains(r'$connector.confirm(')) continue;
+      final Object? value = call.length > 1 ? call[1] : null;
+      if (value is num) ids.add(value.toInt());
+    }
+    return ids;
+  }
+
+  /// Ranges the grid blanked out, which is how it reports rows that exist but
+  /// were not sent.
+  List<({int length, int start})> get clearedRanges {
+    final ranges = <({int length, int start})>[];
+    for (final List<dynamic> call in execute) {
+      if (!_expressionOf(call).contains(r'$connector.clear(')) continue;
+      if (call.length < 3) continue;
+      final Object? start = call[1];
+      final Object? length = call[2];
+      if (start is num && length is num) {
+        ranges.add((length: length.toInt(), start: start.toInt()));
+      }
+    }
+    return ranges;
+  }
+
+  /// The JS Vaadin asked the client to run, which is the last argument.
+  static String _expressionOf(List<dynamic> call) {
+    final Object? last = call.isEmpty ? null : call.last;
+    return last is String ? last : '';
+  }
+
   /// A short type-and-shape summary used in error messages when the server
   /// changes format. Reports names and sizes, never transported values.
   String describe() {

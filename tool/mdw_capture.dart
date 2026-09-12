@@ -78,10 +78,16 @@ Future<void> main(List<String> args) async {
       return;
     }
 
-    stdout.writeln('\n> openGrades(0)');
-    final data = await mdw.openGrades(0);
+    stdout.writeln('\n> openAllRows(0)');
+    final data = await mdw.openAllRows(0);
     stdout.writeln('  ${data.describe()}');
     stdout.writeln('  grid=${mdw.gridNode} close=${mdw.closeButtonNode}');
+    stdout.writeln('  size=${data.gridSize} blanked=${data.clearedRanges}');
+    stdout.writeln('  grid publishes: ${data.publishedMethods(mdw.gridNode)}');
+    stdout.writeln(
+      '  using range=${mdw.rangeMethod.isEmpty ? 'NONE' : mdw.rangeMethod} '
+      'children=${mdw.childRangeMethod.isEmpty ? 'NONE' : mdw.childRangeMethod}',
+    );
 
     // Parsed from memory, where the values are still intact; the files on disk
     // are redacted separately.
@@ -111,7 +117,7 @@ Future<void> main(List<String> args) async {
 
   for (final MapEntry<String, Map<String, dynamic>> entry in captures.entries) {
     final file = File('${outDir.path}/${entry.key}.json');
-    final content = raw ? entry.value : _redact(entry.value);
+    final content = raw ? entry.value : _redactResponse(entry.value);
     file.writeAsStringSync(const JsonEncoder.withIndent('  ').convert(content));
     stdout.writeln('wrote ${file.path}');
   }
@@ -129,10 +135,21 @@ Future<void> main(List<String> args) async {
 void _report(VaadinData data, {required bool show}) {
   final rows = GradeParser.rowsOf(data);
   final missing = GradeParser.missingChildKeys(rows);
+  final size = data.gridSize;
   stdout.writeln(
-    '  ${rows.length} rows, '
+    '  ${rows.length} rows of ${size ?? '?'}, '
     '${missing.isEmpty ? 'no' : missing.length} missing child set(s)',
   );
+  // The grid counts only the children it has already fetched, so its size is a
+  // floor rather than a target. Falling short of it is still a bad sign.
+  if (size != null && rows.length < size) {
+    stdout.writeln('  SHORT: ${size - rows.length} row(s) below the last size');
+    exitCode = 1;
+  }
+  if (missing.isNotEmpty) {
+    stdout.writeln('  ${missing.length} parent(s) still claim unfetched rows');
+    exitCode = 1;
+  }
 
   final root = GradeParser.parse(data);
   if (root == null) {
@@ -187,8 +204,11 @@ void _reparse(String path) {
   final rows = GradeParser.rowsOf(data);
   stdout.writeln(
     '${data.changes.length} changes, ${data.execute.length} '
-    'calls, ${rows.length} rows',
+    'calls, ${rows.length} rows of ${data.gridSize ?? '?'}',
   );
+  for (final ({int length, int start}) gap in data.clearedRanges) {
+    stdout.writeln('rows ${gap.start}..${gap.start + gap.length - 1} not sent');
+  }
 
   final missing = GradeParser.missingChildKeys(rows);
   if (missing.isNotEmpty) {
@@ -237,6 +257,51 @@ void _findGradeItems(Object? value, String path, List<String> hits) {
       _findGradeItems(value[i], '$path[$i]', hits);
     }
   }
+}
+
+/// Redacts a response but keeps the JS expression each `execute` call ends
+/// with. Those name the grid operations, so a dump without them cannot be told
+/// a paged read from a complete one.
+Object? _redactResponse(Map<String, dynamic> body) {
+  final out = <String, dynamic>{};
+  for (final MapEntry<String, dynamic> entry in body.entries) {
+    final Object? value = entry.value;
+    if (entry.key == 'changes' && value is List) {
+      out[entry.key] = value.map(_redactChange).toList();
+      continue;
+    }
+    if (entry.key != 'execute' || value is! List) {
+      out[entry.key] = _redact(value);
+      continue;
+    }
+    out[entry.key] = value.map((Object? call) {
+      if (call is! List || call.isEmpty || call.last is! String) {
+        return _redact(call);
+      }
+      return <Object?>[...call.take(call.length - 1).map(_redact), call.last];
+    }).toList();
+  }
+  return out;
+}
+
+/// Redacts a node change but keeps the framework's own vocabulary: the change
+/// type, the property name, a component tag, and the names of the methods the
+/// client may call. None of those carry anything of the user's.
+Object? _redactChange(Object? change) {
+  if (change is! Map) return _redact(change);
+
+  final out = <String, dynamic>{};
+  for (final MapEntry<Object?, Object?> entry in change.entries) {
+    final key = '${entry.key}';
+    final Object? value = entry.value;
+    out[key] = switch (key) {
+      'type' || 'key' || 'feat' || 'node' || 'index' => value,
+      'value' when change['key'] == 'tag' => value,
+      'add' when change['feat'] == 19 => value,
+      _ => _redact(value),
+    };
+  }
+  return out;
 }
 
 /// Replaces leaf values with a type tag, keeping structure and key names.

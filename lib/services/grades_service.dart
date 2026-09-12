@@ -94,9 +94,6 @@ class GradesService {
   // MDW: pure Dart over the Vaadin UIDL protocol
   // ---------------------------------------------------------------------------
 
-  /// How many times to ask for rows a parent claims but did not send.
-  static const int _maxChildPages = 8;
-
   static MdwClient? _mdw;
 
   /// Test seams for the MDW half, which otherwise needs a live Vaadin session.
@@ -153,50 +150,35 @@ class GradesService {
     final mdw = _requireMdw;
 
     return _mdwCall('ERR_GRADES', () async {
-      final responses = <VaadinData>[await mdw.openGrades(id)];
-
-      await mdw.confirmRows(_parentKeysOf(responses));
-
-      for (var page = 0; page < _maxChildPages; page++) {
-        final merged = VaadinData.merge(responses);
-        final missing = GradeParser.missingChildKeys(
-          GradeParser.rowsOf(merged),
-        );
-        if (missing.isEmpty) break;
-        responses.add(await mdw.requestChildren(missing));
-        await mdw.confirmRows(_parentKeysOf(responses));
-      }
-
-      final merged = VaadinData.merge(responses);
+      final merged = await mdw.openAllRows(id);
       final root = GradeParser.parse(merged);
       await mdw.closeGrades();
 
       if (kDebugMode) {
         var nodes = 0;
         root?.forEach((_, _) => nodes++);
+        final rows = GradeParser.rowsOf(merged);
+        final size = merged.gridSize;
+        final unfetched = GradeParser.missingChildKeys(rows);
         debugPrint(
           '[GradesService] group $id: ${merged.changes.length} changes, '
-          '${merged.execute.length} calls, $nodes grades',
+          '${merged.execute.length} calls, $nodes grades '
+          'of ${size ?? '?'} rows'
+          '${size != null && rows.length < size ? ' SHORT' : ''}'
+          '${unfetched.isEmpty ? '' : ', ${unfetched.length} parent(s) '
+                    'still claiming rows'}',
         );
       }
 
       if (root == null) {
         throw VaadinException(
-          'no grade rows in the response '
-          '(${VaadinData.merge(responses).describe()})',
+          'no grade rows in the response (${merged.describe()})',
         );
       }
 
       return jsonEncode(root.toJson());
     });
   }
-
-  /// Keys of the rows that carry children, which is what MDW expects back.
-  static List<String> _parentKeysOf(List<VaadinData> responses) =>
-      GradeParser.rowsOf(VaadinData.merge(responses))
-          .where((GradeRow r) => r.hasChildren)
-          .map((GradeRow r) => r.key)
-          .toList();
 
   /// Reads every row's coefficient from its details dialog.
   ///
@@ -206,7 +188,7 @@ class GradesService {
     final mdw = _requireMdw;
 
     return _mdwCall('ERR_COEFFICIENTS', () async {
-      final data = await mdw.openGrades(id);
+      final data = await mdw.openAllRows(id);
       final root = GradeParser.parse(data);
       if (root == null) {
         await mdw.closeGrades();
