@@ -38,14 +38,11 @@ go nowhere but INSA's own login server.
 
 <p align="center"><sub>The campus map, and setting how wide a day is in Semaine.</sub></p>
 
-Notes, with fictional sample grades:
-
 <p align="center">
-  <img src="screenshots/dashboard.png" width="150" alt="Semester dashboard" />
-  <img src="screenshots/ue_detail.png" width="150" alt="Teaching unit detail" />
-  <img src="screenshots/cohort_stats.png" width="150" alt="Anonymous promo comparison" />
-  <img src="screenshots/connection.png" width="150" alt="Sign in" />
+  <img src="screenshots/connexion.png" width="200" alt="Signing in to Notes with INSA credentials" />
 </p>
+
+<p align="center"><sub>Notes asks for the portal login. The grades behind it are not pictured, because a screenshot of them would be somebody's real marks.</sub></p>
 
 ## What it does
 
@@ -75,11 +72,10 @@ INSA's own CAS server. Grades are cached locally, so the app opens instantly
 and works without a connection.
 
 Only one feature sends anything off the device, and it is off unless you turn
-it on.
-The promo comparison shares your **subject averages, department, semester and
-academic year** with the project's own server, with nothing that identifies
-you: no name, no student number, no individual grade. You are asked during
-onboarding and can decline; declining costs you only that one screen.
+it on. The promo comparison shares your **subject averages, department,
+semester and academic year** with the project's own server, with nothing that
+identifies you: no name, no student number, no individual grade. You are asked
+during onboarding and can decline, which costs you only that one screen.
 
 There is no analytics SDK and no third-party tracking.
 
@@ -87,7 +83,8 @@ There is no analytics SDK and no third-party tracking.
 
 Requirements:
 
-- Flutter SDK `^3.10.4`
+- Flutter, stable channel (built against 3.41)
+- Dart SDK `^3.10.4`, which `pubspec.yaml` pins
 - Android SDK, minSdk 30
 - Node.js, for the husky hooks
 
@@ -126,7 +123,7 @@ build rather than shipping an unsigned APK.
 lib/
   main.dart          # entry point, theme and routing
   shell/             # campus hub, bottom bar, app settings
-  modules/           # one folder per module, UI and logic together
+  modules/           # most of the app, one folder per module
     schedule/        #   ADE timetable, five views, ICS parsing
     grades/          #   CAS sign-in, Mon Dossier Web, cohort stats
     campus_map/      #   buildings, rooms, services
@@ -139,6 +136,9 @@ lib/
   core/              # caching, freshness, time, navigation
   theme/             # tokens, colour schemes, shared state views
   providers/         # Riverpod providers shared across modules
+  components/        # grades widgets not yet moved into the module
+  screens/ utils/    # the TOTP import: QR scan, base32, pbkdf2
+  protos/            # the Google Authenticator migration format
 docs/design/         # design direction and review checklist (local only)
 tool/                # capture and debugging scripts
 ```
