@@ -1,8 +1,7 @@
-gradle-wrapper.jar
+# The Gradle wrapper is checked in on purpose: CI runs ./gradlew, and the
+# wrapper is what pins the Gradle version.
 /.gradle
 /captures/
-/gradlew
-/gradlew.bat
 /local.properties
 GeneratedPluginRegistrant.java
 .cxx/

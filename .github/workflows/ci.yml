@@ -45,4 +45,6 @@ jobs:
         run: flutter test
       - name: Android native tests
         working-directory: android
-        run: ./gradlew testDebugUnitTest --console=plain
+        # :app: only. The unscoped task also runs every Flutter plugin's own
+        # unit tests, and image_picker_android's fail.
+        run: ./gradlew :app:testDebugUnitTest --console=plain
