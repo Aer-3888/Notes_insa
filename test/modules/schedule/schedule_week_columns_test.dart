@@ -139,4 +139,23 @@ void main() {
     expect(find.text('Algèbre 3'), findsWidgets);
     expect(horizontals(tester).first.maxScrollExtent, greaterThan(0));
   });
+
+  testWidgets('a compact week still shows part of every module name', (
+    tester,
+  ) async {
+    await pump(
+      tester,
+      7,
+      minColumnWidth: ScheduleDayWidth.compact.minColumnWidth,
+      screenWidth: 384,
+    );
+    expect(
+      find.descendant(
+        of: find.byType(GridBlock).first,
+        matching: find.byType(Text),
+      ),
+      findsWidgets,
+      reason: 'a 48 dp block fell back to a bare bar',
+    );
+  });
 }

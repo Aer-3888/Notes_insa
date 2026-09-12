@@ -16,17 +16,31 @@ void main() {
     );
   });
 
-  test('56 dp is the narrowest width that can hold a module name', () {
+  test('56 dp is the narrowest width that can hold a whole module name', () {
     expect(
       blockLabelDensity(width: 56, height: 80),
       BlockLabelDensity.moduleOnly,
     );
-    expect(blockLabelDensity(width: 55.9, height: 80), BlockLabelDensity.none);
+    expect(
+      blockLabelDensity(width: 55.9, height: 80),
+      BlockLabelDensity.moduleTruncated,
+    );
   });
 
-  test('a seven-column block on a 384 dp phone shows no label', () {
+  test('a seven-column block on a 384 dp phone still says something', () {
     // 384 dp minus the 40 dp gutter, over seven columns.
-    expect(blockLabelDensity(width: 49.1, height: 80), BlockLabelDensity.none);
+    expect(
+      blockLabelDensity(width: 49.1, height: 80),
+      BlockLabelDensity.moduleTruncated,
+    );
+  });
+
+  test('40 dp is where a block gives up on text', () {
+    expect(
+      blockLabelDensity(width: 40, height: 80),
+      BlockLabelDensity.moduleTruncated,
+    );
+    expect(blockLabelDensity(width: 39.9, height: 80), BlockLabelDensity.none);
   });
 
   test('a short block shows no label however wide it is', () {

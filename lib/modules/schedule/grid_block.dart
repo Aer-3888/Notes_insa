@@ -5,13 +5,16 @@ import '../../theme/tokens.dart';
 import 'module_palette.dart';
 import 'schedule_event.dart';
 
-enum BlockLabelDensity { none, moduleOnly, moduleAndRoom }
+enum BlockLabelDensity { none, moduleTruncated, moduleOnly, moduleAndRoom }
 
 /// Measured in the shipped font at labelMedium: the shortest real module name
-/// (`Algèbre 3`) needs 55.7 dp and `Amphi C` needs 47.4 dp. Below that a label
-/// is an ellipsis, which tells the reader less than a bare bar does.
+/// (`Algèbre 3`) needs 55.7 dp and `Amphi C` needs 47.4 dp.
 const double _minModuleWidth = 56;
 const double _minModuleAndRoomWidth = 100;
+
+/// Narrowest block that still says something. It cannot hold a whole name, but
+/// the first few letters separate two classes where a bare bar cannot.
+const double kMinTruncatedLabelWidth = 40;
 
 /// Under this a block cannot hold one line of text whatever its width.
 const double _minLabelHeight = 24;
@@ -23,6 +26,9 @@ BlockLabelDensity blockLabelDensity({
   if (height < _minLabelHeight) return BlockLabelDensity.none;
   if (width >= _minModuleAndRoomWidth) return BlockLabelDensity.moduleAndRoom;
   if (width >= _minModuleWidth) return BlockLabelDensity.moduleOnly;
+  if (width >= kMinTruncatedLabelWidth) {
+    return BlockLabelDensity.moduleTruncated;
+  }
   return BlockLabelDensity.none;
 }
 
@@ -58,6 +64,7 @@ class GridBlock extends StatelessWidget {
             if (density == BlockLabelDensity.none) {
               return const SizedBox.expand();
             }
+            final truncated = density == BlockLabelDensity.moduleTruncated;
             return Padding(
               padding: const EdgeInsets.all(CampusSpacing.x1),
               child: Column(
@@ -69,8 +76,13 @@ class GridBlock extends StatelessWidget {
                       style: context.text.labelMedium?.copyWith(
                         color: campus.onModuleBlockTint,
                       ),
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
+                      maxLines: truncated ? 1 : 2,
+                      // A fade keeps the letters an ellipsis would spend on
+                      // itself, which is most of what a narrow block has.
+                      softWrap: !truncated,
+                      overflow: truncated
+                          ? TextOverflow.fade
+                          : TextOverflow.ellipsis,
                     ),
                   ),
                   if (density == BlockLabelDensity.moduleAndRoom &&

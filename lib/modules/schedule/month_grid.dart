@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 
 import '../../theme/campus_context.dart';
 import '../../theme/tokens.dart';
+import 'grid_block.dart';
 import 'module_palette.dart';
 import 'schedule_day_index.dart';
 import 'schedule_event.dart';
@@ -17,10 +18,6 @@ const double _chipGap = CampusSpacing.x1;
 /// Most chips a cell will draw, however tall it is. Past this the cell is a
 /// list, and Liste is the view for reading a list.
 const int _maxChips = 4;
-
-/// A chip narrower than this drops its name. Four characters and an ellipsis
-/// still separate two classes at a glance, which a bare bar cannot.
-const double _minChipLabelWidth = 40;
 
 /// Mois is a picker first: tapping a day opens it. With the preview on it also
 /// shows each day's classes as chips, the way the phone calendars do.
@@ -209,7 +206,7 @@ class _Chip extends StatelessWidget {
           color: tint,
           borderRadius: BorderRadius.circular(CampusRadii.bar),
         ),
-        child: constraints.maxWidth < _minChipLabelWidth
+        child: constraints.maxWidth < kMinTruncatedLabelWidth
             ? null
             : Text(
                 event.module ?? event.title,
@@ -217,7 +214,8 @@ class _Chip extends StatelessWidget {
                   color: context.scheme.onSurface,
                 ),
                 maxLines: 1,
-                overflow: TextOverflow.ellipsis,
+                softWrap: false,
+                overflow: TextOverflow.fade,
               ),
       ),
     );
