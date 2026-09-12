@@ -2,62 +2,150 @@
 
 [![Release APK](https://github.com/Aer-3888/Notes_insa/actions/workflows/release.yml/badge.svg)](https://github.com/Aer-3888/Notes_insa/actions/workflows/release.yml)
 
-Android app for INSA Rennes students: timetable, grades, weather and campus services in one place.
+Android app for INSA Rennes students. Timetable, grades, campus map,
+associations, library occupancy, laundry and weather in one place, and most of
+it works offline.
+
+## Download
+
+Grab the latest APK from the
+[**Releases page**](https://github.com/Aer-3888/Notes_insa/releases/latest) and
+open it on your phone. Android 11 (API 30) or newer.
+
+Android will warn that the file comes from outside the Play Store. Allow the
+install for your browser or file manager when it asks; the APK is signed with
+the same key for every release, so updates install over the top without
+uninstalling first.
+
+No account is needed for the timetable, the map, associations, the library, the
+laundry or the weather. Only **Notes** asks for your INSA credentials, and they
+go nowhere but INSA's own login server.
 
 ## Screenshots
 
 <p align="center">
-  <img src="screenshots/dashboard.png" width="220" alt="Semester dashboard" />
-  <img src="screenshots/ue_detail.png" width="220" alt="Teaching unit detail" />
-  <img src="screenshots/cohort_stats.png" width="220" alt="Anonymous cohort comparison" />
-  <img src="screenshots/connection.png" width="220" alt="Sign in" />
+  <img src="screenshots/hub.gif" width="200" alt="The Aujourd'hui hub: weather, CROUS, library occupancy and module cards" />
+  <img src="screenshots/edt.gif" width="200" alt="The timetable as a list, then as a week grid" />
+  <img src="screenshots/mois.gif" width="200" alt="The month view with each day's classes in its cell" />
 </p>
 
-<p align="center"><sub>Semester dashboard, teaching unit detail, anonymous cohort comparison, and sign in. All grades shown are fictional sample data.</sub></p>
+<p align="center"><sub>Aujourd'hui, the timetable in Liste and Semaine, and Mois with its classes shown or hidden.</sub></p>
 
-## Features
+<p align="center">
+  <img src="screenshots/carte.gif" width="200" alt="Tapping a building on the campus map opens its details" />
+  <img src="screenshots/largeur.gif" width="200" alt="Dragging the day-width slider, with the week previewing live" />
+</p>
 
-- Fetch grades via secure native library (inscore)
-- Biometric authentication
-- Background fetch with push notifications on grade changes
-- QR code scanner for Google Authenticator migration (TOTP secret import)
-- Offline access with encrypted local storage
+<p align="center"><sub>The campus map, and setting how wide a day is in Semaine.</sub></p>
 
-## Requirements
+Notes, with fictional sample grades:
+
+<p align="center">
+  <img src="screenshots/dashboard.png" width="150" alt="Semester dashboard" />
+  <img src="screenshots/ue_detail.png" width="150" alt="Teaching unit detail" />
+  <img src="screenshots/cohort_stats.png" width="150" alt="Anonymous promo comparison" />
+  <img src="screenshots/connection.png" width="150" alt="Sign in" />
+</p>
+
+## What it does
+
+- **Emploi du temps** reads your ADE group and shows it five ways: a
+  continuous list across days, one day, three days, a week grid you can set the
+  column width of, and a month whose cells carry the day's classes. Rooms are
+  resolved to buildings on the campus map.
+- **Notes** signs in through CAS, handles the 2FA code, and reads Mon Dossier
+  Web: grades, averages and coefficients. Refreshes in the background and
+  notifies you when a grade lands. You can opt in to see where you sit in your
+  promo, which shares your subject averages anonymously.
+- **Carte** locates buildings, amphis and services on the campus plan, and
+  answers "where is this room".
+- **Associations** is a directory of the 29 student associations with their
+  events, and reminds you before one you follow.
+- **Laverie** shows which washers and dryers are free.
+- **Météo** gives the campus forecast.
+
+The home screen is a hub of cards you can resize and reorder, each showing what
+it has for you today: your next classes, how full the BU is with its booking
+link, the CROUS menu, and the events of the associations you follow.
+
+## Privacy
+
+Your INSA credentials are stored encrypted on the device and are sent only to
+INSA's own CAS server. Grades are cached locally, so the app opens instantly
+and works without a connection.
+
+Only one feature sends anything off the device, and it is off unless you turn
+it on.
+The promo comparison shares your **subject averages, department, semester and
+academic year** with the project's own server, with nothing that identifies
+you: no name, no student number, no individual grade. You are asked during
+onboarding and can decline; declining costs you only that one screen.
+
+There is no analytics SDK and no third-party tracking.
+
+## Development
+
+Requirements:
 
 - Flutter SDK `^3.10.4`
-- Android SDK (minSdk 30)
-- Node.js (for pre-commit hooks)
-
-## Installation
+- Android SDK, minSdk 30
+- Node.js, for the husky hooks
 
 ```bash
-# Install Flutter dependencies
 flutter pub get
-
-# Install JS tooling (husky + prettier)
 npm install
 
-# Run on device
-flutter run
+# APP_SECRET keys the local encrypted store; any value works for development.
+flutter run --dart-define=APP_SECRET=dev
 ```
 
-## Build
+Checks, the same ones CI runs:
 
 ```bash
-flutter build apk --release
+flutter analyze --fatal-infos
+flutter test
+cd android && ./gradlew testDebugUnitTest
 ```
+
+## Releasing
+
+Pushing to `main` publishes a release. `.github/workflows/release.yml` runs the
+checks, skips the build if a release already exists for the version in
+`pubspec.yaml`, then signs an APK and publishes it as `v{version}` with
+generated notes. Bump `version:` in `pubspec.yaml` to ship; the `pre-push` hook
+bumps the build number for you.
+
+Signing comes from repository secrets: `KEYSTORE_BASE64`, `KEY_STORE_PASSWORD`,
+`KEY_ALIAS`, `KEY_PASSWORD`, plus `APP_SECRET`. The Gradle config refuses to
+assemble a CI release signed with debug keys, so a missing secret fails the
+build rather than shipping an unsigned APK.
 
 ## Project structure
 
 ```
 lib/
-  screens/       # UI screens
-  components/    # Reusable widgets
-  providers/     # Riverpod state management
-  services/      # Native bridge, auth, notifications
-  models.dart    # Data models
-  data.dart      # JSON parser
-android/
-  app/lib/       # inscore.aar native grades library
+  main.dart          # entry point, theme and routing
+  shell/             # campus hub, bottom bar, app settings
+  modules/           # one folder per module, UI and logic together
+    schedule/        #   ADE timetable, five views, ICS parsing
+    grades/          #   CAS sign-in, Mon Dossier Web, cohort stats
+    campus_map/      #   buildings, rooms, services
+    associations/    #   directory, events, reminders
+    library/         #   BU occupancy
+    laundry/         #   washer and dryer availability
+    crous/           #   restaurant menus
+    weather/         #   campus forecast
+  services/          # CAS client, Vaadin/MDW transport, notifications
+  core/              # caching, freshness, time, navigation
+  theme/             # tokens, colour schemes, shared state views
+  providers/         # Riverpod providers shared across modules
+docs/design/         # design direction and review checklist (local only)
+tool/                # capture and debugging scripts
 ```
+
+## Data sources
+
+ADE (timetable), CAS and Mon Dossier Web (grades), Affluences (library),
+CROUS (restaurants), the INSA and AEIR sites (associations), and
+OpenStreetMap under ODbL for the campus plan. The app reads what a browser
+would read, and nothing is scraped that a student cannot see themselves.
