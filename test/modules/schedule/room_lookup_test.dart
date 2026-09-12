@@ -106,10 +106,7 @@ void main() {
   });
 
   test('an unresolvable first room does not hide a resolvable second', () {
-    final r = resolveRoom(
-      'AUTRE  SALLE,E&T4 (114)-bât 5-1er etage',
-      _places,
-    );
+    final r = resolveRoom('AUTRE  SALLE,E&T4 (114)-bât 5-1er etage', _places);
     expect(r.buildingCode, '5');
   });
 
@@ -141,7 +138,10 @@ void main() {
 
   test('a GCU room number does not capture the GMA room of the same number', () {
     // "018 - TP Hydraulique" is GCU, "018 -bat 11-" is GMA. The bât marker wins.
-    expect(resolveRoom('018 - TP Hydraulique DOUSTENS', _places).buildingCode, '7');
+    expect(
+      resolveRoom('018 - TP Hydraulique DOUSTENS', _places).buildingCode,
+      '7',
+    );
     expect(resolveRoom('018 -bat 11-', _places).buildingCode, '11');
   });
 

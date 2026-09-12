@@ -4,6 +4,7 @@ import 'package:notes_insa/modules/schedule/schedule_day_index.dart';
 import 'package:notes_insa/modules/schedule/schedule_event.dart';
 import 'package:notes_insa/modules/schedule/grid_block.dart';
 import 'package:notes_insa/modules/schedule/schedule_grid.dart';
+import 'package:notes_insa/modules/schedule/schedule_view_mode.dart';
 import 'package:notes_insa/theme/campus_theme.dart';
 
 void main() {
@@ -39,8 +40,13 @@ void main() {
       DateTime(monday.year, monday.month, monday.day + i),
   ];
 
-  Future<void> pump(WidgetTester tester, int columns) async {
-    tester.view.physicalSize = const Size(360, 800);
+  Future<void> pump(
+    WidgetTester tester,
+    int columns, {
+    double minColumnWidth = kDefaultColumnWidth,
+    double screenWidth = 360,
+  }) async {
+    tester.view.physicalSize = Size(screenWidth, 800);
     tester.view.devicePixelRatio = 1.0;
     addTearDown(tester.view.reset);
     await tester.pumpWidget(
@@ -50,6 +56,7 @@ void main() {
           body: ScheduleGrid(
             index: index(),
             days: span(columns),
+            minColumnWidth: minColumnWidth,
             onTapEvent: (_) {},
           ),
         ),
@@ -106,5 +113,30 @@ void main() {
     final offsets = horizontals(tester).map((p) => p.pixels).toSet();
     expect(offsets.length, 1, reason: 'headings drifted from the columns');
     expect(offsets.single, greaterThan(0));
+  });
+
+  testWidgets('the compact width fits a whole week on a 384 dp phone', (
+    tester,
+  ) async {
+    await pump(
+      tester,
+      7,
+      minColumnWidth: ScheduleDayWidth.compact.minColumnWidth,
+      screenWidth: 384,
+    );
+    for (final position in horizontals(tester)) {
+      expect(position.maxScrollExtent, 0);
+    }
+  });
+
+  testWidgets('the large width buys the long names back', (tester) async {
+    await pump(
+      tester,
+      7,
+      minColumnWidth: ScheduleDayWidth.large.minColumnWidth,
+      screenWidth: 384,
+    );
+    expect(find.text('Algèbre 3'), findsWidgets);
+    expect(horizontals(tester).first.maxScrollExtent, greaterThan(0));
   });
 }

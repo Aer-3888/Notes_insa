@@ -64,6 +64,8 @@ void main() {
   ) async {
     await pumpSettings(tester);
     expect(find.text('JSON brut'), findsNothing);
+    // The version sits at the end of a list longer than the test viewport.
+    await tester.scrollUntilVisible(find.text('Version'), 200);
     for (var i = 0; i < 7; i++) {
       await tester.tap(find.text('Version'));
       await tester.pump();

@@ -163,7 +163,14 @@ class _ScheduleScreenState extends ConsumerState<ScheduleScreen> {
     final ids = ref.watch(selectedGroupsProvider);
     final async = ref.watch(scheduleProvider);
     final mode = ref.watch(scheduleViewModeProvider);
-    final showDayWeekStrip = ref.watch(scheduleDayWeekStripProvider);
+    // Liste and Jour remember the strip separately: Liste's body already runs
+    // across days, so the two views want opposite defaults.
+    final stripProvider = mode == ScheduleViewMode.liste
+        ? scheduleListWeekStripProvider
+        : scheduleDayWeekStripProvider;
+    final showStrip = ref.watch(stripProvider);
+    final showMonthPreview = ref.watch(scheduleMonthPreviewProvider);
+    final dayWidth = ref.watch(scheduleDayWidthProvider);
 
     ref.listen<ScheduleFocus?>(scheduleFocusProvider, (_, next) {
       if (next == null) return;
@@ -191,18 +198,31 @@ class _ScheduleScreenState extends ConsumerState<ScheduleScreen> {
           ),
         ),
         actions: [
-          if (mode == ScheduleViewMode.jour)
+          if (mode.showsStrip)
             IconButton(
               icon: Icon(
-                showDayWeekStrip
+                showStrip
                     ? Icons.calendar_view_week_outlined
                     : Icons.calendar_view_day_outlined,
               ),
-              tooltip: showDayWeekStrip
+              tooltip: showStrip
                   ? 'Masquer l\'aper\u00e7u de la semaine'
                   : 'Afficher l\'aper\u00e7u de la semaine',
+              onPressed: () =>
+                  unawaited(ref.read(stripProvider.notifier).toggle()),
+            ),
+          if (mode == ScheduleViewMode.mois)
+            IconButton(
+              icon: Icon(
+                showMonthPreview
+                    ? Icons.view_agenda_outlined
+                    : Icons.calendar_today_outlined,
+              ),
+              tooltip: showMonthPreview
+                  ? 'Masquer les cours dans les cases'
+                  : 'Afficher les cours dans les cases',
               onPressed: () => unawaited(
-                ref.read(scheduleDayWeekStripProvider.notifier).toggle(),
+                ref.read(scheduleMonthPreviewProvider.notifier).toggle(),
               ),
             ),
           IconButton(
@@ -271,9 +291,12 @@ class _ScheduleScreenState extends ConsumerState<ScheduleScreen> {
                     day: _day,
                     index: index,
                     days: _daysFor(mode),
-                    showStrip: mode == ScheduleViewMode.jour
-                        ? showDayWeekStrip
-                        : mode.showsStrip,
+                    showStrip: mode.showsStrip && showStrip,
+                    // Only Semaine is tight enough for the choice to change
+                    // anything, and only Semaine offers it.
+                    minColumnWidth: mode == ScheduleViewMode.semaine
+                        ? dayWidth.minColumnWidth
+                        : kDefaultColumnWidth,
                     onDayTap: _goTo,
                     onShiftPeriod: _shiftPeriod,
                     onTapEvent: (e) => showEventSheet(context, e),
@@ -283,6 +306,7 @@ class _ScheduleScreenState extends ConsumerState<ScheduleScreen> {
                   ScheduleViewMode.mois => _MonthView(
                     day: _day,
                     index: index,
+                    showPreview: showMonthPreview,
                     rangeStart: _rangeStart,
                     rangeEnd: _rangeEnd,
                     onPageChanged: _goTo,
@@ -293,7 +317,7 @@ class _ScheduleScreenState extends ConsumerState<ScheduleScreen> {
                     day: _day,
                     index: index,
                     controller: _controller,
-                    showStrip: mode.showsStrip,
+                    showStrip: mode.showsStrip && showStrip,
                     onDayTap: _goTo,
                     onShiftPeriod: _shiftPeriod,
                   ),
@@ -389,6 +413,7 @@ class _GridView extends StatelessWidget {
     required this.onTapEvent,
     required this.rangeStart,
     required this.rangeEnd,
+    required this.minColumnWidth,
   });
 
   final CachedEntry<List<ScheduleEvent>> entry;
@@ -402,6 +427,7 @@ class _GridView extends StatelessWidget {
   final ValueChanged<ScheduleEvent> onTapEvent;
   final DateTime rangeStart;
   final DateTime rangeEnd;
+  final double minColumnWidth;
 
   @override
   Widget build(BuildContext context) {
@@ -428,6 +454,7 @@ class _GridView extends StatelessWidget {
               days: _daysFor(pageDay),
               now: campusNow(),
               onTapEvent: onTapEvent,
+              minColumnWidth: minColumnWidth,
             ),
           ),
         ),
@@ -467,6 +494,7 @@ class _MonthView extends StatelessWidget {
     required this.rangeEnd,
     required this.onPageChanged,
     required this.onPickDay,
+    required this.showPreview,
   });
 
   final DateTime day;
@@ -475,6 +503,7 @@ class _MonthView extends StatelessWidget {
   final DateTime rangeEnd;
   final ValueChanged<DateTime> onPageChanged;
   final ValueChanged<DateTime> onPickDay;
+  final bool showPreview;
 
   @override
   Widget build(BuildContext context) => _PeriodPager(
@@ -489,6 +518,7 @@ class _MonthView extends StatelessWidget {
       month: pageDay,
       today: campusNow(),
       onPickDay: onPickDay,
+      showPreview: showPreview,
     ),
   );
 }

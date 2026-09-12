@@ -3,6 +3,7 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:notes_insa/modules/schedule/month_grid.dart';
 import 'package:notes_insa/modules/schedule/schedule_day_index.dart';
 import 'package:notes_insa/modules/schedule/schedule_event.dart';
 import 'package:notes_insa/modules/schedule/schedule_timeline.dart';
@@ -75,6 +76,13 @@ void main() {
     onDayTap: (_) {},
   );
 
+  Widget month() => MonthGrid(
+    index: index(),
+    month: monday,
+    today: monday,
+    onPickDay: (_) {},
+  );
+
   Widget timeline() => ScheduleTimeline(
     index: index(),
     controller: ScrollController(),
@@ -103,6 +111,16 @@ void main() {
       brightness: Brightness.light,
       textScale: 2.0,
     );
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('the month cells render in dark mode', (tester) async {
+    await pump(tester, month(), brightness: Brightness.dark);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('the month cells survive 200 percent text scale', (tester) async {
+    await pump(tester, month(), brightness: Brightness.light, textScale: 2.0);
     expect(tester.takeException(), isNull);
   });
 }

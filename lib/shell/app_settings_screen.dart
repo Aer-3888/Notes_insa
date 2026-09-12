@@ -10,6 +10,8 @@ import '../modules/grades/grades_settings_screen.dart';
 import '../modules/grades/raw_json_viewer_screen.dart';
 import '../modules/schedule/group_picker_screen.dart';
 import '../modules/schedule/schedule_colors_screen.dart';
+import '../modules/schedule/schedule_view_mode.dart';
+import '../modules/schedule/schedule_width_screen.dart';
 import '../providers/auth_providers.dart';
 import '../providers/package_info_provider.dart';
 import '../providers/theme_mode_provider.dart';
@@ -30,6 +32,7 @@ class AppSettingsScreen extends ConsumerWidget {
     final hasCreds = ref.watch(hasCredentialsProvider).value ?? false;
     final mode = ref.watch(themeModeProvider);
     final reminderLead = ref.watch(associationReminderLeadProvider);
+    final dayWidth = ref.watch(scheduleDayWidthProvider);
 
     return Scaffold(
       appBar: AppBar(title: const Text('Paramètres')),
@@ -56,6 +59,17 @@ class AppSettingsScreen extends ConsumerWidget {
             onTap: () => Navigator.of(context).push(
               MaterialPageRoute<void>(
                 builder: (_) => const ScheduleColorsScreen(),
+              ),
+            ),
+          ),
+          ListTile(
+            leading: const Icon(Icons.view_column_outlined),
+            title: const Text('Largeur des jours'),
+            subtitle: Text('Vue Semaine : ${dayWidth.label}'),
+            trailing: const Icon(Icons.chevron_right),
+            onTap: () => Navigator.of(context).push(
+              MaterialPageRoute<void>(
+                builder: (_) => const ScheduleWidthScreen(),
               ),
             ),
           ),

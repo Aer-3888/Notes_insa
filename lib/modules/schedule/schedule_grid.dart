@@ -26,9 +26,10 @@ const double _hourHeight = 64;
 /// cannot reliably tap is worse than one a few minutes too tall.
 const double _minBlockHeight = 48;
 
-/// Narrowest a column may be. Below this a block cannot hold its module name,
-/// so the grid scrolls sideways instead of drawing bare bars.
-const double _minColumnWidth = 104;
+/// Narrowest a column may be unless the reader asks for narrower. Below this
+/// a block cannot hold its module name, so the grid scrolls sideways instead
+/// of drawing bare bars.
+const double kDefaultColumnWidth = 104;
 
 /// The time grid behind Jour, 3 jours and Semaine. The modes differ only in
 /// how many days are passed in.
@@ -38,6 +39,7 @@ class ScheduleGrid extends StatefulWidget {
     required this.days,
     required this.onTapEvent,
     this.now,
+    this.minColumnWidth = kDefaultColumnWidth,
     super.key,
   });
 
@@ -45,6 +47,10 @@ class ScheduleGrid extends StatefulWidget {
   final List<DateTime> days;
   final ValueChanged<ScheduleEvent> onTapEvent;
   final DateTime? now;
+
+  /// Floor for a column before the track scrolls sideways. Columns still
+  /// stretch past it when the period has room to spare.
+  final double minColumnWidth;
 
   static const double gutterWidth = 40;
 
@@ -110,7 +116,7 @@ class _ScheduleGridState extends State<ScheduleGrid> {
         final rules = (days.length - 1).toDouble();
         final free = constraints.maxWidth - gutter - rules;
         final columnWidth = math.max(
-          _minColumnWidth * scale,
+          widget.minColumnWidth * scale,
           free / days.length,
         );
         final trackWidth = columnWidth * days.length + rules;

@@ -90,4 +90,81 @@ void main() {
     await Future<void>.delayed(Duration.zero);
     expect(container.read(scheduleViewModeProvider), ScheduleViewMode.liste);
   });
+
+  test('Liste starts without the strip and can be remembered on', () async {
+    final container = ProviderContainer();
+    addTearDown(container.dispose);
+
+    expect(container.read(scheduleListWeekStripProvider), isFalse);
+    await container.read(scheduleListWeekStripProvider.notifier).toggle();
+    expect(container.read(scheduleListWeekStripProvider), isTrue);
+
+    final prefs = await SharedPreferences.getInstance();
+    expect(prefs.getBool(kScheduleListWeekStripKey), isTrue);
+  });
+
+  test('Mois draws its classes until it is told not to', () async {
+    final container = ProviderContainer();
+    addTearDown(container.dispose);
+
+    expect(container.read(scheduleMonthPreviewProvider), isTrue);
+    await container.read(scheduleMonthPreviewProvider.notifier).toggle();
+    expect(container.read(scheduleMonthPreviewProvider), isFalse);
+
+    final prefs = await SharedPreferences.getInstance();
+    expect(prefs.getBool(kScheduleMonthPreviewKey), isFalse);
+  });
+
+  test('a stored flag is restored', () async {
+    SharedPreferences.setMockInitialValues(<String, Object>{
+      kScheduleListWeekStripKey: true,
+      kScheduleMonthPreviewKey: false,
+    });
+    final container = ProviderContainer();
+    addTearDown(container.dispose);
+    container
+      ..read(scheduleListWeekStripProvider)
+      ..read(scheduleMonthPreviewProvider);
+    await Future<void>.delayed(Duration.zero);
+
+    expect(container.read(scheduleListWeekStripProvider), isTrue);
+    expect(container.read(scheduleMonthPreviewProvider), isFalse);
+  });
+
+  test('the day widths run from a whole week to a long name', () {
+    expect(
+      ScheduleDayWidth.values.map((w) => w.minColumnWidth).toList(),
+      <double>[48, 104, 160],
+    );
+    expect(ScheduleDayWidth.values.map((w) => w.label).toList(), <String>[
+      'Compact',
+      'Normal',
+      'Large',
+    ]);
+  });
+
+  test('the day width defaults to Normal and is written down', () async {
+    final container = ProviderContainer();
+    addTearDown(container.dispose);
+
+    expect(container.read(scheduleDayWidthProvider), ScheduleDayWidth.normal);
+    await container
+        .read(scheduleDayWidthProvider.notifier)
+        .set(ScheduleDayWidth.compact);
+    expect(container.read(scheduleDayWidthProvider), ScheduleDayWidth.compact);
+
+    final prefs = await SharedPreferences.getInstance();
+    expect(prefs.getString(kScheduleDayWidthKey), 'compact');
+  });
+
+  test('an unknown stored width falls back to Normal', () async {
+    SharedPreferences.setMockInitialValues(<String, Object>{
+      kScheduleDayWidthKey: 'enorme',
+    });
+    final container = ProviderContainer();
+    addTearDown(container.dispose);
+    container.read(scheduleDayWidthProvider);
+    await Future<void>.delayed(Duration.zero);
+    expect(container.read(scheduleDayWidthProvider), ScheduleDayWidth.normal);
+  });
 }
