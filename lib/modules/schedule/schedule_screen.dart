@@ -295,7 +295,7 @@ class _ScheduleScreenState extends ConsumerState<ScheduleScreen> {
                     // Only Semaine is tight enough for the choice to change
                     // anything, and only Semaine offers it.
                     minColumnWidth: mode == ScheduleViewMode.semaine
-                        ? dayWidth.minColumnWidth
+                        ? dayWidth
                         : kDefaultColumnWidth,
                     onDayTap: _goTo,
                     onShiftPeriod: _shiftPeriod,

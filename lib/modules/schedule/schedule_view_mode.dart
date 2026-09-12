@@ -142,34 +142,64 @@ enum ScheduleDayWidth {
   final double minColumnWidth;
 }
 
-/// The chosen column width, remembered across launches.
-class ScheduleDayWidthNotifier extends Notifier<ScheduleDayWidth> {
+/// Bounds for a hand-set width. The floor is the narrowest block that still
+/// shows part of a module name; past the ceiling one day fills the screen.
+const double kScheduleDayWidthMin = 40;
+const double kScheduleDayWidthMax = 200;
+
+/// The preset [width] lands on, or null when it was set by hand.
+ScheduleDayWidth? scheduleDayWidthPreset(double width) {
+  for (final preset in ScheduleDayWidth.values) {
+    if (preset.minColumnWidth == width) return preset;
+  }
+  return null;
+}
+
+/// What to call the current width in a list row.
+String scheduleDayWidthLabel(double width) =>
+    scheduleDayWidthPreset(width)?.label ?? '${width.round()} dp';
+
+/// The chosen column width in dp, remembered across launches.
+class ScheduleDayWidthNotifier extends Notifier<double> {
   @override
-  ScheduleDayWidth build() {
+  double build() {
     unawaited(_restore());
-    return ScheduleDayWidth.normal;
+    return ScheduleDayWidth.normal.minColumnWidth;
   }
 
   Future<void> _restore() async {
     final prefs = await SharedPreferences.getInstance();
-    final stored = prefs.getString(kScheduleDayWidthKey);
-    if (stored == null) return;
-    for (final width in ScheduleDayWidth.values) {
-      if (width.name == stored) {
-        state = width;
-        return;
+    final Object? stored = prefs.get(kScheduleDayWidthKey);
+    if (stored is num) {
+      state = _clamp(stored.toDouble());
+      return;
+    }
+    // Earlier builds stored the preset's name rather than its width.
+    if (stored is String) {
+      for (final preset in ScheduleDayWidth.values) {
+        if (preset.name == stored) {
+          state = preset.minColumnWidth;
+          return;
+        }
       }
     }
   }
 
-  Future<void> set(ScheduleDayWidth width) async {
-    state = width;
+  /// While a drag is in flight, so the preview follows without a write per
+  /// frame. [set] is what commits.
+  void drag(double width) => state = _clamp(width);
+
+  Future<void> set(double width) async {
+    state = _clamp(width);
     final prefs = await SharedPreferences.getInstance();
-    await prefs.setString(kScheduleDayWidthKey, width.name);
+    await prefs.setDouble(kScheduleDayWidthKey, state);
   }
+
+  static double _clamp(double width) =>
+      width.clamp(kScheduleDayWidthMin, kScheduleDayWidthMax);
 }
 
 final scheduleDayWidthProvider =
-    NotifierProvider<ScheduleDayWidthNotifier, ScheduleDayWidth>(
+    NotifierProvider<ScheduleDayWidthNotifier, double>(
       ScheduleDayWidthNotifier.new,
     );

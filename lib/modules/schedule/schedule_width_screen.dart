@@ -13,22 +13,22 @@ import 'schedule_view_mode.dart';
 /// 7 September 2026 is a Monday, so the sample week reads Lundi to Dimanche.
 final DateTime _monday = DateTime(2026, 9, 7);
 
-/// Names of deliberately different lengths, so the widths are compared on what
-/// actually separates them: whether a module name survives.
+/// Names of deliberately different lengths, so the width is judged on what
+/// actually separates one setting from another: how much of a name survives.
 final List<ScheduleEvent> _sample = <ScheduleEvent>[
-  _at(0, 'Analyse 3', 8, 10, 'Amphi C'),
-  _at(1, 'Thermoénergétique', 8, 10, 'B12'),
-  _at(2, 'INFORMATIQUE', 8, 10, 'I3'),
-  _at(3, 'Anglais', 8, 10, 'L204'),
-  _at(4, 'Algèbre 3', 8, 10, 'Amphi B'),
+  _at(0, 'Analyse 3', 'Amphi C'),
+  _at(1, 'Thermoénergétique', 'B12'),
+  _at(2, 'INFORMATIQUE', 'I3'),
+  _at(3, 'Anglais', 'L204'),
+  _at(4, 'Algèbre 3', 'Amphi B'),
 ];
 
-ScheduleEvent _at(int dayOffset, String title, int from, int to, String room) {
+ScheduleEvent _at(int dayOffset, String title, String room) {
   final day = DateTime(_monday.year, _monday.month, _monday.day + dayOffset);
   return ScheduleEvent(
     title: title,
-    start: DateTime(day.year, day.month, day.day, from),
-    end: DateTime(day.year, day.month, day.day, to),
+    start: DateTime(day.year, day.month, day.day, 8),
+    end: DateTime(day.year, day.month, day.day, 10),
     groups: const <String>[],
     teachers: const <String>[],
     room: room,
@@ -38,12 +38,16 @@ ScheduleEvent _at(int dayOffset, String title, int from, int to, String room) {
 /// Tall enough for the headings and the two sample hours under them.
 const double _previewHeight = 180;
 
+/// The slider moves in 4 dp steps, so a hand-set width still lands on the
+/// spacing scale.
+const double _step = CampusSpacing.x1;
+
 class ScheduleWidthScreen extends ConsumerWidget {
   const ScheduleWidthScreen({super.key});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final chosen = ref.watch(scheduleDayWidthProvider);
+    final width = ref.watch(scheduleDayWidthProvider);
     final notifier = ref.read(scheduleDayWidthProvider.notifier);
 
     return Scaffold(
@@ -56,7 +60,7 @@ class ScheduleWidthScreen extends ConsumerWidget {
               CampusSpacing.gutter,
               CampusSpacing.x3,
               CampusSpacing.gutter,
-              0,
+              CampusSpacing.x3,
             ),
             child: Text(
               'En Semaine, une colonne plus large se lit mieux mais oblige à '
@@ -66,11 +70,45 @@ class ScheduleWidthScreen extends ConsumerWidget {
               ),
             ),
           ),
-          for (final width in ScheduleDayWidth.values)
-            _WidthRow(
-              width: width,
-              selected: width == chosen,
-              onTap: () => unawaited(notifier.set(width)),
+          Padding(
+            padding: const EdgeInsets.symmetric(
+              horizontal: CampusSpacing.gutter,
+            ),
+            child: _Preview(width: width),
+          ),
+          Padding(
+            padding: const EdgeInsets.fromLTRB(
+              CampusSpacing.gutter,
+              CampusSpacing.x3,
+              CampusSpacing.gutter,
+              0,
+            ),
+            child: Row(
+              children: <Widget>[
+                Expanded(
+                  child: Text('Par jour', style: context.text.titleMedium),
+                ),
+                Text('${width.round()} dp', style: context.campusType.numeral),
+              ],
+            ),
+          ),
+          Slider(
+            value: width,
+            min: kScheduleDayWidthMin,
+            max: kScheduleDayWidthMax,
+            divisions: ((kScheduleDayWidthMax - kScheduleDayWidthMin) / _step)
+                .round(),
+            label: '${width.round()} dp',
+            semanticFormatterCallback: (value) => '${value.round()} dp',
+            onChanged: notifier.drag,
+            onChangeEnd: (value) => unawaited(notifier.set(value)),
+          ),
+          const _SectionHeader('Réglages courants'),
+          for (final preset in ScheduleDayWidth.values)
+            _PresetRow(
+              preset: preset,
+              selected: preset.minColumnWidth == width,
+              onTap: () => unawaited(notifier.set(preset.minColumnWidth)),
             ),
         ],
       ),
@@ -78,65 +116,55 @@ class ScheduleWidthScreen extends ConsumerWidget {
   }
 }
 
-class _WidthRow extends StatelessWidget {
-  const _WidthRow({
-    required this.width,
+class _SectionHeader extends StatelessWidget {
+  const _SectionHeader(this.label);
+
+  final String label;
+
+  @override
+  Widget build(BuildContext context) => Padding(
+    padding: const EdgeInsets.fromLTRB(
+      CampusSpacing.gutter,
+      CampusSpacing.x4,
+      CampusSpacing.gutter,
+      CampusSpacing.x2,
+    ),
+    child: Text(label, style: context.text.titleMedium),
+  );
+}
+
+class _PresetRow extends StatelessWidget {
+  const _PresetRow({
+    required this.preset,
     required this.selected,
     required this.onTap,
   });
 
-  final ScheduleDayWidth width;
+  final ScheduleDayWidth preset;
   final bool selected;
   final VoidCallback onTap;
 
   @override
-  Widget build(BuildContext context) => InkWell(
+  Widget build(BuildContext context) => ListTile(
     onTap: onTap,
-    child: Semantics(
-      selected: selected,
-      button: true,
-      child: Padding(
-        padding: const EdgeInsets.symmetric(
-          horizontal: CampusSpacing.gutter,
-          vertical: CampusSpacing.x3,
-        ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: <Widget>[
-            Row(
-              children: <Widget>[
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: <Widget>[
-                      Text(width.label, style: context.text.titleMedium),
-                      Text(
-                        width.description,
-                        style: context.text.bodyMedium?.copyWith(
-                          color: context.scheme.onSurfaceVariant,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-                if (selected) const Icon(Icons.check),
-              ],
-            ),
-            const SizedBox(height: CampusSpacing.x2),
-            _Preview(width: width),
-          ],
-        ),
+    selected: selected,
+    title: Text(preset.label),
+    subtitle: Text(preset.description),
+    trailing: Text(
+      '${preset.minColumnWidth.round()} dp',
+      style: context.text.bodyMedium?.copyWith(
+        color: context.scheme.onSurfaceVariant,
       ),
     ),
   );
 }
 
-/// The real grid at the candidate width, so the preview cannot promise
-/// something the week does not deliver.
+/// The real grid at the chosen width, so the preview cannot promise something
+/// the week does not deliver.
 class _Preview extends StatelessWidget {
   const _Preview({required this.width});
 
-  final ScheduleDayWidth width;
+  final double width;
 
   @override
   Widget build(BuildContext context) {
@@ -158,7 +186,7 @@ class _Preview extends StatelessWidget {
               for (var i = 0; i < 7; i++)
                 DateTime(_monday.year, _monday.month, _monday.day + i),
             ],
-            minColumnWidth: width.minColumnWidth,
+            minColumnWidth: width,
             onTapEvent: (_) {},
           ),
         ),

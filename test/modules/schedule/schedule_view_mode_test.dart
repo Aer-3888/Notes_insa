@@ -147,24 +147,54 @@ void main() {
     final container = ProviderContainer();
     addTearDown(container.dispose);
 
-    expect(container.read(scheduleDayWidthProvider), ScheduleDayWidth.normal);
-    await container
-        .read(scheduleDayWidthProvider.notifier)
-        .set(ScheduleDayWidth.compact);
-    expect(container.read(scheduleDayWidthProvider), ScheduleDayWidth.compact);
+    expect(container.read(scheduleDayWidthProvider), 104);
+    await container.read(scheduleDayWidthProvider.notifier).set(72);
+    expect(container.read(scheduleDayWidthProvider), 72);
 
     final prefs = await SharedPreferences.getInstance();
-    expect(prefs.getString(kScheduleDayWidthKey), 'compact');
+    expect(prefs.getDouble(kScheduleDayWidthKey), 72);
   });
 
-  test('an unknown stored width falls back to Normal', () async {
+  test('a hand-set width is held to the bounds', () async {
+    final container = ProviderContainer();
+    addTearDown(container.dispose);
+    final notifier = container.read(scheduleDayWidthProvider.notifier);
+
+    await notifier.set(10);
+    expect(container.read(scheduleDayWidthProvider), kScheduleDayWidthMin);
+    await notifier.set(900);
+    expect(container.read(scheduleDayWidthProvider), kScheduleDayWidthMax);
+  });
+
+  test('a drag moves the width without writing it down', () async {
+    final container = ProviderContainer();
+    addTearDown(container.dispose);
+
+    container.read(scheduleDayWidthProvider.notifier).drag(88);
+    expect(container.read(scheduleDayWidthProvider), 88);
+
+    final prefs = await SharedPreferences.getInstance();
+    expect(prefs.getDouble(kScheduleDayWidthKey), isNull);
+  });
+
+  test('a width only carries a preset name when it lands on one', () {
+    expect(scheduleDayWidthLabel(104), 'Normal');
+    expect(scheduleDayWidthLabel(48), 'Compact');
+    expect(scheduleDayWidthLabel(72), '72 dp');
+    expect(scheduleDayWidthPreset(72), isNull);
+  });
+
+  test('a width stored as a preset name still opens', () async {
     SharedPreferences.setMockInitialValues(<String, Object>{
-      kScheduleDayWidthKey: 'enorme',
+      kScheduleDayWidthKey: 'compact',
     });
     final container = ProviderContainer();
     addTearDown(container.dispose);
     container.read(scheduleDayWidthProvider);
     await Future<void>.delayed(Duration.zero);
-    expect(container.read(scheduleDayWidthProvider), ScheduleDayWidth.normal);
+    expect(
+      container.read(scheduleDayWidthProvider),
+      ScheduleDayWidth.compact.minColumnWidth,
+    );
   });
 }

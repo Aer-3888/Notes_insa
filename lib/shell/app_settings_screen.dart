@@ -65,7 +65,7 @@ class AppSettingsScreen extends ConsumerWidget {
           ListTile(
             leading: const Icon(Icons.view_column_outlined),
             title: const Text('Largeur des jours'),
-            subtitle: Text('Vue Semaine : ${dayWidth.label}'),
+            subtitle: Text('Vue Semaine : ${scheduleDayWidthLabel(dayWidth)}'),
             trailing: const Icon(Icons.chevron_right),
             onTap: () => Navigator.of(context).push(
               MaterialPageRoute<void>(
