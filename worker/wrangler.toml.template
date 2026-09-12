@@ -1,28 +1,29 @@
 name = "notesinsa"
 main = "src/index.ts"
+account_id = "__ACCOUNT_ID__"
 compatibility_date = "2024-09-23"
 compatibility_flags = ["nodejs_compat"]
 
 [[d1_databases]]
 binding = "DB"
 database_name = "notes-insa-db"
-database_id = "D1_DATABASE_ID"
+database_id = "__D1_ID__"
 
 [[kv_namespaces]]
 binding = "RATE_LIMIT"
-id = "KV_NAMESPACE_ID"
+id = "__RATE_LIMIT_KV_ID__"
 
 # Stores the ADE group list refreshed by the daily cron. Kept separate from
 # RATE_LIMIT so the binding name does not lie about its contents.
 [[kv_namespaces]]
 binding = "ADE_CACHE"
-id = "ADE_KV_NAMESPACE_ID"
+id = "__ADE_KV_ID__"
 
 # Caches the WASHiN token and shared laundry snapshot (see laundry.ts).
 # Short-lived, non-sensitive data only.
 [[kv_namespaces]]
 binding = "LAUNDRY_CACHE"
-id = "LAUNDRY_KV_NAMESPACE_ID"
+id = "__LAUNDRY_KV_ID__"
 
 [triggers]
 crons = ["17 4 * * *"]

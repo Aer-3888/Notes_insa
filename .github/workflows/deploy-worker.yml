@@ -37,25 +37,28 @@ jobs:
         working-directory: worker
         run: npm ci
 
-      - name: Create wrangler.toml from template (if present)
+      - name: Create wrangler.toml from template
         shell: bash
         env:
           CF_ACCOUNT_ID: ${{ secrets.CF_ACCOUNT_ID }}
           D1_ID: ${{ secrets.D1_ID }}
           KV_ID: ${{ secrets.KV_ID }}
+          ADE_KV_ID: ${{ secrets.ADE_KV_ID }}
+          LAUNDRY_KV_ID: ${{ secrets.LAUNDRY_KV_ID }}
         working-directory: worker
         run: |
           set -euo pipefail
-          if [ -f wrangler.toml.template ]; then
-            cp wrangler.toml.template wrangler.toml
-            # Only replace placeholders when corresponding secrets are set
-            if [ -n "${CF_ACCOUNT_ID:-}" ]; then sed -i "s/ACCOUNT_ID/${CF_ACCOUNT_ID}/g" wrangler.toml; fi
-            if [ -n "${D1_ID:-}" ]; then sed -i "s/D1_DATABASE_ID/${D1_ID}/g" wrangler.toml; fi
-            if [ -n "${KV_ID:-}" ]; then sed -i "s/KV_NAMESPACE_ID/${KV_ID}/g" wrangler.toml; fi
-            # Force workers_dev=true since we are deploying only to workers.dev (no custom domain)
-            sed -i "s/workers_dev = false/workers_dev = true/" wrangler.toml || true
-          else
-            echo "No wrangler.toml.template found; expecting worker/wrangler.toml to exist already."
+          cp wrangler.toml.template wrangler.toml
+          sed -i "s|__ACCOUNT_ID__|${CF_ACCOUNT_ID:-}|g" wrangler.toml
+          sed -i "s|__D1_ID__|${D1_ID:-}|g" wrangler.toml
+          sed -i "s|__RATE_LIMIT_KV_ID__|${KV_ID:-}|g" wrangler.toml
+          sed -i "s|__ADE_KV_ID__|${ADE_KV_ID:-}|g" wrangler.toml
+          sed -i "s|__LAUNDRY_KV_ID__|${LAUNDRY_KV_ID:-}|g" wrangler.toml
+          # A placeholder that survives means a missing secret. Failing here
+          # names it, instead of letting wrangler fail on a nonsense id later.
+          if grep -n "__[A-Z0-9_]*__" wrangler.toml; then
+            echo "ERROR: the placeholders above were not substituted. Set the matching repository secret."
+            exit 1
           fi
 
       - name: Verify Wrangler & Token
