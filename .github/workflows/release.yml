@@ -11,7 +11,7 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
-  # 1. Lint & test — fast gate before the expensive build
+  # 1. Lint and test, a fast gate before the expensive build
   validate:
     name: Lint & Test
     runs-on: ubuntu-latest
@@ -42,6 +42,7 @@ jobs:
     outputs:
       should_release: ${{ steps.check.outputs.should_release }}
       tag: ${{ steps.check.outputs.tag }}
+      version: ${{ steps.check.outputs.version }}
     steps:
       - uses: actions/checkout@v4
       - name: Check whether this version is already released
@@ -50,13 +51,18 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           CURRENT=$(grep '^version: ' pubspec.yaml | sed 's/version: //' | tr -d '[:space:]')
-          TAG="v${CURRENT}"
+          # GitHub refuses to create a tag containing '+', and then leaves the
+          # release untagged and stuck as a draft, which is what happened to
+          # every release before this. The build number stays out of the tag
+          # and is carried in the release title instead.
+          TAG="v${CURRENT%%+*}"
           echo "tag=$TAG" >> "$GITHUB_OUTPUT"
+          echo "version=$CURRENT" >> "$GITHUB_OUTPUT"
           if gh release view "$TAG" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
-            echo "Release $TAG already exists — version not incremented, skipping."
+            echo "Release $TAG already exists, so the version was not incremented. Skipping."
             echo "should_release=false" >> "$GITHUB_OUTPUT"
           else
-            echo "Version $CURRENT is new — will build and release $TAG."
+            echo "Version $CURRENT is new, so this builds and releases $TAG."
             echo "should_release=true" >> "$GITHUB_OUTPUT"
           fi
 
@@ -106,6 +112,7 @@ jobs:
         uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ needs.gate.outputs.tag }}
+          name: ${{ needs.gate.outputs.version }}
           files: |
             build/app/outputs/flutter-apk/app-release.apk
           generate_release_notes: true
