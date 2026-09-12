@@ -192,9 +192,11 @@ class _Chip extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final tint = ModulePalette.barsOf(context).colorFor(
+    // The block ramp, not the bolder strip-bar one: a chip carries text, and
+    // the bar tints are weighted for a bare bar.
+    final tint = ModulePalette.blocksOf(context).colorFor(
       ModulePalette.normalize(event.module ?? event.title),
-      fallback: context.scheme.outlineVariant,
+      fallback: context.campus.surfaceContainerHighest,
     );
 
     return LayoutBuilder(
@@ -211,7 +213,7 @@ class _Chip extends StatelessWidget {
             : Text(
                 event.module ?? event.title,
                 style: context.text.labelSmall?.copyWith(
-                  color: context.scheme.onSurface,
+                  color: context.campus.onModuleBlockTint,
                 ),
                 maxLines: 1,
                 softWrap: false,
