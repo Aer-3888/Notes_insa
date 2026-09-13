@@ -106,17 +106,27 @@ cd android && ./gradlew testDebugUnitTest
 
 ## Releasing
 
-Pushing to `main` publishes a release. `.github/workflows/release.yml` runs the
-checks, skips the build if a release already exists for the version in
-`pubspec.yaml`, then signs an APK and publishes it. The tag is the version
-name without the build number, `v1.1.0`, because GitHub cannot create a tag
-containing `+`; the full `1.1.0+18` is the release title. Bump `version:` in
-`pubspec.yaml` to ship, and the `pre-push` hook bumps the build number.
+Releases are cut by pushing a **tag**, not by pushing to `main`:
 
-Signing comes from repository secrets: `KEYSTORE_BASE64`, `KEY_STORE_PASSWORD`,
-`KEY_ALIAS`, `KEY_PASSWORD`, plus `APP_SECRET`. The Gradle config refuses to
-assemble a CI release signed with debug keys, so a missing secret fails the
-build rather than shipping an unsigned APK.
+```bash
+# bump version: in pubspec.yaml first, then
+git tag v1.2.0
+git push origin v1.2.0
+```
+
+Codeberg is the source of truth and mirrors to GitHub, where
+`.github/workflows/release.yml` runs the checks, signs an APK and publishes it
+against that tag. The tag has to originate on Codeberg: one created on GitHub
+is pruned by the next mirror sync, and GitHub then demotes the release to an
+untagged draft that nobody can download.
+
+Tag names carry no build number, because GitHub cannot create a tag containing
+`+`. The full `1.2.0+34` from `pubspec.yaml` becomes the release title.
+
+Signing comes from repository secrets on GitHub: `KEYSTORE_BASE64`,
+`KEY_STORE_PASSWORD`, `KEY_ALIAS`, `KEY_PASSWORD`, plus `APP_SECRET`. The Gradle
+config refuses to assemble a CI release signed with debug keys, so a missing
+secret fails the build rather than shipping an unsigned APK.
 
 ## Project structure
 
