@@ -75,6 +75,15 @@ android {
     }
 }
 
+// Release-only: the Flutter plugin re-adds x86_64 over defaultConfig.ndk.abiFilters,
+// and the ML Kit AAR then ships 6 MB of emulator-only native code.
+androidComponents {
+    onVariants(selector().withBuildType("release")) { variant ->
+        variant.packaging.jniLibs.excludes.add("lib/x86/**")
+        variant.packaging.jniLibs.excludes.add("lib/x86_64/**")
+    }
+}
+
 flutter {
     source = "../.."
 }

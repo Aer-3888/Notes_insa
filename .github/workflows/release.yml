@@ -78,7 +78,9 @@ jobs:
           echo "name=$CURRENT" >> "$GITHUB_OUTPUT"
 
       - name: Build APK
-        run: flutter build apk --release --dart-define=APP_SECRET=${{ secrets.APP_SECRET }}
+        # The Flutter Gradle plugin overrides defaultConfig.ndk.abiFilters, so the
+        # ABIs have to be named here too or x86_64 adds 27 MB to the download.
+        run: flutter build apk --release --target-platform android-arm,android-arm64 --dart-define=APP_SECRET=${{ secrets.APP_SECRET }}
 
       # - name: Build App Bundle
       #   run: flutter build appbundle --release --dart-define=APP_SECRET=${{ secrets.APP_SECRET }}
