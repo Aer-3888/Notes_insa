@@ -161,7 +161,10 @@ class CookieJar {
 
     // Max-Age takes precedence over Expires (RFC 6265 section 5.3).
     if (maxAge != null) {
-      expires = DateTime.now().toUtc().add(Duration(seconds: maxAge));
+      // Max-Age <= 0 must land strictly in the past: now + 0 reads as unexpired.
+      expires = maxAge <= 0
+          ? DateTime.utc(1970)
+          : DateTime.now().toUtc().add(Duration(seconds: maxAge));
     }
 
     final host = uri.host.toLowerCase();
