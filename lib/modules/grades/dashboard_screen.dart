@@ -103,7 +103,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen>
     WidgetsBinding.instance.addObserver(this);
     // Request notification permission once per app session (not on every unlock).
     // Permission.notification.request() may re-prompt on Android 13+ if denied
-    // but not permanently — calling it on every DashboardScreen init (every
+    // but not permanently, calling it on every DashboardScreen init (every
     // biometric/PIN unlock) would show the dialog every screen-timeout cycle.
     _requestNotificationPermissionOnce();
 

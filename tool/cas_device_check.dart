@@ -62,7 +62,7 @@ class _CasCheckScreenState extends State<CasCheckScreen> {
   }
 
   void _record(String name, Outcome outcome, String detail) {
-    debugPrint('CAS-CHECK ${outcome.name.toUpperCase()}  $name — $detail');
+    debugPrint('CAS-CHECK ${outcome.name.toUpperCase()}  $name, $detail');
     if (!mounted) return;
     setState(() => _results.add(CheckResult(name, outcome, detail)));
   }

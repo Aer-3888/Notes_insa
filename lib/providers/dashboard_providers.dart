@@ -8,7 +8,7 @@ import 'coefficients_provider.dart';
 import '../modules/grades/grades_provider.dart';
 
 /// Single memoized decode of the grades payload. Returns null when there is no
-/// usable data — either nothing loaded yet (`{}`/empty) or a decode failure
+/// usable data, either nothing loaded yet (`{}`/empty) or a decode failure
 /// (corrupt/changed schema). A non-null map is structurally valid (possibly
 /// empty), so callers can tell "corrupt" apart from "loaded but empty".
 ///
@@ -20,7 +20,7 @@ final decodedGradesProvider = Provider<Map<String, dynamic>?>((ref) {
   return JsonCurriculumParser.tryDecode(jsonString);
 });
 
-/// Raw semester selection — -1 is the sentinel for "not explicitly chosen".
+/// Raw semester selection, -1 is the sentinel for "not explicitly chosen".
 final selectedSemesterProvider = StateProvider<int>((ref) => -1);
 
 /// Effective semester: resolves the raw selection against what is actually

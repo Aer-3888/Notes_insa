@@ -168,7 +168,7 @@ class _AuthenticatingSplashState extends ConsumerState<AuthenticatingSplash> {
   }
 }
 
-// Handles the full biometric flow on a single screen — no navigation transitions
+// Handles the full biometric flow on a single screen, no navigation transitions
 // between waiting / failed states. Uses pushAndRemoveUntil on success or
 // "connect another way" so the back button can never loop back here.
 

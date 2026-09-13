@@ -16,8 +16,7 @@ class SettingsState {
     this.fetchInterval = 15,
     this.fetchEnabled = true,
     this.isLoading = true, // true until _loadSettings() completes
-    this.sharingConsent =
-        false, // safe default — overwritten by persisted value
+    this.sharingConsent = false, // safe default, overwritten by persisted value
     this.sharingConsentAsked = false,
   });
 
@@ -98,7 +97,7 @@ class SettingsNotifier extends StateNotifier<SettingsState> {
         debugPrint('[SettingsProvider] Failed to set fetch interval: $e');
       }
       await prefs.setInt(_fetchIntervalKey, previous);
-      // Restore previous value — background task was not reconfigured
+      // Restore previous value, background task was not reconfigured
       state = state.copyWith(fetchInterval: previous);
       try {
         await stopBackgroundTasks(rethrowOnError: true);
@@ -125,7 +124,7 @@ class SettingsNotifier extends StateNotifier<SettingsState> {
     }
   }
 
-  /// Mark that the consent dialog has been shown — called exactly once
+  /// Mark that the consent dialog has been shown, called exactly once
   /// from the consent dialog, never from the settings screen.
   Future<void> markConsentAsked() async {
     state = state.copyWith(sharingConsentAsked: true);
@@ -163,7 +162,7 @@ class SettingsNotifier extends StateNotifier<SettingsState> {
         debugPrint('[SettingsProvider] Failed to set fetch enabled: $e');
       }
       await prefs.setBool(_fetchEnabledKey, previous);
-      // Restore previous value — background task was not reconfigured
+      // Restore previous value, background task was not reconfigured
       state = state.copyWith(fetchEnabled: previous);
       try {
         if (previous) {

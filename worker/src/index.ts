@@ -30,8 +30,8 @@ interface SubmitBody {
   department: string;
   semester: number;
   subjects: SubmitSubject[];
-  username?: string; // optional — absent in old app versions
-  academic_year?: string; // optional — absent in old app versions
+  username?: string; // optional, absent in old app versions
+  academic_year?: string; // optional, absent in old app versions
 }
 
 interface CoeffSubmitEntry {
@@ -60,7 +60,7 @@ interface AverageRow {
   min: number;
   max: number;
   count: number;
-  // Grade distribution buckets — each covers a 1-point range [low, low+1)
+  // Grade distribution buckets, each covers a 1-point range [low, low+1)
   b0: number;  // [0,  1)
   b1: number;  // [1,  2)
   b2: number;  // [2,  3)
@@ -106,7 +106,7 @@ function error(message: string, status = 400): Response {
   return json({ error: message }, status);
 }
 
-/** SHA-256 hash of a string — used to anonymise IPs for rate-limiting. */
+/** SHA-256 hash of a string, used to anonymise IPs for rate-limiting. */
 async function hashIp(ip: string, salt: string): Promise<string> {
   const buf = await crypto.subtle.digest(
     "SHA-256",
@@ -117,7 +117,7 @@ async function hashIp(ip: string, salt: string): Promise<string> {
     .join("");
 }
 
-/** SHA-256 hash of a username — used to anonymise students server-side. */
+/** SHA-256 hash of a username, used to anonymise students server-side. */
 async function hashUsername(username: string, salt: string): Promise<string> {
   const buf = await crypto.subtle.digest(
     "SHA-256",
@@ -253,7 +253,7 @@ async function handleSubmit(request: Request, env: Env): Promise<Response> {
 
   const ip = request.headers.get("CF-Connecting-IP") ?? "unknown";
   const ipHash = await hashIp(ip, env.IP_SALT);
-  // Compute user hash server-side — salt never leaves Cloudflare.
+  // Compute user hash server-side, salt never leaves Cloudflare.
   // Fall back to IP hash for old app versions that don't send a username.
   const userHash = body.username
     ? await hashUsername(body.username.trim(), env.USER_HASH_SALT)

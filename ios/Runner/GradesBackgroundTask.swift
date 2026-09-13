@@ -9,7 +9,7 @@ import UserNotifications
 /// *opportunistically*, when the system predicts a good moment (often hours
 /// apart, never guaranteed). The configured interval is therefore an
 /// `earliestBeginDate` hint, not a schedule. Timely grade-change notifications
-/// are consequently far less reliable on iOS than on Android — a server push
+/// are consequently far less reliable on iOS than on Android, a server push
 /// (worker → APNs) would be the only way to reach Android parity.
 ///
 /// The task runs in the app's own process and runs the fetch in a headless
@@ -213,7 +213,7 @@ enum GradesBackgroundTask {
             resetFailureWindow(defaults: defaults)
 
             if previousJson == nil {
-                return true // First fetch — store only, no notification.
+                return true // First fetch, store only, no notification.
             }
             if previousJson == newJson {
                 return true // No changes.
@@ -296,7 +296,7 @@ enum GradesBackgroundTask {
                     existing["details"] = existingChildren
                     target[idx] = existing
                 }
-                // else: true duplicate leaf — skip.
+                // else: true duplicate leaf, skip.
             } else {
                 target.append(dict)
             }

@@ -10,7 +10,7 @@ do
     fi
 
     # Already bumped somewhere in this push (retry after the abort below, or a
-    # manual bump) — let it through. Scanning the whole range, not just HEAD,
+    # manual bump), let it through. Scanning the whole range, not just HEAD,
     # means extra commits added before re-pushing don't trigger a second bump.
     if git log $range --pretty=%s | grep -q "^chore(pubspec): bump build number"; then
       continue

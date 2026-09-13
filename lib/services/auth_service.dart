@@ -36,7 +36,7 @@ class AuthService {
     return {kStorageUser: username, kStoragePass: password};
   }
 
-  // OTP secret — optional, stored only when user opts in.
+  // OTP secret, optional, stored only when user opts in.
   Future<String?> getOtpSecret() => _storage.read(key: kStorageOtpSecret);
 
   Future<void> storeOtpSecret(String secret) async {
@@ -49,7 +49,7 @@ class AuthService {
     await WorkerSyncService.sync({WorkerSyncService.keyOtpSecret: null});
   }
 
-  // CAS session token — saved after auth to allow silent session restore on next launch.
+  // CAS session token, saved after auth to allow silent session restore on next launch.
   Future<String?> getCasSession() => _storage.read(key: kStorageCasSession);
 
   Future<void> storeCasSession(String token) async {
@@ -136,7 +136,7 @@ class AuthService {
   }
 
   /// True when a PIN is set but is shorter than [minPinLength] (or its length
-  /// was never recorded — i.e. configured before the 6-digit requirement), so
+  /// was never recorded, i.e. configured before the 6-digit requirement), so
   /// the user should be prompted to set a stronger one.
   Future<bool> pinNeedsUpgrade() async {
     if (!await hasPin()) return false;
@@ -258,8 +258,8 @@ class AuthService {
 
       // Bounded so a native lifecycle race (BiometricPrompt invoked while the
       // FragmentManager still reports a saved state right after resume, e.g.
-      // "Called after onSaveInstanceState") can't strand the future — and the
-      // caller — forever; it resolves to failure and the UI offers a retry.
+      // "Called after onSaveInstanceState") can't strand the future, and the
+      // caller, forever; it resolves to failure and the UI offers a retry.
       final success = await _auth
           .authenticate(
             localizedReason:

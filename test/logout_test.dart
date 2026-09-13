@@ -25,7 +25,7 @@ void main() {
   late Map<String, String> store;
   late List<String> nativeCalls;
   // When true, the secure-storage `deleteAll` throws, simulating a Keystore
-  // hiccup — the exact failure mode that used to abort logout.
+  // hiccup, the exact failure mode that used to abort logout.
   late bool deleteAllThrows;
 
   final messenger =
@@ -117,7 +117,7 @@ void main() {
       addTearDown(container.dispose);
       container.read(gradesUnlockedProvider.notifier).state = true;
 
-      // Must not rethrow, and must still re-arm the lock gate — the reset can no
+      // Must not rethrow, and must still re-arm the lock gate, the reset can no
       // longer be skipped by a failing secure store.
       await container.read(gradesProvider.notifier).logout();
 

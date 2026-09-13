@@ -27,7 +27,7 @@ Flutter/flutter_export_environment.sh
 ServiceDefinitions.json
 Runner/GeneratedPluginRegistrant.*
 
-# gomobile-built native data layer — regenerated from Go source by
+# gomobile-built native data layer, regenerated from Go source by
 # scripts/ios_bootstrap.sh. The directory is kept via Frameworks/.gitkeep.
 Frameworks/*.xcframework
 

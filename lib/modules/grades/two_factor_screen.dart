@@ -51,7 +51,7 @@ class _TwoFactorScreenState extends ConsumerState<TwoFactorScreen> {
           _emailSent = false;
         });
       case ReauthPrep.authenticated:
-        // Stored credentials authenticated without a token — nothing to enter.
+        // Stored credentials authenticated without a token, nothing to enter.
         unawaited(
           ref
               .read(gradesProvider.notifier)

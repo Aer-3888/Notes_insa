@@ -8,11 +8,11 @@ import 'grades_provider.dart';
 // Developer screen. Its terminal palette is deliberate and stays fixed in both
 // themes; it is reachable only after seven taps on the version row.
 // Syntax highlight colors (dark terminal palette)
-const _colorKey = Color(0xFF82AAFF); // blue — JSON keys
-const _colorString = Color(0xFFC3E88D); // green — string values
-const _colorNumber = Color(0xFFF78C6C); // orange — numbers
-const _colorBoolNull = Color(0xFFFFCB6B); // amber — true / false / null
-const _colorPunct = Color(0xFF89929B); // grey — colons, commas, braces
+const _colorKey = Color(0xFF82AAFF); // blue, JSON keys
+const _colorString = Color(0xFFC3E88D); // green, string values
+const _colorNumber = Color(0xFFF78C6C); // orange, numbers
+const _colorBoolNull = Color(0xFFFFCB6B); // amber, true / false / null
+const _colorPunct = Color(0xFF89929B); // grey, colons, commas, braces
 const _colorBase = Colors.white70;
 
 const _baseStyle = TextStyle(

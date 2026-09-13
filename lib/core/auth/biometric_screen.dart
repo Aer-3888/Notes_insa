@@ -71,7 +71,7 @@ class _BiometricScreenState extends ConsumerState<BiometricScreen>
     if (mounted) setState(() => _hasPin = hasPin);
 
     // If the app is backgrounded (paused/hidden), BiometricPrompt cannot be
-    // shown — the FragmentManager has already saved state and any attempt
+    // shown, the FragmentManager has already saved state and any attempt
     // throws "Called after onSaveInstanceState". Defer to the next resume.
     final lifecycle = WidgetsBinding.instance.lifecycleState;
     if (lifecycle != null && lifecycle != AppLifecycleState.resumed) {
@@ -80,7 +80,7 @@ class _BiometricScreenState extends ConsumerState<BiometricScreen>
     }
 
     // Requesting the prompt on the very first frame can race with the Android
-    // activity's resume transition — a brief delay lets onResume() settle.
+    // activity's resume transition, a brief delay lets onResume() settle.
     await Future.delayed(const Duration(milliseconds: 400));
     if (!mounted) return;
     await _authenticate();

@@ -39,7 +39,7 @@ class CoefficientsService {
 
   /// Fetch coefficients for a department+semester+academicYear.
   /// Returns a map of cleaned "ue|subject" → coefficient value.
-  /// Only checks local cache and Cloudflare — the API tier is called
+  /// Only checks local cache and Cloudflare, the API tier is called
   /// separately via [fetchAndCacheFromApi] right after grades are fetched.
   static Future<Map<String, double>> fetch({
     required String department,
@@ -154,7 +154,7 @@ class CoefficientsService {
         );
       }
 
-      // Legacy format: a bare {key: value} map (no timestamp) — accept once; it
+      // Legacy format: a bare {key: value} map (no timestamp), accept once; it
       // gets upgraded to the timestamped format on the next API cache write.
       // Guard against a present-but-expired envelope being mistaken for legacy.
       final decoded = jsonDecode(raw);
@@ -240,7 +240,7 @@ class CoefficientsService {
       for (final entry in coefficients.entries) {
         final parts = entry.key.split('|');
         if (parts.length != 2) continue;
-        // Skip UE-level sentinel entries ("ueName|") — the community DB only
+        // Skip UE-level sentinel entries ("ueName|"), the community DB only
         // stores subject coefficients.
         if (parts[1].isEmpty) continue;
         entries.add({
@@ -328,7 +328,7 @@ class CoefficientsService {
         final semName = (semNode['name'] ?? '').toString();
         final semMatch = JsonCurriculumParser.semesterRegex.firstMatch(semName);
         if (semMatch == null) {
-          // Might be a year wrapper — recurse one level
+          // Might be a year wrapper, recurse one level
           if (semNode['details'] is List) {
             for (final inner in semNode['details'] as List) {
               if (inner is! Map<String, dynamic>) continue;

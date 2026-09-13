@@ -38,7 +38,7 @@ class WorkerSyncService {
     }
   }
 
-  /// Reads back values the worker may have updated on its own — e.g. it
+  /// Reads back values the worker may have updated on its own, e.g. it
   /// rotates the CAS session (and grades snapshot) directly in its store after
   /// a background re-auth, and [sync] only mirrors Flutter → worker, not the
   /// reverse. Returns null on failure; absent keys come back as null entries.

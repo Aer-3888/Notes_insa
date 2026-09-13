@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 
 // Full-screen cover shown whenever the app is not in the foreground, so the OS
-// task-switcher snapshot never reveals user data. Purely visual — the
+// task-switcher snapshot never reveals user data. Purely visual, the
 // biometric/PIN lock route (LockController + gradesUnlockedProvider) is what
 // actually re-gates access on resume.
 class PrivacyCover extends StatefulWidget {
@@ -31,7 +31,7 @@ class _PrivacyCoverState extends State<PrivacyCover>
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
     // Cover on anything that isn't a clean foreground (inactive/paused/hidden/
-    // detached) — inactive fires before the snapshot is taken, so the snapshot
+    // detached), inactive fires before the snapshot is taken, so the snapshot
     // captures the curtain rather than the underlying screen.
     final obscured = state != AppLifecycleState.resumed;
     if (obscured != _obscured) setState(() => _obscured = obscured);

@@ -73,7 +73,7 @@ jobs:
             exit 1
           fi
           npx wrangler --version
-          # Verify token works (whoami prints account details) — won't print the token itself
+          # Verify token works (whoami prints account details), won't print the token itself
           npx wrangler whoami
 
       - name: Deploy with Wrangler
@@ -82,7 +82,7 @@ jobs:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
         run: |
           set -euo pipefail
-          # Deploy to workers.dev (this repository is configured for Cloudflare Workers only — no custom domain)
+          # Deploy to workers.dev (this repository is configured for Cloudflare Workers only, no custom domain)
           npx wrangler deploy
 
 

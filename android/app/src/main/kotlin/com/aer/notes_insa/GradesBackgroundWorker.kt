@@ -23,7 +23,7 @@ private const val RECONNECT_CHANNEL_ID = "reconnect_updates"
 private const val SYNC_CHANNEL_ID = "sync_status"
 private const val SHARED_PREFS_FILE = "FlutterSharedPreferences"
 
-// Storage keys — read from WorkerStore (see WorkerStore.kt).
+// Storage keys, read from WorkerStore (see WorkerStore.kt).
 private const val KEY_USERNAME = WorkerStore.KEY_USERNAME
 private const val KEY_PASSWORD = WorkerStore.KEY_PASSWORD
 private const val KEY_OTP_SECRET = WorkerStore.KEY_OTP_SECRET
@@ -181,7 +181,7 @@ class GradesBackgroundWorker(
 
             when {
                 previousJson == null -> {
-                    Log.d(TAG, "First fetch — data stored, no notification")
+                    Log.d(TAG, "First fetch, data stored, no notification")
                     return@withContext Result.success()
                 }
                 previousJson == newJson -> {
@@ -239,7 +239,7 @@ class GradesBackgroundWorker(
      * Merges [incoming] nodes into [target], deduplicating by name. When a node
      * with the same name already exists and both carry child `details` arrays,
      * their children are merged recursively instead of dropping the second
-     * wrapper wholesale — otherwise distinct semesters sharing a wrapper name
+     * wrapper wholesale, otherwise distinct semesters sharing a wrapper name
      * (e.g. two "ANNEE 3" cards) would be lost. Mirrors
      * GradesService._mergeDetails in lib/services/grades_service.dart.
      */

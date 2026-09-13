@@ -10,7 +10,7 @@ import 'models.dart';
 /// `details` array with semester entries (names contain "SEMESTRE").
 class JsonCurriculumParser {
   /// Decode a raw grades payload once into a map. Returns null when the string
-  /// is empty/`{}` or fails to decode — callers treat null as "no usable data"
+  /// is empty/`{}` or fails to decode, callers treat null as "no usable data"
   /// (distinct from a structurally valid but empty payload).
   ///
   /// All other parser methods take the already-decoded map so a payload is only
@@ -439,7 +439,7 @@ class JsonCurriculumParser {
 
 /// Decodes a `{'ts': epochMs, <payloadKey>: ...}` cache envelope and returns the
 /// payload under [payloadKey] when it is still within [ttl]. Returns null when
-/// the string is unparseable, not an envelope, or expired — callers treat null
+/// the string is unparseable, not an envelope, or expired, callers treat null
 /// as a cache miss. The payload's own type is left to the caller to validate.
 dynamic readTtlEnvelope(String raw, String payloadKey, Duration ttl) {
   try {

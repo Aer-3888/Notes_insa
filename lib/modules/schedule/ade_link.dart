@@ -30,7 +30,7 @@ class AdeLink {
     if (fromQuery != null && fromQuery.isNotEmpty) {
       candidates.add(fromQuery);
     } else if (uri != null && uri.pathSegments.isNotEmpty) {
-      // .../view/<ids>/ — take the first segment that looks like an id list.
+      // .../view/<ids>/, take the first segment that looks like an id list.
       for (final segment in uri.pathSegments) {
         if (RegExp(r'^\d+(,\d+)*$').hasMatch(segment)) {
           candidates.add(segment);

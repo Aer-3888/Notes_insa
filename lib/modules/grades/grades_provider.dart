@@ -190,13 +190,13 @@ class GradesNotifier extends StateNotifier<GradesState> {
       authStatus: AuthStatus.authenticated,
     );
     try {
-      // Export session before fetching — captures the authenticated state
+      // Export session before fetching, captures the authenticated state
       try {
         final sessionToken = await GradesService.exportCAS();
         if (!_isCurrentGeneration(generation)) return;
         await AuthService().storeCasSession(sessionToken);
       } catch (_) {
-        // Non-fatal — session just won't be restored next time
+        // Non-fatal, session just won't be restored next time
       }
 
       final fetched = await GradesService.fetchAndSaveGrades();
@@ -205,7 +205,7 @@ class GradesNotifier extends StateNotifier<GradesState> {
       // coefficients, which derives per-semester years from it.
       await AveragesService.persistAcademicYearBaseline();
       if (!_isCurrentGeneration(generation)) return;
-      // Show grades immediately — the loading pill hides here. Weighted averages
+      // Show grades immediately, the loading pill hides here. Weighted averages
       // fill in once coefficients arrive (semesterAverageProvisional bridges the
       // gap with an unweighted value in the meantime).
       state = state.copyWith(
@@ -230,7 +230,7 @@ class GradesNotifier extends StateNotifier<GradesState> {
   }
 
   /// Fetch grades using stored credentials, handling the full re-auth flow.
-  /// Tries to restore the previous CAS session first — if still authenticated,
+  /// Tries to restore the previous CAS session first, if still authenticated,
   /// skips re-auth entirely. Falls back to full auth if the session expired.
   /// If 2FA is required and no OTP secret is stored, sets an error state.
   Future<void> fetchGradesWithStoredCredentials() {
@@ -310,20 +310,20 @@ class GradesNotifier extends StateNotifier<GradesState> {
       // directly in its own store after a headless re-auth, but has no way to
       // mirror that back to flutter_secure_storage (see WorkerSyncService).
       // Adopt its copy first so we restore the session the server currently
-      // recognizes — otherwise importCAS below fails on our stale copy, which
+      // recognizes, otherwise importCAS below fails on our stale copy, which
       // forces a redundant full re-auth + 2FA cycle. That cycle is where the
       // OTP server could reject a TOTP code replayed from the same time-step the
       // worker just used; the last_totp_step claim before autoValidate below
       // guards the remaining window.
       await _adoptWorkerCasSession(authService);
 
-      // Try to restore the previous session — avoids re-auth when still valid
+      // Try to restore the previous session, avoids re-auth when still valid
       final savedSession = await authService.getCasSession();
       if (savedSession != null) {
         try {
           await GradesService.importCAS(savedSession);
         } catch (_) {
-          // Corrupt or incompatible token — fall back to fresh session
+          // Corrupt or incompatible token, fall back to fresh session
           await authService.deleteCasSession();
           await GradesService.newCAS();
         }
@@ -334,7 +334,7 @@ class GradesNotifier extends StateNotifier<GradesState> {
       // Check if the restored session is still authenticated
       final authenticated = await GradesService.isAuthenticated();
       if (!authenticated) {
-        // Session expired — need to re-auth (usually no 2FA after ImportCAS)
+        // Session expired, need to re-auth (usually no 2FA after ImportCAS)
         await GradesService.auth(
           credentials[kStorageUser]!,
           credentials[kStoragePass]!,
@@ -391,7 +391,7 @@ class GradesNotifier extends StateNotifier<GradesState> {
       // coefficients, which derives per-semester years from it.
       await AveragesService.persistAcademicYearBaseline();
       if (!_isCurrentGeneration(generation)) return;
-      // Show grades immediately — the loading pill hides here. Weighted averages
+      // Show grades immediately, the loading pill hides here. Weighted averages
       // fill in once coefficients arrive (semesterAverageProvisional bridges the
       // gap with an unweighted value in the meantime).
       state = state.copyWith(
@@ -418,7 +418,7 @@ class GradesNotifier extends StateNotifier<GradesState> {
   /// Pulls the CAS session from the native worker store and adopts it locally
   /// if it differs from ours. [storeCasSession] always mirrors forward to the
   /// worker store, so a mismatch can only mean the worker rotated its copy
-  /// behind our back — its version is the one the server currently honors.
+  /// behind our back, its version is the one the server currently honors.
   /// Best-effort: any failure leaves the existing session untouched.
   // TOTP codes change once per step (RFC 6238 default period). Two autoValidate
   // calls in the same step generate the same one-time code, so the step is
@@ -445,7 +445,7 @@ class GradesNotifier extends StateNotifier<GradesState> {
   /// Fetches coefficients and drops the cached provider results so weighted
   /// averages replace the provisional unweighted ones shown right after grades
   /// load. Runs after the grades state is already set, but is awaited by the
-  /// caller so it stays inside the single-flight section — native CAS calls
+  /// caller so it stays inside the single-flight section, native CAS calls
   /// (used by the coefficients fetch) must not interleave with a concurrent
   /// fetch. Non-fatal: on failure the averages simply stay provisional.
   Future<void> _refreshCoefficients(String gradesJson, int groupCount) async {
@@ -460,7 +460,7 @@ class GradesNotifier extends StateNotifier<GradesState> {
   }
 
   /// Pulls the grades snapshot from the worker store and adopts it locally when
-  /// its timestamp is newer than ours — the background worker rotates the
+  /// its timestamp is newer than ours, the background worker rotates the
   /// snapshot in its own store and has no way to mirror it back to
   /// flutter_secure_storage. Best-effort: any failure leaves the local copy.
   Future<void> _adoptWorkerGradesIfNewer() async {
@@ -489,7 +489,7 @@ class GradesNotifier extends StateNotifier<GradesState> {
     }
   }
 
-  /// Manual refresh — enforces a 30-second cooldown and ignores requests
+  /// Manual refresh, enforces a 30-second cooldown and ignores requests
   /// while a fetch is already in progress.
   /// Returns true if the refresh was started, false otherwise.
   Future<bool> manualRefresh() async {

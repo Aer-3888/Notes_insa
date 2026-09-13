@@ -1,4 +1,4 @@
--- Notes INSA — class averages database
+-- Notes INSA, class averages database
 -- Run with: wrangler d1 execute notes-insa-db --file=./schema.sql
 
 CREATE TABLE IF NOT EXISTS submissions (
@@ -13,7 +13,7 @@ CREATE TABLE IF NOT EXISTS submissions (
   submitted_at  TEXT    NOT NULL DEFAULT (datetime('now'))
 );
 
--- One row per student per subject per academic year — upsert relies on this.
+-- One row per student per subject per academic year, upsert relies on this.
 CREATE UNIQUE INDEX IF NOT EXISTS idx_user_subject
   ON submissions(user_hash, academic_year, department, semester, ue_name, subject_name)
   WHERE user_hash != '';

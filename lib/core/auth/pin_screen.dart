@@ -54,7 +54,7 @@ class _PinScreenState extends ConsumerState<PinScreen> {
     if (success) {
       await _authService.resetPinAttempts();
       if (!mounted) return;
-      // Legacy short PIN — require an upgrade before unlocking.
+      // Legacy short PIN, require an upgrade before unlocking.
       if (await _authService.pinNeedsUpgrade()) {
         if (!mounted) return;
         setState(() {

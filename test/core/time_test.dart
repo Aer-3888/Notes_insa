@@ -6,7 +6,7 @@ void main() {
 
   test('campusNow returns a time in the campus zone', () {
     final now = campusNow();
-    // Rennes is UTC+1 in winter, UTC+2 in summer — never UTC.
+    // Rennes is UTC+1 in winter, UTC+2 in summer, never UTC.
     expect(now.timeZoneOffset.inHours, anyOf(1, 2));
   });
 

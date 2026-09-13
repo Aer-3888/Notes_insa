@@ -247,7 +247,7 @@ class Subject {
 
   bool get isAverageEstimated => extractedAverage == null && average != null;
 
-  // Weight each grade by its own coefficient, defaulting to 1.0 when absent —
+  // Weight each grade by its own coefficient, defaulting to 1.0 when absent,
   // so grades without coefficients collapse to a plain mean.
   double? _computeAverage() =>
       weightedAverage(grades, (g) => g.value, (g) => g.coeffValue ?? 1.0);

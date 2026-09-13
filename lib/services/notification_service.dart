@@ -33,7 +33,7 @@ class NotificationService {
     if (payload != null) _tapController.add(payload);
   }
 
-  // Request notification permission — call this from the foreground UI only.
+  // Request notification permission, call this from the foreground UI only.
   static Future<void> requestPermission() async {
     if (Platform.isAndroid) {
       await Permission.notification.request();
@@ -331,7 +331,9 @@ class NotificationService {
     try {
       final pending = await _notifications.pendingNotificationRequests();
       for (final request in pending) {
-        if (request.id >= assosIdFloor) await _notifications.cancel(id: request.id);
+        if (request.id >= assosIdFloor) {
+          await _notifications.cancel(id: request.id);
+        }
       }
     } catch (_) {}
   }
