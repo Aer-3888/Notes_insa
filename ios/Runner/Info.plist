@@ -9,7 +9,7 @@
 	<key>CFBundleDevelopmentRegion</key>
 	<string>$(DEVELOPMENT_LANGUAGE)</string>
 	<key>CFBundleDisplayName</key>
-	<string>Relevé</string>
+	<string>Campus Hub</string>
 	<key>CFBundleExecutable</key>
 	<string>$(EXECUTABLE_NAME)</string>
 	<key>CFBundleIdentifier</key>
@@ -17,7 +17,7 @@
 	<key>CFBundleInfoDictionaryVersion</key>
 	<string>6.0</string>
 	<key>CFBundleName</key>
-	<string>Relevé</string>
+	<string>Campus Hub</string>
 	<key>CFBundlePackageType</key>
 	<string>APPL</string>
 	<key>CFBundleShortVersionString</key>
@@ -60,7 +60,7 @@
 	<!-- BGTaskScheduler task identifiers (must match GradesBackgroundTask.swift) -->
 	<key>BGTaskSchedulerPermittedIdentifiers</key>
 	<array>
-		<string>com.aer.notes_insa.grades.processing</string>
+		<string>com.aer.campus.grades.processing</string>
 	</array>
 
 	<!-- Notification permissions -->
@@ -70,6 +70,8 @@
 	<!-- Camera permission for QR scanner -->
 	<key>NSCameraUsageDescription</key>
 	<string>Cette application utilise la caméra pour scanner les QR codes d'authentification.</string>
+	<key>NSPhotoLibraryUsageDescription</key>
+	<string>Cette application accède à votre photothèque pour importer un QR code d'authentification.</string>
 
 	<!-- Export compliance: app only uses standard platform encryption (HTTPS, Keychain) -->
 	<key>ITSAppUsesNonExemptEncryption</key>

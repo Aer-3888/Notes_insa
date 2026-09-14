@@ -1,0 +1,74 @@
+name: iOS Verify
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main, feat/2-ios-prep]
+  pull_request:
+    branches: [main, dev]
+
+concurrency:
+  group: ios-verify-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  verify-ios:
+    name: Build and test iOS
+    runs-on: macos-14
+    timeout-minutes: 30
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          flutter-version: 3.41.9
+          cache: true
+
+      - name: Get dependencies
+        run: flutter pub get
+
+      - name: Install CocoaPods dependencies
+        id: pods
+        working-directory: ios
+        run: |
+          if git ls-files --error-unmatch Podfile.lock >/dev/null 2>&1; then
+            echo "lockfile_committed=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "lockfile_committed=false" >> "$GITHUB_OUTPUT"
+          fi
+          if [ -f Podfile.lock ]; then
+            pod install --deployment
+          else
+            pod install
+          fi
+
+      - name: Build iOS Simulator app without signing
+        run: flutter build ios --simulator --debug --dart-define=APP_SECRET=ci
+
+      - name: Run iOS unit tests
+        working-directory: ios
+        run: |
+          set -euo pipefail
+          simulator_id=$(xcrun simctl list devices available | awk -F '[()]' '/iPhone/ {print $2; exit}')
+          test -n "$simulator_id"
+          xcrun simctl boot "$simulator_id" || true
+          xcrun simctl bootstatus "$simulator_id" -b
+          xcodebuild test \
+            -workspace Runner.xcworkspace \
+            -scheme Runner \
+            -destination "id=$simulator_id" \
+            CODE_SIGNING_ALLOWED=NO
+
+      - name: Upload generated Podfile lockfile
+        if: ${{ steps.pods.outputs.lockfile_committed == 'false' }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: ios-podfile-lock
+          path: ios/Podfile.lock
+          retention-days: 7
