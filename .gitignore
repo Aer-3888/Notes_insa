@@ -62,6 +62,7 @@ npm-debug.log*
 
 # Markdown files
 *.md
+!CONTRIBUTING.md
 
 # Android signing
 *.keystore
