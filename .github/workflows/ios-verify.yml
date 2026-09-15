@@ -59,11 +59,38 @@ jobs:
           test -n "$simulator_id"
           xcrun simctl boot "$simulator_id" || true
           xcrun simctl bootstatus "$simulator_id" -b
-          xcodebuild test \
-            -workspace Runner.xcworkspace \
-            -scheme Runner \
-            -destination "id=$simulator_id" \
-            CODE_SIGNING_ALLOWED=NO
+
+          run_tests() {
+            local attempt="$1"
+            xcodebuild test \
+              -workspace Runner.xcworkspace \
+              -scheme Runner \
+              -destination "id=$simulator_id" \
+              -only-testing:RunnerTests/RunnerTests \
+              -parallel-testing-enabled NO \
+              -resultBundlePath "$RUNNER_TEMP/RunnerTests-attempt-$attempt.xcresult" \
+              CODE_SIGNING_ALLOWED=NO
+          }
+
+          # Hosted simulators occasionally launch the app without attaching the
+          # XCTest runner. Retry once from a freshly erased device so a runner
+          # startup flake doesn't reject an otherwise valid change.
+          if ! run_tests 1; then
+            xcrun simctl shutdown "$simulator_id" || true
+            xcrun simctl erase "$simulator_id"
+            xcrun simctl boot "$simulator_id"
+            xcrun simctl bootstatus "$simulator_id" -b
+            run_tests 2
+          fi
+
+      - name: Upload failed iOS test results
+        if: ${{ failure() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: ios-xcresults
+          path: ${{ runner.temp }}/RunnerTests-attempt-*.xcresult
+          if-no-files-found: ignore
+          retention-days: 7
 
       - name: Upload generated Podfile lockfile
         if: ${{ steps.pods.outputs.lockfile_committed == 'false' }}
