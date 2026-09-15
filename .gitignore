@@ -1,6 +1,10 @@
 # Hidden files and folders
 .*
 !.gitignore
+!.github/
+!.github/workflows/
+!.github/workflows/ios-release.yml
+!.github/workflows/ios-verify.yml
 
 # Miscellaneous
 *.class

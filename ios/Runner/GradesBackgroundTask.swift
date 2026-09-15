@@ -19,7 +19,7 @@ import UserNotifications
 @available(iOS 13.0, *)
 enum GradesBackgroundTask {
     /// Must match the entry in `BGTaskSchedulerPermittedIdentifiers` (Info.plist).
-    static let processingIdentifier = "com.aer.notes_insa.grades.processing"
+    static let processingIdentifier = "com.aer.campus.grades.processing"
 
     // UserDefaults keys written by the Flutter shared_preferences plugin, which
     // prefixes everything with "flutter." (mirrors the Android PREF_* keys).

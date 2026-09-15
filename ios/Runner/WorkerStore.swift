@@ -70,7 +70,7 @@ enum WorkerStore {
             throw NSError(
                 domain: "NotesInsaWorkerStore",
                 code: Int(status),
-                userInfo: [NSLocalizedDescriptionKey: "Failed to clear worker store"],
+                userInfo: [NSLocalizedDescriptionKey: "Failed to clear worker store"]
             )
         }
     }

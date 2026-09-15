@@ -1,8 +1,8 @@
-# Campus INSA
+# Campus Hub
 
 [![Release APK](https://github.com/Aer-3888/Notes_insa/actions/workflows/release.yml/badge.svg)](https://github.com/Aer-3888/Notes_insa/actions/workflows/release.yml)
 
-Android app for INSA Rennes students. Timetable, grades, campus map,
+Campus app for INSA Rennes students. Timetable, grades, campus map,
 associations, library occupancy, laundry and weather in one place, and most of
 it works offline.
 
@@ -127,6 +127,28 @@ Signing comes from repository secrets on GitHub: `KEYSTORE_BASE64`,
 `KEY_STORE_PASSWORD`, `KEY_ALIAS`, `KEY_PASSWORD`, plus `APP_SECRET`. The Gradle
 config refuses to assemble a CI release signed with debug keys, so a missing
 secret fails the build rather than shipping an unsigned APK.
+
+### iOS / TestFlight
+
+The iOS build is performed on GitHub's `macos-14` runner, so a local Mac is not
+needed. It is manually dispatched through **iOS TestFlight** until the first
+signed build has been installed by the internal testers.
+
+Create a protected `testflight` environment in GitHub and add `APP_SECRET`,
+`IOS_DIST_CERT_P12_BASE64`, `IOS_DIST_CERT_PASSWORD`,
+`IOS_PROVISION_PROFILE_BASE64`, `IOS_KEYCHAIN_PASSWORD`, `ASC_KEY_ID`,
+`ASC_ISSUER_ID`, and `ASC_KEY_P8_BASE64`. The workflow reads the signing team
+and profile identifier from the provisioning profile. Neither is committed.
+
+The unsigned **iOS Verify** workflow runs the simulator build and native unit
+tests. Until `ios/Podfile.lock` is committed, it attaches the generated lockfile
+as the `ios-podfile-lock` artifact. Download and commit that artifact after the
+first successful run. Subsequent iOS jobs install Pods in deployment mode.
+
+In App Store Connect, register `com.aer.campus` as **Campus Hub**, create an
+internal group named `Campus Hub (interne)`, and enable automatic distribution.
+Once the first TestFlight build is confirmed, enable the commented `v*` tag
+trigger in `.github/workflows/ios-release.yml` so iOS ships beside Android.
 
 ## Project structure
 

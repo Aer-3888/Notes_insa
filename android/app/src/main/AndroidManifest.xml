@@ -16,7 +16,7 @@
     <!-- Camera hardware feature (not required - allows app to run on devices without camera) -->
     <uses-feature android:name="android.hardware.camera" android:required="false" />
     <application
-        android:label="Campus INSA"
+        android:label="Campus Hub"
         android:name="${applicationName}"
         android:icon="@mipmap/launcher_icon"
         android:allowBackup="false"
