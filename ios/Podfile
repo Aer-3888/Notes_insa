@@ -1,6 +1,5 @@
-# Matches the Runner target deployment target (13.0). BGTaskScheduler, local_auth,
-# and mobile_scanner all support iOS 13+.
-platform :ios, '13.0'
+# Matches the Runner target deployment target (15.0).
+platform :ios, '15.0'
 
 # CocoaPods analytics sends network stats synchronously affecting flutter build latency.
 ENV['COCOAPODS_DISABLE_STATS'] = 'true'
