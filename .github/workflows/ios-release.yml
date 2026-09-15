@@ -17,7 +17,8 @@ permissions:
 jobs:
   build-ios:
     name: Build and upload to TestFlight
-    runs-on: macos-14
+    # App Store Connect requires the iOS 26 SDK, supplied by Xcode 26.
+    runs-on: macos-26
     environment: testflight
     timeout-minutes: 45
 
