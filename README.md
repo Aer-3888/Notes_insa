@@ -10,6 +10,15 @@ The project is developed on [Codeberg](https://codeberg.org/AerLight/Notes_insa)
 Issues and pull requests belong there. GitHub is the mirror that runs CI and
 publishes Android releases.
 
+## Support
+
+Questions, bug reports and feature requests can be sent through the
+[Codeberg issue tracker](https://codeberg.org/AerLight/Notes_insa/issues).
+For other enquiries, email [theo.phan.quoc.huy@gmail.com](mailto:theo.phan.quoc.huy@gmail.com).
+For a bug, include the app version, your device and Android version, and the
+steps that reproduce it. Never include INSA credentials or screenshots that
+show personal grades.
+
 ## Download
 
 Grab the latest APK from the
