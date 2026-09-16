@@ -271,7 +271,7 @@ ThemeData campusTheme(
       elevation: 0,
       modalElevation: 0,
       showDragHandle: true,
-      dragHandleColor: c.outline,
+      dragHandleColor: c.onSurfaceVariant,
       shape: const RoundedRectangleBorder(
         borderRadius: CampusRadii.sheetRadius,
       ),

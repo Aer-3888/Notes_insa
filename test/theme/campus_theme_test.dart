@@ -86,6 +86,7 @@ void main() {
           theme.bottomSheetTheme.backgroundColor,
           tokens.surfaceContainerHigh,
         );
+        expect(theme.bottomSheetTheme.dragHandleColor, tokens.onSurfaceVariant);
       });
     });
   }

@@ -189,6 +189,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen>
       context: context,
       isScrollControlled: true,
       useSafeArea: true,
+      backgroundColor: context.scheme.surfaceContainerLowest,
       builder: (_) => _UEDetailSheet(unit: unit),
     );
   }
@@ -468,6 +469,7 @@ class _UEDetailSheetState extends ConsumerState<_UEDetailSheet> {
     showModalBottomSheet(
       context: context,
       useSafeArea: true,
+      backgroundColor: context.scheme.surfaceContainerLowest,
       builder: (_) => _SubjectStatsSheet(subject: subject, avg: avg),
     );
   }
