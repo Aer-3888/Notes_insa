@@ -15,6 +15,7 @@ class UnitCardGrid extends StatelessWidget {
   /// the neutral placeholder instead.
   final String? errorMessage;
   final VoidCallback? onRetry;
+  final Key? scrollKey;
 
   const UnitCardGrid({
     super.key,
@@ -23,12 +24,14 @@ class UnitCardGrid extends StatelessWidget {
     this.isLoading = false,
     this.errorMessage,
     this.onRetry,
+    this.scrollKey,
   });
 
   @override
   Widget build(BuildContext context) {
     if (isLoading && curriculum.isEmpty) {
       return GridView.builder(
+        key: scrollKey,
         padding: const EdgeInsets.fromLTRB(
           CampusSpacing.gutter,
           0,
@@ -73,6 +76,7 @@ class UnitCardGrid extends StatelessWidget {
     final textScale = MediaQuery.textScalerOf(context).scale(16) / 16;
     final columns = textScale > 1.3 ? 1 : 2;
     return GridView.builder(
+      key: scrollKey,
       padding: const EdgeInsets.fromLTRB(
         CampusSpacing.gutter,
         0,

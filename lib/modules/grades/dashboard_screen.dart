@@ -1,7 +1,6 @@
 import 'dart:async';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../models.dart';
 import '../../providers/dashboard_providers.dart';
@@ -162,27 +161,6 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen>
       );
   }
 
-  void _swipeSemester(DragEndDetails details) {
-    final available = ref.read(availableSemestersProvider);
-    if (available.length <= 1) return;
-    final velocity = details.primaryVelocity ?? 0;
-    if (velocity.abs() < 300) return;
-    final current = ref.read(effectiveSemesterProvider);
-    if (current == null) return;
-    final idx = available.indexOf(current);
-    if (idx == -1) return;
-    // Display is lowest semester on left, so swipe left → newer semester.
-    final newIdx = velocity > 0
-        ? (idx - 1).clamp(0, available.length - 1)
-        : (idx + 1).clamp(0, available.length - 1);
-    if (newIdx != idx) {
-      HapticFeedback.lightImpact();
-      ref.read(selectedSemesterProvider.notifier).state = available[newIdx];
-    } else {
-      HapticFeedback.lightImpact();
-    }
-  }
-
   Future<void> _onManualRefresh(BuildContext context) async {
     final started = await ref.read(gradesProvider.notifier).manualRefresh();
     if (!started && context.mounted) {
@@ -262,6 +240,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen>
     final decodedGrades = ref.watch(decodedGradesProvider);
 
     final academicYear = ref.watch(academicYearProvider);
+    final availableSemesters = ref.watch(availableSemestersProvider);
 
     // Pre-fetch coefficients for every semester so switching semesters
     // doesn't briefly show unweighted (1.0) averages while they load.
@@ -309,40 +288,154 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen>
                 provisional: ref.watch(semesterAverageProvisionalProvider),
                 lastUpdated: lastUpdated,
                 selectedSemester: effectiveSemester ?? 0,
-                availableSemesters: ref.watch(availableSemestersProvider),
+                availableSemesters: availableSemesters,
                 onSemesterChanged: (newSem) {
                   ref.read(selectedSemesterProvider.notifier).state = newSem;
                 },
               ),
             ),
             Expanded(
-              child: GestureDetector(
-                onHorizontalDragEnd: _swipeSemester,
-                behavior: HitTestBehavior.opaque,
-                child: RefreshIndicator(
-                  onRefresh: () => _onManualRefresh(context),
-                  child: GradesViews(
-                    key: ValueKey(effectiveSemester),
-                    mode: ref.watch(gradesViewModeProvider),
-                    curriculum: curriculum,
-                    isLoading: isLoading,
-                    errorMessage: gridError,
-                    onRetry: gridError == null
-                        ? null
-                        : () => ref
-                              .read(gradesProvider.notifier)
-                              .fetchGradesWithStoredCredentials()
-                              .catchError((_) {}),
-                    onUnitTap: (unit) => _showUEDetails(context, unit),
-                  ),
-                ),
-              ),
+              child: availableSemesters.isEmpty
+                  ? RefreshIndicator(
+                      onRefresh: () => _onManualRefresh(context),
+                      child: GradesViews(
+                        mode: ref.watch(gradesViewModeProvider),
+                        curriculum: curriculum,
+                        isLoading: isLoading,
+                        errorMessage: gridError,
+                        onRetry: gridError == null
+                            ? null
+                            : () => ref
+                                  .read(gradesProvider.notifier)
+                                  .fetchGradesWithStoredCredentials()
+                                  .catchError((_) {}),
+                        onUnitTap: (unit) => _showUEDetails(context, unit),
+                      ),
+                    )
+                  : _SemesterPager(
+                      key: ValueKey(availableSemesters.join(',')),
+                      semesters: availableSemesters,
+                      selectedSemester:
+                          effectiveSemester ?? availableSemesters.last,
+                      mode: ref.watch(gradesViewModeProvider),
+                      isLoading: isLoading,
+                      onRefresh: () => _onManualRefresh(context),
+                      onSemesterChanged: (semester) =>
+                          ref.read(selectedSemesterProvider.notifier).state =
+                              semester,
+                      onUnitTap: (unit) => _showUEDetails(context, unit),
+                    ),
             ),
           ],
         ),
       ),
     );
   }
+}
+
+class _SemesterPager extends StatefulWidget {
+  const _SemesterPager({
+    super.key,
+    required this.semesters,
+    required this.selectedSemester,
+    required this.mode,
+    required this.isLoading,
+    required this.onRefresh,
+    required this.onSemesterChanged,
+    required this.onUnitTap,
+  });
+
+  final List<int> semesters;
+  final int selectedSemester;
+  final GradesViewMode mode;
+  final bool isLoading;
+  final RefreshCallback onRefresh;
+  final ValueChanged<int> onSemesterChanged;
+  final ValueChanged<TeachingUnit> onUnitTap;
+
+  @override
+  State<_SemesterPager> createState() => _SemesterPagerState();
+}
+
+class _SemesterPagerState extends State<_SemesterPager> {
+  late final PageController _controller;
+
+  int get _selectedIndex => widget.semesters.indexOf(widget.selectedSemester);
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = PageController(initialPage: _selectedIndex, keepPage: false);
+  }
+
+  @override
+  void didUpdateWidget(covariant _SemesterPager oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.selectedSemester == widget.selectedSemester) return;
+    final current = _controller.hasClients
+        ? _controller.page?.round()
+        : _controller.initialPage;
+    if (current == _selectedIndex) return;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted || !_controller.hasClients) return;
+      unawaited(
+        _controller.animateToPage(
+          _selectedIndex,
+          duration: CampusMotion.of(context, CampusMotion.enter),
+          curve: CampusMotion.standard,
+        ),
+      );
+    });
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) => PageView.builder(
+    controller: _controller,
+    itemCount: widget.semesters.length,
+    allowImplicitScrolling: true,
+    onPageChanged: (index) => widget.onSemesterChanged(widget.semesters[index]),
+    itemBuilder: (context, index) => _SemesterPage(
+      semester: widget.semesters[index],
+      mode: widget.mode,
+      isLoading: widget.isLoading,
+      onRefresh: widget.onRefresh,
+      onUnitTap: widget.onUnitTap,
+    ),
+  );
+}
+
+class _SemesterPage extends ConsumerWidget {
+  const _SemesterPage({
+    required this.semester,
+    required this.mode,
+    required this.isLoading,
+    required this.onRefresh,
+    required this.onUnitTap,
+  });
+
+  final int semester;
+  final GradesViewMode mode;
+  final bool isLoading;
+  final RefreshCallback onRefresh;
+  final ValueChanged<TeachingUnit> onUnitTap;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) => RefreshIndicator(
+    onRefresh: onRefresh,
+    child: GradesViews(
+      mode: mode,
+      curriculum: ref.watch(curriculumForSemesterProvider(semester)),
+      isLoading: isLoading,
+      scrollStorageKey: 'semester-$semester',
+      onUnitTap: onUnitTap,
+    ),
+  );
 }
 
 // ---------------------------------------------------------------------------

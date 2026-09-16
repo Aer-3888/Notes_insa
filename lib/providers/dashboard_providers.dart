@@ -35,33 +35,39 @@ final effectiveSemesterProvider = Provider<int?>((ref) {
   return available.last;
 });
 
-/// Department name for the currently selected semester (e.g. "3INFO", "1STPI").
-/// Per-semester because a student may belong to different departments across years.
-final departmentNameProvider = Provider<String>((ref) {
+final departmentForSemesterProvider = Provider.family<String, int>((
+  ref,
+  semester,
+) {
   final data = ref.watch(decodedGradesProvider);
-  final semester = ref.watch(effectiveSemesterProvider);
   if (data == null) return 'Etudiant';
 
   try {
-    if (semester == null) {
-      return JsonCurriculumParser.getDepartmentName(data);
-    }
     return JsonCurriculumParser.getDepartmentForSemester(data, semester);
   } catch (_) {
     return 'Etudiant';
   }
 });
 
-/// Computed provider for curriculum based on selected semester.
-/// Watches coefficients and re-parses when they arrive. While coefficients
-/// are loading, parses with defaults (1.0) so the UI is never blocked.
-final curriculumProvider = Provider<List<TeachingUnit>>((ref) {
+/// Department name for the currently selected semester (e.g. "3INFO", "1STPI").
+/// Per-semester because a student may belong to different departments across years.
+final departmentNameProvider = Provider<String>((ref) {
   final data = ref.watch(decodedGradesProvider);
   final semester = ref.watch(effectiveSemesterProvider);
-  if (data == null || semester == null) return [];
+  if (data == null) return 'Etudiant';
+  if (semester == null) return JsonCurriculumParser.getDepartmentName(data);
+  return ref.watch(departmentForSemesterProvider(semester));
+});
 
-  final department = ref.watch(departmentNameProvider);
-  final academicYear = ref.watch(academicYearProvider);
+final curriculumForSemesterProvider = Provider.family<List<TeachingUnit>, int>((
+  ref,
+  semester,
+) {
+  final data = ref.watch(decodedGradesProvider);
+  if (data == null) return [];
+
+  final department = ref.watch(departmentForSemesterProvider(semester));
+  final academicYear = ref.watch(academicYearForSemesterProvider(semester));
 
   final coeffsAsync = ref.watch(
     coefficientsProvider((
@@ -91,25 +97,45 @@ final curriculumProvider = Provider<List<TeachingUnit>>((ref) {
   }
 });
 
+/// Computed provider for curriculum based on selected semester.
+/// Watches coefficients and re-parses when they arrive. While coefficients
+/// are loading, parses with defaults (1.0) so the UI is never blocked.
+final curriculumProvider = Provider<List<TeachingUnit>>((ref) {
+  final semester = ref.watch(effectiveSemesterProvider);
+  if (semester == null) return [];
+  return ref.watch(curriculumForSemesterProvider(semester));
+});
+
 /// The semester average embedded directly in the grades JSON by the school.
 /// Returns null when the data does not carry a pre-computed score for this
 /// semester (older payloads or semesters still in progress may omit it).
-final _semesterAverageFromDataProvider = Provider<double?>((ref) {
+final _semesterAverageFromDataProvider = Provider.family<double?, int>((
+  ref,
+  semester,
+) {
   final data = ref.watch(decodedGradesProvider);
-  final semester = ref.watch(effectiveSemesterProvider);
-  if (data == null || semester == null) return null;
+  if (data == null) return null;
   return JsonCurriculumParser.getSemesterAverage(data, semester);
+});
+
+final semesterAverageForSemesterProvider = Provider.family<double?, int>((
+  ref,
+  semester,
+) {
+  final fromData = ref.watch(_semesterAverageFromDataProvider(semester));
+  if (fromData != null) return fromData;
+
+  final curriculum = ref.watch(curriculumForSemesterProvider(semester));
+  return weightedAverage(curriculum, (u) => u.average, (u) => u.coeff);
 });
 
 /// Computed provider for semester average.
 /// Prefers the official score already in the JSON; falls back to the
 /// UE-coefficient-weighted calculation when the data doesn't carry it.
 final semesterAverageProvider = Provider<double?>((ref) {
-  final fromData = ref.watch(_semesterAverageFromDataProvider);
-  if (fromData != null) return fromData;
-
-  final curriculum = ref.watch(curriculumProvider);
-  return weightedAverage(curriculum, (u) => u.average, (u) => u.coeff);
+  final semester = ref.watch(effectiveSemesterProvider);
+  if (semester == null) return null;
+  return ref.watch(semesterAverageForSemesterProvider(semester));
 });
 
 /// True when real coefficients are loaded for the current semester. When false,
@@ -133,9 +159,13 @@ final coefficientsReadyProvider = Provider<bool>((ref) {
 /// True when the displayed semester average is locally estimated because the
 /// grades payload did not provide an official semester score.
 final semesterAverageProvisionalProvider = Provider<bool>((ref) {
+  final semester = ref.watch(effectiveSemesterProvider);
+  if (semester == null) return false;
   if (ref.watch(semesterAverageProvider) == null) return false;
   // The school's own pre-computed value is authoritative, not estimated.
-  if (ref.watch(_semesterAverageFromDataProvider) != null) return false;
+  if (ref.watch(_semesterAverageFromDataProvider(semester)) != null) {
+    return false;
+  }
   return true;
 });
 
@@ -186,19 +216,28 @@ final coefficientsPrefetchProvider = Provider<void>((ref) {
   }
 });
 
-/// Academic year for the currently selected semester.
-final academicYearProvider = Provider<String>((ref) {
-  final semester = ref.watch(effectiveSemesterProvider);
+final academicYearForSemesterProvider = Provider.family<String, int>((
+  ref,
+  semester,
+) {
   final available = ref.watch(availableSemestersProvider);
   final baseline =
       ref.watch(gradesProvider.select((s) => s.academicYearBaseline)) ??
       AveragesService.currentAcademicYear();
-  if (semester == null || available.isEmpty) {
-    return baseline;
-  }
+  if (available.isEmpty) return baseline;
   return AveragesService.academicYearForSemester(
     semester,
     available.last,
     baseline,
   );
+});
+
+/// Academic year for the currently selected semester.
+final academicYearProvider = Provider<String>((ref) {
+  final semester = ref.watch(effectiveSemesterProvider);
+  if (semester == null) {
+    return ref.watch(gradesProvider.select((s) => s.academicYearBaseline)) ??
+        AveragesService.currentAcademicYear();
+  }
+  return ref.watch(academicYearForSemesterProvider(semester));
 });
