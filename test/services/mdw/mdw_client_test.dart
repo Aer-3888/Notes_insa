@@ -18,6 +18,7 @@ class _FakeMdw {
     required this.pageSize,
     this.lazy = const <String>{},
     this.publishes = defaultMethods,
+    this.reportsLoadedSize = false,
   }) {
     _server.listen(_handle);
   }
@@ -44,6 +45,8 @@ class _FakeMdw {
 
   /// Method names the grid declares to the client.
   final List<String> publishes;
+
+  final bool reportsLoadedSize;
 
   /// Every child range asked for, as (parentKey, firstIndex).
   final List<({int firstIndex, String parentKey})> asked =
@@ -151,6 +154,11 @@ class _FakeMdw {
   /// plus the size and the blanked range standing for what was withheld.
   Map<String, dynamic> _openPage([int start = 0, int length = -1]) {
     final opening = length < 0;
+    final flat = _flat;
+    final end = opening
+        ? pageSize
+        : (start + length < flat.length ? start + length : flat.length);
+    final reportedSize = reportsLoadedSize ? end : flat.length;
     final changes = <Map<String, dynamic>>[
       if (opening) ...<Map<String, dynamic>>[
         _tag(gridNode, 'vaadin-grid'),
@@ -162,16 +170,12 @@ class _FakeMdw {
     ];
     final execute = <List<dynamic>>[];
 
-    final flat = _flat;
     execute.add(<dynamic>[
       <String, dynamic>{'@v-node': gridNode},
-      flat.length,
+      reportedSize,
       r'return $0.$connector.updateSize($1)',
     ]);
 
-    final end = opening
-        ? pageSize
-        : (start + length < flat.length ? start + length : flat.length);
     for (var i = opening ? 0 : start; i < flat.length && i < end; i++) {
       if (!_sent.add(i)) continue;
       execute.add(_rowCall(i, flat[i], changes));
@@ -299,6 +303,7 @@ void main() {
     int pageSize = 50,
     Set<String> lazy = const <String>{},
     List<String>? publishes,
+    bool reportsLoadedSize = false,
   }) async {
     final server = await HttpServer.bind(InternetAddress.loopbackIPv4, 0);
     fake = _FakeMdw(
@@ -307,6 +312,7 @@ void main() {
       pageSize: pageSize,
       lazy: lazy,
       publishes: publishes ?? _FakeMdw.defaultMethods,
+      reportsLoadedSize: reportsLoadedSize,
     );
     http = HttpSession();
     mdw = MdwClient(http, baseUrl: fake.baseUrl);
@@ -353,6 +359,16 @@ void main() {
     final root = GradeParser.parse(await mdw.openAllRows(0))!;
 
     expect(root.name, 'R');
+    expect(moduleCounts(root), <int>[30, 30]);
+  });
+
+  test('keeps widening when MDW reports only the loaded page size', () async {
+    await start(modules: 30, reportsLoadedSize: true);
+
+    final root = GradeParser.parse(await mdw.openAllRows(0))!;
+
+    expect(fake.ranges, hasLength(1));
+    expect(fake.ranges.single.length, 100);
     expect(moduleCounts(root), <int>[30, 30]);
   });
 

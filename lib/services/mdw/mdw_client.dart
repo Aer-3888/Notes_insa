@@ -182,11 +182,6 @@ class MdwClient {
   }
 
   /// Opens card [groupIndex] and widens the viewport until it holds every row.
-  ///
-  /// The grid keeps the whole expanded tree as one flat list and serves the
-  /// first page of it unasked, blanking the rest. Its size counts only the rows
-  /// it has already fetched, so it is no target: the loop stops when a wider
-  /// window brings nothing new.
   Future<VaadinData> openAllRows(int groupIndex) async {
     final responses = <VaadinData>[await _openGrades(groupIndex)];
     var merged = responses.first;
@@ -197,13 +192,28 @@ class MdwClient {
     var window = _pageSize;
 
     for (var round = 0; round < _maxRounds; round++) {
-      final size = merged.gridSize;
-      if (size == null || rangeMethod.isEmpty) break;
-      if (rows.length >= size && window >= size) break;
+      if (rangeMethod.isEmpty) break;
 
-      // Whole pages from zero, and always wider than last time or the grid has
-      // nothing new to answer with.
-      final wanted = ((size + _pageSize - 1) ~/ _pageSize) * _pageSize;
+      var knownEnd = merged.gridSize ?? 0;
+      for (final gap in merged.clearedRanges) {
+        final end = gap.start + gap.length;
+        if (end > knownEnd) knownEnd = end;
+      }
+
+      final flatIndices = <int>{
+        for (final row in rows)
+          if (row.parentKey == null) row.index,
+      };
+      final hasKnownGap = merged.clearedRanges.any(
+        (gap) => Iterable<int>.generate(
+          gap.length,
+          (i) => gap.start + i,
+        ).any((index) => !flatIndices.contains(index)),
+      );
+      final firstPageIsFull = rows.length >= window;
+      if (!hasKnownGap && rows.length >= knownEnd && !firstPageIsFull) break;
+
+      final wanted = ((knownEnd + _pageSize - 1) ~/ _pageSize) * _pageSize;
       window = wanted > window ? wanted : window + _pageSize;
 
       final before = rows.length;
