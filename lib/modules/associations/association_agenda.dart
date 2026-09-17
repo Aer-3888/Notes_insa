@@ -115,6 +115,8 @@ class _AgendaEventCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final coverUrl = event.coverUrl;
     final day = event.startsAt.day.toString().padLeft(2, '0');
+    final coverWidth = (72 * MediaQuery.devicePixelRatioOf(context)).round();
+    final coverHeight = (88 * MediaQuery.devicePixelRatioOf(context)).round();
     final month = _months[event.startsAt.month - 1]
         .substring(0, 3)
         .toUpperCase();
@@ -200,6 +202,9 @@ class _AgendaEventCard extends StatelessWidget {
                     child: Image.network(
                       coverUrl,
                       fit: BoxFit.cover,
+                      cacheWidth: coverWidth,
+                      cacheHeight: coverHeight,
+                      filterQuality: FilterQuality.low,
                       errorBuilder: (context, _, _) => const SizedBox.shrink(),
                     ),
                   )

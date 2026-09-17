@@ -342,7 +342,16 @@ class _AssociationAvatar extends StatelessWidget {
   Widget build(BuildContext context) {
     final asset = association.logoAsset;
     final logoUrl = association.logoUrl;
+    // A long directory can create many list children just beyond the viewport.
+    // Keep scrolling on the raster thread: the initials remain useful until
+    // Flutter says this subtree is no longer part of a fast scroll.
+    if (asset == null &&
+        logoUrl != null &&
+        Scrollable.recommendDeferredLoadingForContext(context)) {
+      return _initials(context);
+    }
     if (asset != null || logoUrl != null) {
+      final cacheSize = (size * MediaQuery.devicePixelRatioOf(context)).round();
       return ClipRRect(
         borderRadius: CampusRadii.controlRadius,
         child: asset != null
@@ -358,6 +367,12 @@ class _AssociationAvatar extends StatelessWidget {
                 width: size,
                 height: size,
                 fit: BoxFit.cover,
+                // The originals are supplied by associations and can be much
+                // larger than a 40 dp avatar. Avoid retaining their full-size
+                // decoded bitmaps while the directory is open.
+                cacheWidth: cacheSize,
+                cacheHeight: cacheSize,
+                filterQuality: FilterQuality.low,
                 errorBuilder: (context, _, _) => _initials(context),
               ),
       );
