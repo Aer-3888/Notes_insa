@@ -1,4 +1,6 @@
 import 'package:flutter_test/flutter_test.dart';
+import 'package:http/http.dart' as http;
+import 'package:http/testing.dart';
 import 'package:notes_insa/core/time.dart';
 import 'package:notes_insa/modules/associations/association.dart';
 import 'package:notes_insa/modules/associations/association_service.dart';
@@ -32,6 +34,7 @@ Map<String, Object?> _event({
 };
 
 void main() {
+  TestWidgetsFlutterBinding.ensureInitialized();
   setUpAll(initCampusTime);
   group('a row the seed gets wrong is dropped, not crashed on', () {
     test('an entry with no id or no name is not an association', () {
@@ -97,6 +100,31 @@ void main() {
     expect(links.instagramUri.toString(), 'https://www.instagram.com/ktulu/');
   });
 
+  test('remote public media is accepted only over HTTPS', () {
+    final association = Association.fromJson(<String, Object?>{
+      ..._row(
+        events: <Object?>[
+          <String, Object?>{
+            ..._event(),
+            'coverUrl': 'https://cdn.example.test/poster.jpg',
+          },
+        ],
+      ),
+      'logoUrl': 'https://cdn.example.test/logo.png',
+    });
+    expect(association!.logoUrl, 'https://cdn.example.test/logo.png');
+    expect(
+      association.events.single.coverUrl,
+      'https://cdn.example.test/poster.jpg',
+    );
+
+    final unsafe = Association.fromJson(<String, Object?>{
+      ..._row(),
+      'logoUrl': 'http://example.test/logo.png',
+    });
+    expect(unsafe!.logoUrl, isNull);
+  });
+
   test('blank links read as absent', () {
     final links = AssociationLinks.fromJson(<String, Object?>{
       'instagram': '   ',
@@ -156,6 +184,32 @@ void main() {
       expect(Associations.parse('not json'), isEmpty);
       expect(Associations.parse('[]'), isEmpty);
       expect(Associations.parse('{"version": 1}'), isEmpty);
+    });
+  });
+
+  group('remote directory', () {
+    test('uses a valid Worker feed before the bundled seed', () async {
+      final directory = await Associations.load(
+        client: MockClient((request) async {
+          expect(request.url.path, '/associations');
+          return http.Response(
+            '{"version":1,"updatedAt":"2026-09-17T00:00:00Z",'
+            '"associations":[{"id":"remote","name":"À distance",'
+            '"category":"tech"}]}',
+            200,
+          );
+        }),
+      );
+      expect(directory.map((association) => association.id), <String>[
+        'remote',
+      ]);
+    });
+
+    test('falls back to the bundled seed when the Worker fails', () async {
+      final directory = await Associations.load(
+        client: MockClient((_) async => http.Response('unavailable', 503)),
+      );
+      expect(directory, isNotEmpty);
     });
   });
 

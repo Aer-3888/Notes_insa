@@ -4,6 +4,12 @@ import {
   refreshAdeGroups,
 } from "./ade_groups";
 import { getLaundryStatus } from "./laundry";
+import {
+  handleAdminAssociation,
+  handleAdminEvent,
+  handleMagicLinkRequest,
+  handlePublicAssociations,
+} from "./associations";
 
 export interface Env {
   DB: D1Database;
@@ -14,6 +20,9 @@ export interface Env {
   USER_HASH_SALT: string;
   // WASHiN laundry proxy (see laundry.ts).
   LAUNDRY_CACHE: KVNamespace;
+  // Public, read-optimised association feed. It is optional until the
+  // namespace is provisioned; clients then continue using their bundled seed.
+  ASSOCIATIONS?: KVNamespace;
   WASHIN_USER: string;
   WASHIN_PASS: string;
 }
@@ -516,6 +525,29 @@ export default {
 
     if (url.pathname === "/laundry" && request.method === "GET") {
       return handleLaundry(request, env);
+    }
+
+    if (url.pathname === "/associations" && request.method === "GET") {
+      return handlePublicAssociations(env, CORS_HEADERS);
+    }
+
+    if (
+      (url.pathname === "/association-auth/request-link" ||
+        url.pathname === "/association-auth/verify") &&
+      request.method === "POST"
+    ) {
+      return handleMagicLinkRequest();
+    }
+
+    const associationAdmin = url.pathname.match(
+      /^\/association-admin\/associations\/([a-z0-9-]+)(?:\/events(?:\/([a-z0-9-]+))?)?$/,
+    );
+    if (associationAdmin !== null) {
+      const [, associationId, eventId] = associationAdmin;
+      const isEventsRoute = url.pathname.includes("/events");
+      return isEventsRoute
+        ? handleAdminEvent(request, env, associationId, eventId)
+        : handleAdminAssociation(request, env, associationId);
     }
 
     return error("Not found", 404);

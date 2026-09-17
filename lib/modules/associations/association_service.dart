@@ -3,7 +3,9 @@ import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart' show rootBundle;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:http/http.dart' as http;
 
+import '../../constants.dart';
 import 'association.dart';
 import 'association_follows.dart';
 
@@ -15,6 +17,7 @@ import 'association_follows.dart';
 /// what catches it, not a student's phone.
 abstract final class Associations {
   static const String assetPath = 'assets/data/associations.json';
+  static const Duration _timeout = Duration(seconds: 10);
 
   /// Bumped when the shape changes in a way an older app cannot read.
   static const int supportedVersion = 1;
@@ -41,12 +44,37 @@ abstract final class Associations {
     }
   }
 
-  static Future<List<Association>> load() async {
+  static Future<List<Association>> load({http.Client? client}) async {
+    try {
+      final remote = await _fetchRemote(client: client);
+      if (remote.isNotEmpty) return remote;
+    } catch (_) {
+      // The bundled directory deliberately covers offline use and a Worker
+      // outage. The remote feed will be tried again on the next app launch.
+    }
     try {
       return parse(await rootBundle.loadString(assetPath));
     } catch (e) {
       if (kDebugMode) debugPrint('[Associations] missing dataset: $e');
       return const <Association>[];
+    }
+  }
+
+  static Future<List<Association>> _fetchRemote({http.Client? client}) async {
+    final c = client ?? http.Client();
+    final uri = Uri.parse('$kWorkerBaseUrl/associations');
+    try {
+      final response = await c.get(uri).timeout(_timeout);
+      if (response.statusCode != 200) {
+        throw http.ClientException('HTTP ${response.statusCode}', uri);
+      }
+      final parsed = parse(response.body);
+      if (parsed.isEmpty) {
+        throw const FormatException('empty associations feed');
+      }
+      return parsed;
+    } finally {
+      if (client == null) c.close();
     }
   }
 }

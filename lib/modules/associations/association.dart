@@ -108,6 +108,7 @@ class AssociationEvent {
     this.location,
     this.buildingCode,
     this.url,
+    this.coverUrl,
     this.isAllDay = false,
   });
 
@@ -130,6 +131,10 @@ class AssociationEvent {
   final String? buildingCode;
 
   final String? url;
+
+  /// Public poster or social image for an agenda card. It is deliberately a
+  /// URL rather than a bundled asset: associations can refresh it remotely.
+  final String? coverUrl;
 
   /// The seed gave a day with no time, so no hour is shown and none is
   /// invented. Posters often announce a date weeks before the schedule.
@@ -179,6 +184,7 @@ class AssociationEvent {
       location: text('location'),
       buildingCode: text('buildingCode'),
       url: text('url'),
+      coverUrl: _publicImageUrl(text('coverUrl')),
       isAllDay: isAllDay,
     );
   }
@@ -194,6 +200,7 @@ class Association {
     this.summary,
     this.description,
     this.logoAsset,
+    this.logoUrl,
     this.buildingCode,
     this.links = const AssociationLinks(),
     this.events = const <AssociationEvent>[],
@@ -216,6 +223,10 @@ class Association {
 
   /// Path under assets/images/associations, null until a logo is added.
   final String? logoAsset;
+
+  /// Public logo supplied by an association. Bundled [logoAsset] still wins
+  /// when present so an offline asset remains usable.
+  final String? logoUrl;
 
   /// Building on the INSA plan where the association is based, when it has one.
   final String? buildingCode;
@@ -264,6 +275,7 @@ class Association {
       summary: text('summary'),
       description: text('description'),
       logoAsset: text('logoAsset'),
+      logoUrl: _publicImageUrl(text('logoUrl')),
       buildingCode: text('buildingCode'),
       links: AssociationLinks.fromJson(raw['links']),
       events: rawEvents is! List
@@ -274,4 +286,11 @@ class Association {
             ],
     );
   }
+}
+
+String? _publicImageUrl(String? raw) {
+  if (raw == null) return null;
+  final uri = Uri.tryParse(raw);
+  if (uri == null || uri.scheme != 'https' || uri.host.isEmpty) return null;
+  return uri.toString();
 }
