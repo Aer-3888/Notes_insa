@@ -119,6 +119,13 @@ void main() {
     expect(parsed.length, greaterThan(20));
   });
 
+  test('every profile gives students enough context to choose it', () {
+    for (final association in parsed) {
+      expect(association.summary, isNotNull, reason: association.id);
+      expect(association.description, isNotNull, reason: association.id);
+    }
+  });
+
   test('every link is a URL the app can open', () {
     for (final association in parsed) {
       for (final url in <String?>[
