@@ -6,6 +6,19 @@ Campus app for INSA Rennes students. Timetable, grades, campus map,
 associations, library occupancy, laundry and weather in one place, and most of
 it works offline.
 
+The project is developed on [Codeberg](https://codeberg.org/AerLight/Notes_insa).
+Issues and pull requests belong there. GitHub is the mirror that runs CI and
+publishes Android releases.
+
+## Support
+
+Questions, bug reports and feature requests can be sent through the
+[Codeberg issue tracker](https://codeberg.org/AerLight/Notes_insa/issues).
+For other enquiries, email [theo.phan.quoc.huy@gmail.com](mailto:theo.phan.quoc.huy@gmail.com).
+For a bug, include the app version, your device and Android version, and the
+steps that reproduce it. Never include INSA credentials or screenshots that
+show personal grades.
+
 ## Download
 
 Grab the latest APK from the
@@ -78,6 +91,17 @@ identifies you: no name, no student number, no individual grade. You are asked
 during onboarding and can decline, which costs you only that one screen.
 
 There is no analytics SDK and no third-party tracking.
+
+## Contributing
+
+Contributions are welcome. Read [CONTRIBUTING.md](CONTRIBUTING.md) for issue
+reporting, assignment, branch and commit naming, review rules, and the
+Codeberg-to-GitHub workflow.
+
+## License
+
+Campus INSA is licensed under the [GNU Affero General Public License v3.0](LICENSE).
+Contributions are accepted under the same license.
 
 ## Development
 
