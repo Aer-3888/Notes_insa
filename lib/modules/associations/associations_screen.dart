@@ -8,6 +8,7 @@ import 'association.dart';
 import 'association_agenda.dart';
 import 'association_detail_screen.dart';
 import 'association_follows.dart';
+import 'association_logo.dart';
 import 'association_service.dart';
 
 /// Associations open on what is happening next. Discovery stays one tap away
@@ -100,22 +101,15 @@ class _AssociationsScreenState extends ConsumerState<AssociationsScreen> {
             CampusSpacing.gutter,
             CampusSpacing.x2,
           ),
-          sliver: SliverToBoxAdapter(child: _DirectoryHero(count: all.length)),
-        ),
-        SliverPadding(
-          padding: const EdgeInsets.fromLTRB(
-            CampusSpacing.gutter,
-            0,
-            CampusSpacing.gutter,
-            CampusSpacing.x2,
-          ),
           sliver: SliverToBoxAdapter(
             child: TextField(
               controller: _query,
               onChanged: (_) => setState(() {}),
               textInputAction: TextInputAction.search,
               decoration: InputDecoration(
-                hintText: 'Rechercher une association',
+                hintText: all.length > 1
+                    ? 'Rechercher parmi ${all.length} associations'
+                    : 'Rechercher une association',
                 prefixIcon: const Icon(Icons.search),
                 suffixIcon: _query.text.isEmpty
                     ? null
@@ -252,7 +246,7 @@ class _AssociationRow extends ConsumerWidget {
             horizontal: CampusSpacing.x3,
             vertical: CampusSpacing.x1,
           ),
-          leading: _AssociationAvatar(association: association),
+          leading: AssociationLogo(association: association, size: 40),
           title: Text(association.name),
           subtitle: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -284,127 +278,4 @@ class _AssociationRow extends ConsumerWidget {
       ),
     );
   }
-}
-
-class _DirectoryHero extends StatelessWidget {
-  const _DirectoryHero({required this.count});
-
-  final int count;
-
-  @override
-  Widget build(BuildContext context) => Container(
-    padding: const EdgeInsets.all(CampusSpacing.x4),
-    decoration: BoxDecoration(
-      gradient: LinearGradient(
-        colors: <Color>[
-          context.scheme.primaryContainer,
-          context.scheme.tertiaryContainer,
-        ],
-      ),
-      borderRadius: CampusRadii.cardRadius,
-    ),
-    child: Row(
-      children: <Widget>[
-        Icon(
-          Icons.local_activity_outlined,
-          color: context.scheme.onPrimaryContainer,
-          size: 34,
-        ),
-        const SizedBox(width: CampusSpacing.x3),
-        Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: <Widget>[
-              Text('Trouve ton collectif', style: context.text.titleMedium),
-              const SizedBox(height: CampusSpacing.x1),
-              Text(
-                '$count associations, clubs et projets à découvrir.',
-                style: context.text.bodyMedium,
-              ),
-            ],
-          ),
-        ),
-      ],
-    ),
-  );
-}
-
-/// The logo when there is one, its initials until then. Most associations will
-/// not have supplied a logo during the first pass.
-class _AssociationAvatar extends StatelessWidget {
-  const _AssociationAvatar({required this.association});
-
-  final Association association;
-
-  static const double size = 40;
-
-  @override
-  Widget build(BuildContext context) {
-    final asset = association.logoAsset;
-    final logoUrl = association.logoUrl;
-    // A long directory can create many list children just beyond the viewport.
-    // Keep scrolling on the raster thread: the initials remain useful until
-    // Flutter says this subtree is no longer part of a fast scroll.
-    if (asset == null &&
-        logoUrl != null &&
-        Scrollable.recommendDeferredLoadingForContext(context)) {
-      return _initials(context);
-    }
-    if (asset != null || logoUrl != null) {
-      final cacheSize = (size * MediaQuery.devicePixelRatioOf(context)).round();
-      return ClipRRect(
-        borderRadius: CampusRadii.controlRadius,
-        child: asset != null
-            ? Image.asset(
-                asset,
-                width: size,
-                height: size,
-                fit: BoxFit.cover,
-                errorBuilder: (context, _, _) => _initials(context),
-              )
-            : Image.network(
-                logoUrl!,
-                width: size,
-                height: size,
-                fit: BoxFit.cover,
-                // The originals are supplied by associations and can be much
-                // larger than a 40 dp avatar. Avoid retaining their full-size
-                // decoded bitmaps while the directory is open.
-                cacheWidth: cacheSize,
-                cacheHeight: cacheSize,
-                filterQuality: FilterQuality.low,
-                errorBuilder: (context, _, _) => _initials(context),
-              ),
-      );
-    }
-    return _initials(context);
-  }
-
-  Widget _initials(BuildContext context) => Container(
-    width: size,
-    height: size,
-    alignment: Alignment.center,
-    decoration: BoxDecoration(
-      color: context.scheme.secondaryContainer,
-      borderRadius: CampusRadii.controlRadius,
-    ),
-    child: Text(
-      associationInitials(association.displayName),
-      style: context.text.labelLarge?.copyWith(
-        color: context.scheme.onSecondaryContainer,
-      ),
-    ),
-  );
-}
-
-/// Up to two initials, from the first two words that start with a letter.
-String associationInitials(String name) {
-  final words = name
-      .split(RegExp(r'[\s-]+'))
-      .where(
-        (w) => w.isNotEmpty && RegExp(r'^\p{L}', unicode: true).hasMatch(w),
-      )
-      .take(2);
-  if (words.isEmpty) return '?';
-  return words.map((w) => w.characters.first.toUpperCase()).join();
 }

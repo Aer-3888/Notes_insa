@@ -9,8 +9,8 @@ import '../../theme/state_view.dart';
 import '../../theme/tokens.dart';
 import 'association.dart';
 import 'association_follows.dart';
+import 'association_logo.dart';
 import 'association_service.dart';
-import 'associations_screen.dart' show associationInitials;
 
 /// One association's page.
 ///
@@ -122,36 +122,14 @@ class _Identity extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final asset = association.logoAsset;
-    final logoUrl = association.logoUrl;
     final summary = association.summary;
-    final cacheSize = (56 * MediaQuery.devicePixelRatioOf(context)).round();
     return Row(
       crossAxisAlignment: CrossAxisAlignment.center,
       children: <Widget>[
-        SizedBox(
-          width: 56,
-          height: 56,
-          child: asset == null && logoUrl == null
-              ? _Initials(name: association.displayName)
-              : ClipRRect(
-                  borderRadius: CampusRadii.controlRadius,
-                  child: asset != null
-                      ? Image.asset(
-                          asset,
-                          fit: BoxFit.cover,
-                          errorBuilder: (context, _, _) =>
-                              _Initials(name: association.displayName),
-                        )
-                      : Image.network(
-                          logoUrl!,
-                          fit: BoxFit.cover,
-                          cacheWidth: cacheSize,
-                          cacheHeight: cacheSize,
-                          errorBuilder: (context, _, _) =>
-                              _Initials(name: association.displayName),
-                        ),
-                ),
+        AssociationLogo(
+          association: association,
+          size: 56,
+          initialsStyle: context.text.titleMedium,
         ),
         const SizedBox(width: CampusSpacing.x4),
         Expanded(
@@ -177,27 +155,6 @@ class _Identity extends StatelessWidget {
       ],
     );
   }
-}
-
-class _Initials extends StatelessWidget {
-  const _Initials({required this.name});
-
-  final String name;
-
-  @override
-  Widget build(BuildContext context) => Container(
-    alignment: Alignment.center,
-    decoration: BoxDecoration(
-      color: context.scheme.secondaryContainer,
-      borderRadius: CampusRadii.controlRadius,
-    ),
-    child: Text(
-      associationInitials(name),
-      style: context.text.titleMedium?.copyWith(
-        color: context.scheme.onSecondaryContainer,
-      ),
-    ),
-  );
 }
 
 /// The association's room, handed to the map tab the same way a course room is.
