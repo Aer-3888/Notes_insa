@@ -4,6 +4,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:notes_insa/core/time.dart';
 import 'package:notes_insa/modules/associations/association.dart';
 import 'package:notes_insa/modules/associations/association_follows.dart';
+import 'package:notes_insa/modules/associations/association_logo.dart';
 import 'package:notes_insa/modules/associations/association_service.dart';
 import 'package:notes_insa/modules/associations/associations_screen.dart';
 import 'package:notes_insa/modules/associations/associations_today_card.dart';

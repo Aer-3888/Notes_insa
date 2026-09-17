@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/time.dart';
+import '../../core/remote_image_cache.dart';
 import '../../theme/campus_context.dart';
 import '../../theme/state_view.dart';
 import '../../theme/tokens.dart';
@@ -199,21 +200,16 @@ class _AgendaEventCard extends StatelessWidget {
                   SizedBox(
                     width: 72,
                     height: 88,
-                    child: Image.network(
-                      coverUrl,
+                    child: Image(
+                      image: ResizeImage(
+                        CachedRemoteImage(coverUrl, storedSize: 384),
+                        width: coverWidth,
+                        height: coverHeight,
+                        policy: ResizeImagePolicy.fit,
+                        allowUpscaling: false,
+                      ),
                       fit: BoxFit.cover,
-                      cacheWidth: coverWidth,
-                      cacheHeight: coverHeight,
-                      filterQuality: FilterQuality.low,
                       errorBuilder: (context, _, _) => const SizedBox.shrink(),
-                    ),
-                  )
-                else
-                  Padding(
-                    padding: const EdgeInsets.all(CampusSpacing.x3),
-                    child: Icon(
-                      Icons.auto_awesome,
-                      color: context.scheme.secondary,
                     ),
                   ),
               ],
