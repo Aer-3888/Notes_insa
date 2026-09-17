@@ -123,6 +123,7 @@ class _Identity extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final asset = association.logoAsset;
+    final logoUrl = association.logoUrl;
     final summary = association.summary;
     return Row(
       crossAxisAlignment: CrossAxisAlignment.center,
@@ -130,16 +131,23 @@ class _Identity extends StatelessWidget {
         SizedBox(
           width: 56,
           height: 56,
-          child: asset == null
+          child: asset == null && logoUrl == null
               ? _Initials(name: association.displayName)
               : ClipRRect(
                   borderRadius: CampusRadii.controlRadius,
-                  child: Image.asset(
-                    asset,
-                    fit: BoxFit.cover,
-                    errorBuilder: (context, _, _) =>
-                        _Initials(name: association.displayName),
-                  ),
+                  child: asset != null
+                      ? Image.asset(
+                          asset,
+                          fit: BoxFit.cover,
+                          errorBuilder: (context, _, _) =>
+                              _Initials(name: association.displayName),
+                        )
+                      : Image.network(
+                          logoUrl!,
+                          fit: BoxFit.cover,
+                          errorBuilder: (context, _, _) =>
+                              _Initials(name: association.displayName),
+                        ),
                 ),
         ),
         const SizedBox(width: CampusSpacing.x4),

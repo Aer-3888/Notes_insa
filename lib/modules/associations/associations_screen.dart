@@ -10,8 +10,8 @@ import 'association_detail_screen.dart';
 import 'association_follows.dart';
 import 'association_service.dart';
 
-/// The directory. Followed associations are lifted to the top, because the
-/// reason to open this tab twice is to check on the ones you follow.
+/// Associations open on what is happening next. Discovery stays one tap away
+/// in Explorer, where followed associations are lifted to the top.
 class AssociationsScreen extends ConsumerStatefulWidget {
   const AssociationsScreen({super.key});
 
@@ -51,16 +51,6 @@ class _AssociationsScreenState extends ConsumerState<AssociationsScreen> {
       data: (all) => _body(all, follows),
     );
 
-    // One tab while there is nothing dated to show: an empty Agenda beside a
-    // full directory would read as something being broken.
-    final hasEvents = ref.watch(associationEventsProvider).isNotEmpty;
-    if (!hasEvents) {
-      return Scaffold(
-        appBar: AppBar(title: const Text('Associations')),
-        body: directory,
-      );
-    }
-
     return DefaultTabController(
       length: 2,
       child: Scaffold(
@@ -68,13 +58,13 @@ class _AssociationsScreenState extends ConsumerState<AssociationsScreen> {
           title: const Text('Associations'),
           bottom: const TabBar(
             tabs: <Widget>[
-              Tab(text: 'Annuaire'),
               Tab(text: 'Agenda'),
+              Tab(text: 'Explorer'),
             ],
           ),
         ),
         body: TabBarView(
-          children: <Widget>[directory, const AssociationAgenda()],
+          children: <Widget>[const AssociationAgenda(), directory],
         ),
       ),
     );
@@ -228,16 +218,25 @@ class _AssociationAvatar extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final asset = association.logoAsset;
-    if (asset != null) {
+    final logoUrl = association.logoUrl;
+    if (asset != null || logoUrl != null) {
       return ClipRRect(
         borderRadius: CampusRadii.controlRadius,
-        child: Image.asset(
-          asset,
-          width: size,
-          height: size,
-          fit: BoxFit.cover,
-          errorBuilder: (context, _, _) => _initials(context),
-        ),
+        child: asset != null
+            ? Image.asset(
+                asset,
+                width: size,
+                height: size,
+                fit: BoxFit.cover,
+                errorBuilder: (context, _, _) => _initials(context),
+              )
+            : Image.network(
+                logoUrl!,
+                width: size,
+                height: size,
+                fit: BoxFit.cover,
+                errorBuilder: (context, _, _) => _initials(context),
+              ),
       );
     }
     return _initials(context);

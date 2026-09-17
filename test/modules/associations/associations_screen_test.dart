@@ -52,6 +52,11 @@ Future<void> _pump(
   await tester.pumpAndSettle();
 }
 
+Future<void> _openExplorer(WidgetTester tester) async {
+  await tester.tap(find.text('Explorer'));
+  await tester.pumpAndSettle();
+}
+
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
   setUpAll(initCampusTime);
@@ -67,6 +72,7 @@ void main() {
           _asso(id: 'b', name: 'Basket', category: AssociationCategory.sport),
         ],
       );
+      await _openExplorer(tester);
       expect(find.text('Art, musique et médias'), findsOneWidget);
       expect(find.text('Sport'), findsOneWidget);
       expect(find.text('Arts'), findsOneWidget);
@@ -77,6 +83,7 @@ void main() {
       tester,
     ) async {
       await _pump(tester, const AssociationsScreen());
+      await _openExplorer(tester);
       expect(find.text('Bientôt'), findsOneWidget);
     });
 
@@ -91,6 +98,7 @@ void main() {
           _asso(id: 'b', name: 'Robotique'),
         ],
       );
+      await _openExplorer(tester);
       await tester.enterText(find.byType(TextField), 'robot');
       await tester.pumpAndSettle();
       expect(find.text('Robotique'), findsOneWidget);
@@ -107,6 +115,7 @@ void main() {
         const AssociationsScreen(),
         directory: <Association>[_asso(id: 'a', name: 'Théâtre')],
       );
+      await _openExplorer(tester);
       await tester.enterText(find.byType(TextField), 'theatre');
       await tester.pumpAndSettle();
       expect(find.text('Théâtre'), findsOneWidget);
@@ -122,6 +131,7 @@ void main() {
           _asso(id: 'a', name: 'Arts', category: AssociationCategory.culture),
         ],
       );
+      await _openExplorer(tester);
       expect(find.text('Suivies'), findsNothing);
 
       await tester.tap(find.byIcon(Icons.notifications_none));
@@ -276,22 +286,21 @@ void main() {
       ),
     ];
 
-    testWidgets('is absent while nothing is dated', (tester) async {
+    testWidgets('stays visible and explains an empty agenda', (tester) async {
       await _pump(
         tester,
         const AssociationsScreen(),
         directory: <Association>[_asso(id: 'a', name: 'Arts')],
       );
-      expect(find.text('Agenda'), findsNothing);
-      expect(find.byType(TabBar), findsNothing);
+      expect(find.text('Agenda'), findsOneWidget);
+      expect(find.byType(TabBar), findsOneWidget);
+      expect(find.text('Rien de prévu'), findsOneWidget);
     });
 
     testWidgets('appears as a tab once there is something on', (tester) async {
       await _pump(tester, const AssociationsScreen(), directory: withEvents());
       expect(find.text('Agenda'), findsOneWidget);
 
-      await tester.tap(find.text('Agenda'));
-      await tester.pumpAndSettle();
       expect(find.text('Vernissage'), findsOneWidget);
       expect(find.text('Tournoi'), findsOneWidget);
     });
@@ -301,8 +310,6 @@ void main() {
         AssociationFollowsNotifier.key: <String>['a'],
       });
       await _pump(tester, const AssociationsScreen(), directory: withEvents());
-      await tester.tap(find.text('Agenda'));
-      await tester.pumpAndSettle();
       expect(find.text('Tournoi'), findsOneWidget);
     });
 
@@ -311,9 +318,6 @@ void main() {
         AssociationFollowsNotifier.key: <String>['a'],
       });
       await _pump(tester, const AssociationsScreen(), directory: withEvents());
-      await tester.tap(find.text('Agenda'));
-      await tester.pumpAndSettle();
-
       await tester.tap(find.widgetWithText(FilterChip, 'Mes assos'));
       await tester.pumpAndSettle();
 
@@ -325,8 +329,6 @@ void main() {
       tester,
     ) async {
       await _pump(tester, const AssociationsScreen(), directory: withEvents());
-      await tester.tap(find.text('Agenda'));
-      await tester.pumpAndSettle();
       expect(find.byType(FilterChip), findsNothing);
     });
   });

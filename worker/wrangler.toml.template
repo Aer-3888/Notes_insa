@@ -25,6 +25,13 @@ id = "__ADE_KV_ID__"
 binding = "LAUNDRY_CACHE"
 id = "__LAUNDRY_KV_ID__"
 
+# One compact, public JSON document generated from D1 association content.
+# Create it with `wrangler kv namespace create ASSOCIATIONS` and keep its ID
+# out of application code.
+[[kv_namespaces]]
+binding = "ASSOCIATIONS"
+id = "__ASSOCIATIONS_KV_ID__"
+
 [triggers]
 crons = ["17 4 * * *"]
 
