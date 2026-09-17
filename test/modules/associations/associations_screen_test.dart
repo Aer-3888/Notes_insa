@@ -73,8 +73,14 @@ void main() {
         ],
       );
       await _openExplorer(tester);
-      expect(find.text('Art, musique et médias'), findsOneWidget);
-      expect(find.text('Sport'), findsOneWidget);
+      expect(
+        find.byKey(const Key('association-category-culture')),
+        findsOneWidget,
+      );
+      expect(
+        find.byKey(const Key('association-category-sport')),
+        findsOneWidget,
+      );
       expect(find.text('Arts'), findsOneWidget);
       expect(find.text('Basket'), findsOneWidget);
     });
@@ -138,7 +144,10 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(find.text('Suivies'), findsOneWidget);
-      expect(find.text('Art, musique et médias'), findsNothing);
+      expect(
+        find.byKey(const Key('association-category-culture')),
+        findsNothing,
+      );
     });
   });
 

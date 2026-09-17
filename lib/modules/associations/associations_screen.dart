@@ -21,6 +21,7 @@ class AssociationsScreen extends ConsumerStatefulWidget {
 
 class _AssociationsScreenState extends ConsumerState<AssociationsScreen> {
   final TextEditingController _query = TextEditingController();
+  AssociationCategory? _selectedCategory;
 
   @override
   void dispose() {
@@ -81,7 +82,12 @@ class _AssociationsScreenState extends ConsumerState<AssociationsScreen> {
       );
     }
 
-    final matches = all.where((a) => a.matches(_query.text)).toList();
+    final searchMatches = all.where((a) => a.matches(_query.text)).toList();
+    final matches = _selectedCategory == null
+        ? searchMatches
+        : searchMatches
+              .where((association) => association.category == _selectedCategory)
+              .toList();
     final followed = matches.where((a) => follows.contains(a.id)).toList();
     final rest = matches.where((a) => !follows.contains(a.id)).toList();
 
@@ -91,6 +97,15 @@ class _AssociationsScreenState extends ConsumerState<AssociationsScreen> {
           padding: const EdgeInsets.fromLTRB(
             CampusSpacing.gutter,
             CampusSpacing.x3,
+            CampusSpacing.gutter,
+            CampusSpacing.x2,
+          ),
+          sliver: SliverToBoxAdapter(child: _DirectoryHero(count: all.length)),
+        ),
+        SliverPadding(
+          padding: const EdgeInsets.fromLTRB(
+            CampusSpacing.gutter,
+            0,
             CampusSpacing.gutter,
             CampusSpacing.x2,
           ),
@@ -116,6 +131,39 @@ class _AssociationsScreenState extends ConsumerState<AssociationsScreen> {
             ),
           ),
         ),
+        SliverToBoxAdapter(
+          child: SizedBox(
+            height: 42,
+            child: ListView(
+              padding: const EdgeInsets.symmetric(
+                horizontal: CampusSpacing.gutter,
+              ),
+              scrollDirection: Axis.horizontal,
+              children: <Widget>[
+                Padding(
+                  padding: const EdgeInsets.only(right: CampusSpacing.x2),
+                  child: ChoiceChip(
+                    label: const Text('Tout'),
+                    selected: _selectedCategory == null,
+                    onSelected: (_) => setState(() => _selectedCategory = null),
+                  ),
+                ),
+                for (final category in AssociationCategory.values)
+                  if (searchMatches.any((a) => a.category == category))
+                    Padding(
+                      padding: const EdgeInsets.only(right: CampusSpacing.x2),
+                      child: ChoiceChip(
+                        label: Text(category.label),
+                        selected: _selectedCategory == category,
+                        onSelected: (selected) => setState(
+                          () => _selectedCategory = selected ? category : null,
+                        ),
+                      ),
+                    ),
+              ],
+            ),
+          ),
+        ),
         if (matches.isEmpty)
           const SliverFillRemaining(
             hasScrollBody: false,
@@ -132,7 +180,10 @@ class _AssociationsScreenState extends ConsumerState<AssociationsScreen> {
         for (final category in AssociationCategory.values)
           if (_inCategory(rest, category) case final group
               when group.isNotEmpty) ...<Widget>[
-            _header(category.label),
+            _header(
+              category.label,
+              key: Key('association-category-${category.name}'),
+            ),
             _list(group, follows),
           ],
         const SliverToBoxAdapter(child: SizedBox(height: CampusSpacing.x8)),
@@ -145,7 +196,7 @@ class _AssociationsScreenState extends ConsumerState<AssociationsScreen> {
     AssociationCategory category,
   ) => from.where((a) => a.category == category).toList();
 
-  Widget _header(String label) => SliverToBoxAdapter(
+  Widget _header(String label, {Key? key}) => SliverToBoxAdapter(
     child: Padding(
       padding: const EdgeInsets.fromLTRB(
         CampusSpacing.gutter,
@@ -155,6 +206,7 @@ class _AssociationsScreenState extends ConsumerState<AssociationsScreen> {
       ),
       child: Text(
         label,
+        key: key,
         style: context.text.labelLarge?.copyWith(
           color: context.scheme.onSurfaceVariant,
         ),
@@ -187,23 +239,94 @@ class _AssociationRow extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final summary = association.summary;
-    return ListTile(
-      onTap: onTap,
-      leading: _AssociationAvatar(association: association),
-      title: Text(association.name),
-      subtitle: summary == null
-          ? null
-          : Text(summary, maxLines: 2, overflow: TextOverflow.ellipsis),
-      trailing: IconButton(
-        icon: Icon(isFollowed ? Icons.notifications : Icons.notifications_none),
-        tooltip: isFollowed ? 'Ne plus suivre' : 'Suivre',
-        color: isFollowed ? context.scheme.primary : null,
-        onPressed: () => ref
-            .read(associationFollowsProvider.notifier)
-            .toggle(association.id),
+    return Padding(
+      padding: const EdgeInsets.symmetric(
+        horizontal: CampusSpacing.gutter,
+        vertical: CampusSpacing.x1,
+      ),
+      child: Card(
+        clipBehavior: Clip.antiAlias,
+        child: ListTile(
+          onTap: onTap,
+          contentPadding: const EdgeInsets.symmetric(
+            horizontal: CampusSpacing.x3,
+            vertical: CampusSpacing.x1,
+          ),
+          leading: _AssociationAvatar(association: association),
+          title: Text(association.name),
+          subtitle: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: <Widget>[
+              const SizedBox(height: CampusSpacing.x1),
+              Text(
+                association.category.label,
+                style: context.text.labelSmall?.copyWith(
+                  color: context.scheme.primary,
+                ),
+              ),
+              if (summary != null)
+                Text(summary, maxLines: 2, overflow: TextOverflow.ellipsis),
+            ],
+          ),
+          trailing: IconButton(
+            icon: Icon(
+              isFollowed
+                  ? Icons.notifications_active
+                  : Icons.notifications_none,
+            ),
+            tooltip: isFollowed ? 'Ne plus suivre' : 'Suivre',
+            color: isFollowed ? context.scheme.primary : null,
+            onPressed: () => ref
+                .read(associationFollowsProvider.notifier)
+                .toggle(association.id),
+          ),
+        ),
       ),
     );
   }
+}
+
+class _DirectoryHero extends StatelessWidget {
+  const _DirectoryHero({required this.count});
+
+  final int count;
+
+  @override
+  Widget build(BuildContext context) => Container(
+    padding: const EdgeInsets.all(CampusSpacing.x4),
+    decoration: BoxDecoration(
+      gradient: LinearGradient(
+        colors: <Color>[
+          context.scheme.primaryContainer,
+          context.scheme.tertiaryContainer,
+        ],
+      ),
+      borderRadius: CampusRadii.cardRadius,
+    ),
+    child: Row(
+      children: <Widget>[
+        Icon(
+          Icons.local_activity_outlined,
+          color: context.scheme.onPrimaryContainer,
+          size: 34,
+        ),
+        const SizedBox(width: CampusSpacing.x3),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: <Widget>[
+              Text('Trouve ton collectif', style: context.text.titleMedium),
+              const SizedBox(height: CampusSpacing.x1),
+              Text(
+                '$count associations, clubs et projets à découvrir.',
+                style: context.text.bodyMedium,
+              ),
+            ],
+          ),
+        ),
+      ],
+    ),
+  );
 }
 
 /// The logo when there is one, its initials until then. Most associations will
