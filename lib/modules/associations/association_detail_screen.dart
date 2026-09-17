@@ -125,6 +125,7 @@ class _Identity extends StatelessWidget {
     final asset = association.logoAsset;
     final logoUrl = association.logoUrl;
     final summary = association.summary;
+    final cacheSize = (56 * MediaQuery.devicePixelRatioOf(context)).round();
     return Row(
       crossAxisAlignment: CrossAxisAlignment.center,
       children: <Widget>[
@@ -145,6 +146,8 @@ class _Identity extends StatelessWidget {
                       : Image.network(
                           logoUrl!,
                           fit: BoxFit.cover,
+                          cacheWidth: cacheSize,
+                          cacheHeight: cacheSize,
                           errorBuilder: (context, _, _) =>
                               _Initials(name: association.displayName),
                         ),
