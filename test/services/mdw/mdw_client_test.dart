@@ -55,6 +55,9 @@ class _FakeMdw {
   /// Every viewport range asked for, as (start, length).
   final List<({int length, int start})> ranges = <({int length, int start})>[];
 
+  /// Every RPC call received by the fake server.
+  final List<Map<String, dynamic>> allCalls = <Map<String, dynamic>>[];
+
   int _sync = 1;
   int _node = 1000;
 
@@ -123,6 +126,7 @@ class _FakeMdw {
   Map<String, dynamic> _respond(List<dynamic> rpc) {
     for (final Object? call in rpc) {
       if (call is! Map<String, dynamic>) continue;
+      allCalls.add(call);
 
       if (call['templateEventMethodName'] == 'setViewportRange') {
         final args = call['templateEventMethodArgs'] as List<dynamic>;
@@ -423,4 +427,67 @@ void main() {
       ]);
     },
   );
+
+  test(
+    'viewport widening does not emit confirmParentUpdate or duplicate opened-changed',
+    () async {
+      await start(modules: 30);
+      await mdw.openAllRows(0);
+
+      final openedChangedCalls = fake.allCalls
+          .where((call) => call['event'] == 'opened-changed')
+          .toList();
+      expect(openedChangedCalls, hasLength(1));
+
+      final confirmParentCalls = fake.allCalls
+          .where(
+            (call) => call['templateEventMethodName'] == 'confirmParentUpdate',
+          )
+          .toList();
+      expect(confirmParentCalls, isEmpty);
+
+      final confirmUpdateCalls = fake.allCalls
+          .where((call) => call['templateEventMethodName'] == 'confirmUpdate')
+          .toList();
+      expect(confirmUpdateCalls, isNotEmpty);
+    },
+  );
+
+  test('child range requests only confirm requested keys', () async {
+    await start(modules: 4, lazy: <String>{'s1'});
+    await mdw.openAllRows(0);
+
+    final confirmParentCalls = fake.allCalls
+        .where(
+          (call) => call['templateEventMethodName'] == 'confirmParentUpdate',
+        )
+        .toList();
+    expect(confirmParentCalls, isNotEmpty);
+    final confirmedKeys = confirmParentCalls
+        .map((call) => (call['templateEventMethodArgs'] as List<dynamic>)[1])
+        .toSet();
+    expect(confirmedKeys, <String>{'s1'});
+  });
+
+  test('closeGrades resets state even if session send throws', () async {
+    await start(modules: 4);
+    await mdw.openAllRows(0);
+    expect(mdw.openedGroup, isNot(0));
+    expect(mdw.gridNode, isNot(0));
+
+    // Close the fake server to force a connection failure
+    await fake.close();
+
+    try {
+      await mdw.closeGrades();
+    } catch (_) {}
+
+    expect(mdw.openedGroup, 0);
+    expect(mdw.gridNode, 0);
+    expect(mdw.dialogNode, 0);
+    expect(mdw.closeButtonNode, 0);
+    expect(mdw.rangeMethod, isEmpty);
+    expect(mdw.childRangeMethod, isEmpty);
+    expect(mdw.canConfirmParentUpdate, isFalse);
+  });
 }

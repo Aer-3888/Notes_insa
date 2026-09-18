@@ -84,23 +84,61 @@ class CoefficientsService {
   /// loadGroups() again.
   static Future<void> fetchAndCacheFromApi(
     String gradesJson,
-    int groupCount,
-  ) async {
+    int groupCount, {
+    bool Function()? isCancelled,
+  }) async {
     try {
-      final api = await _fetchFromApi(groupCount);
-      if (api == null || api.isEmpty) return;
-
       final gradesData = JsonCurriculumParser.tryDecode(gradesJson);
       if (gradesData == null) return;
 
       final availableSems =
-          api.keys.map((k) => int.tryParse(k)).whereType<int>().toList()
-            ..sort();
+          JsonCurriculumParser.getAvailableSemesters(gradesData);
       if (availableSems.isEmpty) return;
       final maxSem = availableSems.last;
       final baseline = await AveragesService.loadAcademicYearBaseline();
 
+      // Check whether Tier 1 (local cache) or Tier 2 (Cloudflare) already has
+      // the coefficients for all real departments across available semesters.
+      var allCovered = true;
+      for (final semNum in availableSems) {
+        if (isCancelled?.call() == true) return;
+        final department = JsonCurriculumParser.getDepartmentForSemester(
+          gradesData,
+          semNum,
+        );
+        if (!isRealDepartment(department)) continue;
+
+        final academicYear = AveragesService.academicYearForSemester(
+          semNum,
+          maxSem,
+          baseline,
+        );
+
+        final coeffs = await fetch(
+          department: department,
+          semester: semNum,
+          academicYear: academicYear,
+        );
+        if (coeffs.isEmpty) {
+          allCovered = false;
+        }
+      }
+
+      if (allCovered) {
+        if (kDebugMode) {
+          debugPrint(
+            '[Coefficients] All $availableSems semesters covered by cache/remote. '
+            'Skipping MDW scraping.',
+          );
+        }
+        return;
+      }
+
+      final api = await _fetchFromApi(groupCount, isCancelled: isCancelled);
+      if (api == null || api.isEmpty || (isCancelled?.call() ?? false)) return;
+
       for (final entry in api.entries) {
+        if (isCancelled?.call() == true) return;
         final semNum = int.tryParse(entry.key);
         if (semNum == null || entry.value.isEmpty) continue;
 
@@ -275,16 +313,22 @@ class CoefficientsService {
   // ── Tier 3: MDW coefficient dialogs ──────────────────────────────────────
 
   static Future<Map<String, Map<String, double>>?> _fetchFromApi(
-    int groupCount,
-  ) async {
+    int groupCount, {
+    bool Function()? isCancelled,
+  }) async {
     try {
       if (groupCount <= 0) return null;
 
       final allCoeffs = <String, Map<String, double>>{};
 
       for (int i = 0; i < groupCount; i++) {
+        if (isCancelled?.call() == true) break;
         try {
-          final raw = await GradesService.coefficients(i);
+          final raw = await GradesService.coefficients(
+            i,
+            isCancelled: isCancelled,
+          );
+          if (isCancelled?.call() == true) break;
           if (kDebugMode) {
             debugPrint(
               '[Coefficients] id=$i SUCCESS: '

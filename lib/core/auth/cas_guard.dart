@@ -21,6 +21,7 @@ class CasGuard extends ConsumerWidget {
     return ref
         .watch(hasCredentialsProvider)
         .when(
+          skipLoadingOnReload: false,
           loading: () => const SplashScreen(),
           error: (_, _) => const OnboardingScreen(),
           data: (hasCreds) => hasCreds ? child : const OnboardingScreen(),

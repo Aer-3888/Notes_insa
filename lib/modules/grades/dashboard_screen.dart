@@ -222,7 +222,11 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen>
           next.error == null) {
         _trySubmitGrades();
         _maybePromptSharingConsent();
-        ref.invalidate(coefficientsProvider);
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (mounted) {
+            ref.invalidate(coefficientsProvider);
+          }
+        });
       }
 
       // Reactively show or hide the 2FA banner
@@ -233,15 +237,18 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen>
       }
     });
 
+    final gradesState = ref.watch(gradesProvider);
+    if (gradesState.authStatus == AuthStatus.loggingOut) {
+      return const SizedBox.shrink();
+    }
+
+    final decodedGrades = ref.watch(decodedGradesProvider);
+    final availableSemesters = ref.watch(availableSemestersProvider);
+    final effectiveSemester = ref.watch(effectiveSemesterProvider);
     final departmentName = ref.watch(departmentNameProvider);
     final curriculum = ref.watch(curriculumProvider);
     final semesterAverage = ref.watch(semesterAverageProvider);
-    final effectiveSemester = ref.watch(effectiveSemesterProvider);
-    final gradesState = ref.watch(gradesProvider);
-    final decodedGrades = ref.watch(decodedGradesProvider);
-
     final academicYear = ref.watch(academicYearProvider);
-    final availableSemesters = ref.watch(availableSemestersProvider);
 
     // Pre-fetch coefficients for every semester so switching semesters
     // doesn't briefly show unweighted (1.0) averages while they load.
