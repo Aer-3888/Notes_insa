@@ -53,6 +53,7 @@ class ScheduleTimeline extends StatelessWidget {
     required this.index,
     required this.controller,
     this.now,
+    this.onTapEvent,
     super.key,
   });
 
@@ -61,6 +62,9 @@ class ScheduleTimeline extends StatelessWidget {
 
   /// Campus-local now. Null in tests that do not exercise the now treatment.
   final DateTime? now;
+
+  /// Called when an event row is tapped.
+  final ValueChanged<ScheduleEvent>? onTapEvent;
 
   @override
   Widget build(BuildContext context) {
@@ -81,6 +85,7 @@ class ScheduleTimeline extends StatelessWidget {
     ScheduleRowKind.event => ScheduleEventRow(
       event: row.event!,
       inProgress: _nowFallsIn(row.event!.start, row.event!.end),
+      onTap: onTapEvent != null ? () => onTapEvent!(row.event!) : null,
     ),
     ScheduleRowKind.gap => _GapRow(
       from: row.from!,
@@ -136,6 +141,7 @@ class ScheduleEventRow extends StatelessWidget {
   const ScheduleEventRow({
     required this.event,
     this.inProgress = false,
+    this.onTap,
     super.key,
   });
 
@@ -144,6 +150,9 @@ class ScheduleEventRow extends StatelessWidget {
   /// True when now falls inside this class. Shown beside the module name, not
   /// on a line of its own, so the row height never changes.
   final bool inProgress;
+
+  /// Optional callback when the row is tapped.
+  final VoidCallback? onTap;
 
   @override
   Widget build(BuildContext context) {
@@ -158,7 +167,7 @@ class ScheduleEventRow extends StatelessWidget {
       fallback: scheme.outlineVariant,
     );
 
-    return Padding(
+    final rowContent = Padding(
       padding: const EdgeInsets.symmetric(
         horizontal: CampusSpacing.gutter,
         vertical: CampusSpacing.x2,
@@ -237,6 +246,13 @@ class ScheduleEventRow extends StatelessWidget {
           ),
         ],
       ),
+    );
+
+    if (onTap == null) return rowContent;
+
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(onTap: onTap, child: rowContent),
     );
   }
 }

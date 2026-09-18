@@ -6,7 +6,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:notes_insa/core/time.dart';
 import 'package:notes_insa/modules/schedule/schedule_event.dart';
-import 'package:notes_insa/modules/schedule/schedule_focus.dart';
 import 'package:notes_insa/modules/schedule/schedule_provider.dart';
 import 'package:notes_insa/shell/home_hub_screen.dart';
 import 'package:notes_insa/theme/campus_theme.dart';
@@ -33,7 +32,7 @@ ScheduleEvent _at(Duration fromNow, {required String title}) {
 void main() {
   setUpAll(initCampusTime);
 
-  testWidgets('tapping a preview session opens it in the timetable tab', (
+  testWidgets('tapping a preview session opens the event sheet in-place', (
     tester,
   ) async {
     await _loadCampusFont();
@@ -62,9 +61,15 @@ void main() {
     await tester.pump();
 
     await tester.tap(find.text('Algèbre'));
-    await tester.pump();
+    await tester.pumpAndSettle();
 
-    expect(opened, <String>[kScheduleModuleId]);
-    expect(container.read(scheduleFocusProvider)?.event, same(event));
+    expect(find.byType(BottomSheet), findsOneWidget);
+    expect(
+      find.descendant(
+        of: find.byType(BottomSheet),
+        matching: find.text('Amphi C'),
+      ),
+      findsOneWidget,
+    );
   });
 }

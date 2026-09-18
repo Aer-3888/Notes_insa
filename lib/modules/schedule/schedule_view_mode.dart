@@ -37,7 +37,7 @@ class ScheduleViewModeNotifier extends Notifier<ScheduleViewMode> {
   @override
   ScheduleViewMode build() {
     unawaited(_restore());
-    return ScheduleViewMode.liste;
+    return ScheduleViewMode.jour;
   }
 
   Future<void> _restore() async {

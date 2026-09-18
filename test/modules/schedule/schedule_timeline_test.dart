@@ -154,6 +154,39 @@ void main() {
     await pump(tester, index);
     expect(tester.takeException(), isNull);
   });
+
+  testWidgets('tapping an event row reports its event', (tester) async {
+    final tapped = <ScheduleEvent>[];
+    final index = ScheduleDayIndex.build(
+      events: <ScheduleEvent>[
+        _event('Algèbre 3', DateTime(2026, 9, 7, 8), DateTime(2026, 9, 7, 10)),
+      ],
+      from: monday,
+      to: monday,
+    );
+    await loadCampusFont();
+    tester.view.physicalSize = const Size(1200, 2400);
+    tester.view.devicePixelRatio = 1.0;
+    addTearDown(tester.view.reset);
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: campusTheme(Brightness.light),
+        home: Scaffold(
+          body: ScheduleTimeline(
+            index: index,
+            controller: ScrollController(),
+            onTapEvent: tapped.add,
+          ),
+        ),
+      ),
+    );
+    await tester.pump();
+
+    await tester.tap(find.byType(ScheduleEventRow).first);
+    await tester.pump();
+
+    expect(tapped.single.title, 'Algèbre 3');
+  });
 }
 
 /// The default test font draws every glyph as a square of the font size, so a

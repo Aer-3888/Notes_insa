@@ -75,8 +75,11 @@ class _ScheduleScreenState extends ConsumerState<ScheduleScreen> {
   /// Liste derives `_day` from scroll position, so it moves by scrolling; the
   /// grids own `_day` and set it. Every day change goes through here.
   void _goTo(DateTime day) {
-    final target = _clampToRange(DateTime(day.year, day.month, day.day));
-    if (ref.read(scheduleViewModeProvider) != ScheduleViewMode.liste) {
+    final mode = ref.read(scheduleViewModeProvider);
+    final target = mode == ScheduleViewMode.liste
+        ? _clampToRange(DateTime(day.year, day.month, day.day))
+        : DateTime(day.year, day.month, day.day);
+    if (mode != ScheduleViewMode.liste) {
       setState(() => _day = target);
       return;
     }
@@ -177,6 +180,15 @@ class _ScheduleScreenState extends ConsumerState<ScheduleScreen> {
       WidgetsBinding.instance.addPostFrameCallback((_) => _consumeFocus());
     });
     ref.listen<int>(scheduleTodayRequestProvider, (_, _) => _goTo(_today()));
+    ref.listen<ScheduleViewMode>(scheduleViewModeProvider, (_, next) {
+      if (next == ScheduleViewMode.liste) {
+        if (_day.isBefore(_rangeStart)) {
+          _goTo(_rangeStart);
+        } else if (_day.isAfter(_rangeEnd)) {
+          _goTo(_rangeEnd);
+        }
+      }
+    });
 
     return Scaffold(
       appBar: AppBar(
@@ -320,6 +332,7 @@ class _ScheduleScreenState extends ConsumerState<ScheduleScreen> {
                     showStrip: mode.showsStrip && showStrip,
                     onDayTap: _goTo,
                     onShiftPeriod: _shiftPeriod,
+                    onTapEvent: (e) => showEventSheet(context, e),
                   ),
                 };
                 return Column(
@@ -349,6 +362,7 @@ class _DayView extends StatelessWidget {
     required this.showStrip,
     required this.onDayTap,
     required this.onShiftPeriod,
+    required this.onTapEvent,
   });
 
   final CachedEntry<List<ScheduleEvent>> entry;
@@ -358,6 +372,7 @@ class _DayView extends StatelessWidget {
   final bool showStrip;
   final ValueChanged<DateTime> onDayTap;
   final ValueChanged<int> onShiftPeriod;
+  final ValueChanged<ScheduleEvent> onTapEvent;
 
   @override
   Widget build(BuildContext context) {
@@ -384,6 +399,7 @@ class _DayView extends StatelessWidget {
             index: index,
             controller: controller,
             now: campusNow(),
+            onTapEvent: onTapEvent,
           ),
         ),
         Padding(
@@ -400,7 +416,7 @@ class _DayView extends StatelessWidget {
   }
 }
 
-class _GridView extends StatelessWidget {
+class _GridView extends StatefulWidget {
   const _GridView({
     required this.entry,
     required this.mode,
@@ -430,38 +446,99 @@ class _GridView extends StatelessWidget {
   final double minColumnWidth;
 
   @override
+  State<_GridView> createState() => _GridViewState();
+}
+
+class _GridViewState extends State<_GridView> {
+  late final ValueNotifier<double> _sharedVerticalOffset;
+  bool _initialized = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _sharedVerticalOffset = ValueNotifier<double>(0.0);
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (!_initialized) {
+      _initialized = true;
+      final scale = MediaQuery.textScalerOf(context).scale(1);
+      final hourHeight = 64.0 * scale;
+      final now = campusNow();
+      _sharedVerticalOffset.value = calculateInitialGridScrollOffset(
+        day: widget.day,
+        now: now,
+        index: widget.index,
+        days: widget.days,
+        hourHeight: hourHeight,
+      );
+    }
+  }
+
+  @override
+  void didUpdateWidget(covariant _GridView oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    final now = campusNow();
+    final wasToday = _isToday(oldWidget.day, now);
+    final isNowToday = _isToday(widget.day, now);
+    if (!wasToday && isNowToday) {
+      final scale = MediaQuery.textScalerOf(context).scale(1);
+      final hourHeight = 64.0 * scale;
+      _sharedVerticalOffset.value = calculateInitialGridScrollOffset(
+        day: widget.day,
+        now: now,
+        index: widget.index,
+        days: widget.days,
+        hourHeight: hourHeight,
+      );
+    }
+  }
+
+  static bool _isToday(DateTime day, DateTime now) =>
+      day.year == now.year && day.month == now.month && day.day == now.day;
+
+  @override
+  void dispose() {
+    _sharedVerticalOffset.dispose();
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
     return Column(
       children: [
-        if (showStrip)
+        if (widget.showStrip)
           WeekStrip(
-            index: index,
-            weekOf: day,
-            currentDay: day,
+            index: widget.index,
+            weekOf: widget.day,
+            currentDay: widget.day,
             today: campusNow(),
-            onDayTap: onDayTap,
+            onDayTap: widget.onDayTap,
           ),
         Expanded(
           child: _PeriodPager(
-            key: ValueKey<ScheduleViewMode>(mode),
-            mode: mode,
-            day: day,
-            rangeStart: rangeStart,
-            rangeEnd: rangeEnd,
-            onPageChanged: onDayTap,
+            key: ValueKey<ScheduleViewMode>(widget.mode),
+            mode: widget.mode,
+            day: widget.day,
+            rangeStart: widget.rangeStart,
+            rangeEnd: widget.rangeEnd,
+            onPageChanged: widget.onDayTap,
             itemBuilder: (context, pageDay) => ScheduleGrid(
-              index: index,
+              index: widget.index,
               days: _daysFor(pageDay),
               now: campusNow(),
-              onTapEvent: onTapEvent,
-              minColumnWidth: minColumnWidth,
+              onTapEvent: widget.onTapEvent,
+              minColumnWidth: widget.minColumnWidth,
+              verticalOffsetNotifier: _sharedVerticalOffset,
             ),
           ),
         ),
         Padding(
           padding: const EdgeInsets.symmetric(vertical: CampusSpacing.x2),
           child: Text(
-            scheduleFreshnessLabel(entry),
+            scheduleFreshnessLabel(widget.entry),
             style: context.text.labelMedium?.copyWith(
               color: context.scheme.onSurfaceVariant,
             ),
@@ -472,7 +549,7 @@ class _GridView extends StatelessWidget {
   }
 
   List<DateTime> _daysFor(DateTime pageDay) {
-    final start = mode == ScheduleViewMode.semaine
+    final start = widget.mode == ScheduleViewMode.semaine
         ? DateTime(
             pageDay.year,
             pageDay.month,
@@ -480,7 +557,7 @@ class _GridView extends StatelessWidget {
           )
         : pageDay;
     return <DateTime>[
-      for (var i = 0; i < mode.dayColumns; i++)
+      for (var i = 0; i < widget.mode.dayColumns; i++)
         DateTime(start.year, start.month, start.day + i),
     ];
   }
@@ -621,25 +698,33 @@ class _PeriodPageWindow {
     final offset = switch (mode) {
       ScheduleViewMode.mois =>
         (day.year - anchor.year) * 12 + day.month - anchor.month,
-      ScheduleViewMode.jour => day.difference(anchor).inDays,
+      ScheduleViewMode.jour => _daysBetween(anchor, day),
       ScheduleViewMode.troisJours =>
-        day.difference(anchor).inDays ~/ ScheduleViewMode.troisJours.dayColumns,
-      ScheduleViewMode.semaine => day.difference(anchor).inDays ~/ 7,
+        _daysBetween(anchor, day) ~/ ScheduleViewMode.troisJours.dayColumns,
+      ScheduleViewMode.semaine => _daysBetween(anchor, day) ~/ 7,
       ScheduleViewMode.liste => 0,
     };
     return offset.clamp(_firstOffset, _lastOffset) - _firstOffset;
   }
+
+  static int _daysBetween(DateTime from, DateTime to) => DateTime.utc(
+    to.year,
+    to.month,
+    to.day,
+  ).difference(DateTime.utc(from.year, from.month, from.day)).inDays;
 
   static int _firstOffsetFor(
     ScheduleViewMode mode,
     DateTime anchor,
     DateTime rangeStart,
   ) {
-    var offset = 0;
-    while (!shiftPeriod(mode, anchor, offset - 1).isBefore(rangeStart)) {
-      offset--;
-    }
-    return offset;
+    return switch (mode) {
+      ScheduleViewMode.mois => -1200,
+      ScheduleViewMode.jour => -365,
+      ScheduleViewMode.troisJours => -120,
+      ScheduleViewMode.semaine => -52,
+      ScheduleViewMode.liste => 0,
+    };
   }
 
   static int _lastOffsetFor(
@@ -647,6 +732,7 @@ class _PeriodPageWindow {
     DateTime anchor,
     DateTime rangeEnd,
   ) {
+    if (mode == ScheduleViewMode.mois) return 1200;
     var offset = 0;
     while (!shiftPeriod(mode, anchor, offset + 1).isAfter(rangeEnd)) {
       offset++;

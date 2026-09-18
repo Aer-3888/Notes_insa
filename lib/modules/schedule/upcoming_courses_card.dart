@@ -79,13 +79,12 @@ class UpcomingCoursesCard extends ConsumerWidget {
     }
     final event = row.event!;
     final now = campusNow();
-    final child = ScheduleEventRow(
+    final open = onOpenEvent;
+    return ScheduleEventRow(
       event: event,
       inProgress: !now.isBefore(event.start) && now.isBefore(event.end),
+      onTap: open != null ? () => open(event) : null,
     );
-    final open = onOpenEvent;
-    if (open == null) return child;
-    return InkWell(onTap: () => open(event), child: child);
   }
 
   static bool _isSameDay(DateTime a, DateTime b) =>

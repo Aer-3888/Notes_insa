@@ -159,4 +159,46 @@ void main() {
       greaterThanOrEqualTo(48),
     );
   });
+
+  testWidgets('renders all 24 hours in the gutter from 00 to 23', (
+    tester,
+  ) async {
+    await pump(tester, days: <DateTime>[DateTime(2026, 9, 12)]);
+    expect(find.text('00'), findsOneWidget);
+    expect(find.text('08'), findsOneWidget);
+    expect(find.text('12'), findsOneWidget);
+    expect(find.text('23'), findsOneWidget);
+  });
+
+  testWidgets('synchronizes vertical offset from notifier', (tester) async {
+    final notifier = ValueNotifier<double>(200.0);
+    tester.view.physicalSize = const Size(384, 800);
+    tester.view.devicePixelRatio = 1.0;
+    addTearDown(tester.view.reset);
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: campusTheme(Brightness.light),
+        home: Scaffold(
+          body: ScheduleGrid(
+            index: index(),
+            days: <DateTime>[monday],
+            onTapEvent: (_) {},
+            verticalOffsetNotifier: notifier,
+          ),
+        ),
+      ),
+    );
+    await tester.pump();
+
+    final scrollable = tester.state<ScrollableState>(
+      find.byWidgetPredicate(
+        (w) => w is Scrollable && w.axisDirection == AxisDirection.down,
+      ),
+    );
+    expect(scrollable.position.pixels, 200.0);
+
+    notifier.value = 400.0;
+    await tester.pump();
+    expect(scrollable.position.pixels, 400.0);
+  });
 }

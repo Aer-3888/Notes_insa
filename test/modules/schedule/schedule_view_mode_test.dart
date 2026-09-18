@@ -32,10 +32,10 @@ void main() {
     expect(ScheduleViewMode.mois.showsStrip, isFalse);
   });
 
-  test('defaults to Liste, which is what shipped before modes existed', () {
+  test('defaults to Jour', () {
     final container = ProviderContainer();
     addTearDown(container.dispose);
-    expect(container.read(scheduleViewModeProvider), ScheduleViewMode.liste);
+    expect(container.read(scheduleViewModeProvider), ScheduleViewMode.jour);
   });
 
   test('a chosen mode is written to preferences', () async {
@@ -80,7 +80,7 @@ void main() {
     },
   );
 
-  test('an unknown stored value falls back to Liste', () async {
+  test('an unknown stored value falls back to Jour', () async {
     SharedPreferences.setMockInitialValues(<String, Object>{
       kScheduleViewModeKey: 'trimestre',
     });
@@ -88,7 +88,7 @@ void main() {
     addTearDown(container.dispose);
     container.read(scheduleViewModeProvider);
     await Future<void>.delayed(Duration.zero);
-    expect(container.read(scheduleViewModeProvider), ScheduleViewMode.liste);
+    expect(container.read(scheduleViewModeProvider), ScheduleViewMode.jour);
   });
 
   test('Liste starts without the strip and can be remembered on', () async {
