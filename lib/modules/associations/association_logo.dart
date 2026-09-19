@@ -1,67 +1,41 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/scheduler.dart';
 
 import '../../core/remote_image_cache.dart';
 import '../../theme/campus_context.dart';
 import '../../theme/tokens.dart';
 import 'association.dart';
 
-/// An association's logo in a fixed square, its initials until the image is
+final RegExp _words = RegExp(r'[\s-]+');
+final RegExp _startsWithLetter = RegExp(r'^\p{L}', unicode: true);
+
+/// An association's logo in a fixed avatar, its initials until the image is
 /// there. The slot keeps its size whatever it holds, so a directory never
 /// reflows as logos arrive.
-class AssociationLogo extends StatefulWidget {
+class AssociationLogo extends StatelessWidget {
   const AssociationLogo({
     required this.association,
     required this.size,
     this.initialsStyle,
+    this.shape = BoxShape.circle,
     super.key,
   });
 
   final Association association;
   final double size;
   final TextStyle? initialsStyle;
-
-  @override
-  State<AssociationLogo> createState() => _AssociationLogoState();
-}
-
-class _AssociationLogoState extends State<AssociationLogo> {
-  bool _deferred = false;
-
-  @override
-  void didChangeDependencies() {
-    super.didChangeDependencies();
-    final deferred = Scrollable.recommendDeferredLoadingForContext(context);
-    if (deferred == _deferred) return;
-    _deferred = deferred;
-    if (deferred) _recheckNextFrame();
-  }
-
-  /// The recommendation describes the fling happening right now, and nothing
-  /// rebuilds a row once that fling ends. Ask again every frame until the list
-  /// is calm, otherwise the initials shown mid-scroll would stay for good.
-  void _recheckNextFrame() {
-    SchedulerBinding.instance.scheduleFrameCallback((_) {
-      if (!mounted) return;
-      if (Scrollable.recommendDeferredLoadingForContext(context)) {
-        _recheckNextFrame();
-        return;
-      }
-      setState(() => _deferred = false);
-    });
-  }
+  final BoxShape shape;
 
   @override
   Widget build(BuildContext context) {
-    final asset = widget.association.logoAsset;
-    final logoUrl = widget.association.logoUrl;
-    if (asset == null && (logoUrl == null || _deferred)) {
-      return _slot(_initials());
+    final asset = association.logoAsset;
+    final logoUrl = association.logoUrl;
+    if (asset == null && logoUrl == null) {
+      return _slot(context, _initials(context));
     }
 
-    final pixels = (widget.size * MediaQuery.devicePixelRatioOf(context))
-        .round();
+    final pixels = (size * MediaQuery.devicePixelRatioOf(context)).round();
     return _slot(
+      context,
       Image(
         image: asset != null
             ? ResizeImage.resizeIfNeeded(pixels, pixels, AssetImage(asset))
@@ -72,30 +46,47 @@ class _AssociationLogoState extends State<AssociationLogo> {
                 policy: ResizeImagePolicy.fit,
                 allowUpscaling: false,
               ),
-        // Logos are wordmarks as often as marks. Cropping one to fill a square
-        // makes it unreadable, so the square holds it rather than the reverse.
+        // Logos are wordmarks as often as marks. Cropping one to fill a slot
+        // makes it unreadable, so the slot holds it rather than the reverse.
         fit: BoxFit.contain,
+        // ResizeImage already decodes at the drawn size, so mipmaps buy
+        // nothing here.
+        filterQuality: FilterQuality.low,
         frameBuilder: (context, child, frame, wasSynchronouslyLoaded) =>
-            wasSynchronouslyLoaded || frame != null ? child : _initials(),
-        errorBuilder: (context, _, _) => _initials(),
+            wasSynchronouslyLoaded || frame != null
+            ? child
+            : _initials(context),
+        errorBuilder: (context, _, _) => _initials(context),
       ),
+      // A baked logo carries its own inset. A remote one has not been through
+      // the baker, so the circle's corners need keeping clear.
+      inset: asset == null && shape == BoxShape.circle ? 2.0 : 0.0,
     );
   }
 
-  Widget _slot(Widget child) => Container(
-    width: widget.size,
-    height: widget.size,
-    alignment: Alignment.center,
-    decoration: BoxDecoration(
-      color: context.scheme.secondaryContainer,
-      borderRadius: CampusRadii.controlRadius,
-    ),
-    child: child,
-  );
+  Widget _slot(BuildContext context, Widget child, {double inset = 0.0}) =>
+      Container(
+        width: size,
+        height: size,
+        alignment: Alignment.center,
+        padding: EdgeInsets.all(inset),
+        clipBehavior: Clip.antiAlias,
+        decoration: BoxDecoration(
+          color: context.scheme.secondaryContainer,
+          shape: shape,
+          // Most logos carry their own background, white more often than not.
+          // Without this the slot has no edge against a light card.
+          border: Border.all(color: context.scheme.outlineVariant),
+          borderRadius: shape == BoxShape.rectangle
+              ? CampusRadii.controlRadius
+              : null,
+        ),
+        child: child,
+      );
 
-  Widget _initials() => Text(
-    associationInitials(widget.association.displayName),
-    style: (widget.initialsStyle ?? context.text.labelLarge)?.copyWith(
+  Widget _initials(BuildContext context) => Text(
+    associationInitials(association.displayName),
+    style: (initialsStyle ?? context.text.labelLarge)?.copyWith(
       color: context.scheme.onSecondaryContainer,
     ),
   );
@@ -104,10 +95,8 @@ class _AssociationLogoState extends State<AssociationLogo> {
 /// Up to two initials, from the first two words that start with a letter.
 String associationInitials(String name) {
   final words = name
-      .split(RegExp(r'[\s-]+'))
-      .where(
-        (w) => w.isNotEmpty && RegExp(r'^\p{L}', unicode: true).hasMatch(w),
-      )
+      .split(_words)
+      .where((w) => w.isNotEmpty && _startsWithLetter.hasMatch(w))
       .take(2);
   if (words.isEmpty) return '?';
   return words.map((w) => w.characters.first.toUpperCase()).join();

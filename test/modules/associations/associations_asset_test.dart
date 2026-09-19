@@ -1,14 +1,17 @@
 import 'dart:convert';
 import 'dart:io';
+import 'dart:ui' as ui;
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:notes_insa/modules/associations/association.dart';
 import 'package:notes_insa/core/time.dart';
+import 'package:notes_insa/modules/associations/association_logo_assets.dart';
 import 'package:notes_insa/modules/associations/association_service.dart';
 
 /// Guards the seed while it is filled in by hand. A row the app would silently
 /// drop fails here instead, naming the row.
 void main() {
+  TestWidgetsFlutterBinding.ensureInitialized();
   setUpAll(initCampusTime);
   final raw = File(Associations.assetPath).readAsStringSync();
   final decoded = jsonDecode(raw) as Map<String, dynamic>;
@@ -84,15 +87,92 @@ void main() {
   });
 
   test('a declared logo actually exists', () {
+    var checked = 0;
     for (final association in parsed) {
       final asset = association.logoAsset;
       if (asset == null) continue;
+      checked++;
       expect(
         File(asset).existsSync(),
         isTrue,
         reason: '${association.id} points at a missing $asset',
       );
     }
+    expect(checked, kBundledAssociationLogos.length);
+  });
+
+  test('every baked logo belongs to an association it was baked from', () {
+    final byId = <String, Association>{for (final a in parsed) a.id: a};
+    for (final entry in kBundledAssociationLogos.entries) {
+      final association = byId[entry.key];
+      expect(association, isNotNull, reason: '${entry.key} is not in the seed');
+      expect(
+        association!.logoUrl,
+        entry.value,
+        reason:
+            '${entry.key} was baked from a URL the seed no longer carries; '
+            're-run scripts/fetch_association_logos.py',
+      );
+    }
+  });
+
+  // The five the AEIR host does not serve. This list is what tells you when
+  // one of them comes back.
+  test('only the known-dead logo URLs have no bundled asset', () {
+    const dead = <String>{
+      'insaveur-biere',
+      'insavoyarde',
+      'secur-insa',
+      'solidar-insa',
+      'trombinoscope',
+    };
+    final without = <String>{
+      for (final a in parsed)
+        if (a.logoUrl != null && a.logoAsset == null) a.id,
+    };
+    expect(without, dead);
+  });
+
+  test('the baked assets are square, small, and all referenced', () async {
+    final directory = Directory('assets/images/associations');
+    final files = directory
+        .listSync()
+        .whereType<File>()
+        .where((f) => f.path.endsWith('.webp'))
+        .toList();
+
+    final named = <String>{
+      for (final f in files) f.uri.pathSegments.last.split('.').first,
+    };
+    expect(named, kBundledAssociationLogos.keys.toSet());
+
+    var total = 0;
+    for (final file in files) {
+      final bytes = file.readAsBytesSync();
+      total += bytes.length;
+      expect(
+        bytes.length,
+        lessThan(32 * 1024),
+        reason: '${file.path} is heavier than a logo needs to be',
+      );
+
+      // A slot that is not square draws a band across the circle, which is
+      // the defect the baker exists to remove.
+      final buffer = await ui.ImmutableBuffer.fromUint8List(bytes);
+      final descriptor = await ui.ImageDescriptor.encoded(buffer);
+      expect(
+        <int>[descriptor.width, descriptor.height],
+        <int>[192, 192],
+        reason: '${file.path} is not a 192 square',
+      );
+      buffer.dispose();
+    }
+    expect(total, lessThan(768 * 1024));
+  });
+
+  test('the asset directory is declared to the bundler', () {
+    final pubspec = File('pubspec.yaml').readAsStringSync();
+    expect(pubspec, contains('- assets/images/associations/'));
   });
 
   test('building codes are on the campus plan', () async {
