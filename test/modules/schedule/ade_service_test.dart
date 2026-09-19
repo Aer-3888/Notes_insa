@@ -1,5 +1,6 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:notes_insa/modules/schedule/ade_groups.dart';
+import 'package:notes_insa/modules/schedule/ade_tree.dart';
 import 'package:notes_insa/modules/schedule/ade_service.dart';
 
 void main() {
@@ -41,25 +42,25 @@ void main() {
     ];
 
     test('matches case-insensitively', () {
-      final hits = AdeGroups.search(groups, 's3-stpi-l');
+      final hits = AdeTree.search(groups, 's3-stpi-l');
       expect(hits.map((g) => g.id), <int>[1]);
     });
 
     test('matches on a partial fragment', () {
-      final hits = AdeGroups.search(groups, 'STPI');
+      final hits = AdeTree.search(groups, 'STPI');
       expect(hits.length, 3);
     });
 
     test('ignores accents so "Niveau" is findable either way', () {
-      expect(AdeGroups.search(groups, 'niveau').length, 1);
+      expect(AdeTree.search(groups, 'niveau').length, 1);
     });
 
     test('an empty query returns everything', () {
-      expect(AdeGroups.search(groups, '   ').length, groups.length);
+      expect(AdeTree.search(groups, '   ').length, groups.length);
     });
 
     test('an unmatched query returns nothing rather than throwing', () {
-      expect(AdeGroups.search(groups, 'zzzz'), isEmpty);
+      expect(AdeTree.search(groups, 'zzzz'), isEmpty);
     });
   });
 }

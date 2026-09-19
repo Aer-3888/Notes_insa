@@ -8,9 +8,10 @@ import '../modules/associations/association_reminders.dart';
 import '../modules/grades/grades_provider.dart';
 import '../modules/grades/grades_settings_screen.dart';
 import '../modules/grades/raw_json_viewer_screen.dart';
-import '../modules/schedule/group_picker_screen.dart';
 import '../modules/schedule/hidden_courses_provider.dart';
 import '../modules/schedule/hidden_courses_screen.dart';
+import '../modules/schedule/my_selection_screen.dart';
+import '../modules/schedule/resource_lookup_screen.dart';
 import '../modules/schedule/schedule_colors_screen.dart';
 import '../modules/schedule/schedule_view_mode.dart';
 import '../modules/schedule/schedule_width_screen.dart';
@@ -45,12 +46,23 @@ class AppSettingsScreen extends ConsumerWidget {
           const _SectionHeader('Emploi du temps'),
           ListTile(
             leading: const Icon(Icons.group_outlined),
-            title: const Text('Mes groupes'),
-            subtitle: const Text('Choisir les groupes affichés'),
+            title: const Text('Ma sélection'),
+            subtitle: const Text('Vos groupes et vos options'),
             trailing: const Icon(Icons.chevron_right),
             onTap: () => Navigator.of(context).push(
               MaterialPageRoute<void>(
-                builder: (_) => const GroupPickerScreen(),
+                builder: (_) => const MySelectionScreen(),
+              ),
+            ),
+          ),
+          ListTile(
+            leading: const Icon(Icons.meeting_room_outlined),
+            title: const Text('Salles et matières'),
+            subtitle: const Text('Consulter un planning sans s’y abonner'),
+            trailing: const Icon(Icons.chevron_right),
+            onTap: () => Navigator.of(context).push(
+              MaterialPageRoute<void>(
+                builder: (_) => const ResourceLookupScreen(),
               ),
             ),
           ),

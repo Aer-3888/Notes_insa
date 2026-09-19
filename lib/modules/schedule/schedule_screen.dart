@@ -9,10 +9,11 @@ import '../../core/time.dart';
 import '../../theme/campus_context.dart';
 import '../../theme/state_view.dart';
 import '../../theme/tokens.dart';
-import 'group_picker_screen.dart';
+import 'group_wizard/group_wizard_screen.dart';
 import 'hidden_courses_provider.dart';
 import 'hidden_courses_scope.dart';
 import 'hide_course_sheet.dart';
+import 'my_selection_screen.dart';
 import 'hide_rule.dart';
 import 'month_grid.dart';
 import 'schedule_day_index.dart';
@@ -267,10 +268,10 @@ class _ScheduleScreenState extends ConsumerState<ScheduleScreen> {
           IconButton(
             key: const ValueKey<String>('schedule-groups'),
             icon: const Icon(Icons.group_outlined),
-            tooltip: 'Changer de groupe',
+            tooltip: 'Ma sélection',
             onPressed: () => Navigator.of(context).push(
               MaterialPageRoute<void>(
-                builder: (_) => const GroupPickerScreen(),
+                builder: (_) => const MySelectionScreen(),
               ),
             ),
           ),
@@ -285,7 +286,7 @@ class _ScheduleScreenState extends ConsumerState<ScheduleScreen> {
               action: FilledButton(
                 onPressed: () => Navigator.of(context).push(
                   MaterialPageRoute<void>(
-                    builder: (_) => const GroupPickerScreen(),
+                    builder: (_) => const GroupWizardScreen(),
                   ),
                 ),
                 child: const Text('Choisir mon groupe'),

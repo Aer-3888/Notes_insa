@@ -307,7 +307,7 @@ void main() {
       tester,
     ) async {
       final container = await pump(tester);
-      final groups = find.byTooltip('Changer de groupe');
+      final groups = find.byTooltip('Ma sélection');
       final strip = find.byTooltip('Masquer l\'aperçu de la semaine');
       final groupsBefore = tester.getCenter(groups);
       final stripBefore = tester.getCenter(strip);
@@ -330,7 +330,7 @@ void main() {
       );
       expect(
         eye.dx,
-        lessThan(tester.getCenter(find.byTooltip('Changer de groupe')).dx),
+        lessThan(tester.getCenter(find.byTooltip('Ma sélection')).dx),
       );
       expect(
         eye.dx,
@@ -346,7 +346,7 @@ void main() {
       tester,
     ) async {
       final container = await pump(tester);
-      final groups = tester.element(find.byTooltip('Changer de groupe'));
+      final groups = tester.element(find.byTooltip('Ma sélection'));
       final strip = tester.element(
         find.byTooltip('Masquer l\'aperçu de la semaine'),
       );
@@ -354,7 +354,7 @@ void main() {
       await hide(container, HideRule.titleContains('anglais'));
       await tester.pumpAndSettle();
 
-      expect(tester.element(find.byTooltip('Changer de groupe')), groups);
+      expect(tester.element(find.byTooltip('Ma sélection')), groups);
       expect(
         tester.element(find.byTooltip('Masquer l\'aperçu de la semaine')),
         strip,
