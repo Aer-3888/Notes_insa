@@ -7,6 +7,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../../core/time.dart';
 import '../../services/notification_service.dart';
 import 'association.dart';
+import 'association_notification_permission.dart';
 import 'association_reminders.dart';
 import 'association_service.dart';
 
@@ -80,19 +81,56 @@ final associationReminderPlanProvider = Provider<List<AssociationReminder>>((
 ///
 /// Started by the shell. Riverpod hands it every change, so following an
 /// association reschedules immediately rather than at the next launch.
+abstract interface class AssociationReminderPlatform {
+  Future<void> schedule(List<AssociationReminder> reminders);
+  Future<void> cancel();
+}
+
+class _DeviceAssociationReminderPlatform
+    implements AssociationReminderPlatform {
+  @override
+  Future<void> schedule(List<AssociationReminder> reminders) =>
+      NotificationService.scheduleAssociationReminders(<
+        ({int id, DateTime fireAt, String title, String body, String payload})
+      >[
+        for (final reminder in reminders)
+          (
+            id: reminder.id,
+            fireAt: reminder.fireAt,
+            title: reminder.title,
+            body: reminder.body,
+            payload: reminder.payload,
+          ),
+      ]);
+
+  @override
+  Future<void> cancel() => NotificationService.cancelAssociationReminders();
+}
+
 class AssociationReminderScheduler {
-  AssociationReminderScheduler(this._container) {
-    _subscription = _container.listen<List<AssociationReminder>>(
+  AssociationReminderScheduler(
+    this._container, {
+    AssociationReminderPlatform? platform,
+  }) : _platform = platform ?? _DeviceAssociationReminderPlatform() {
+    _planSubscription = _container.listen<List<AssociationReminder>>(
       associationReminderPlanProvider,
-      (_, plan) => unawaited(_apply(plan)),
+      (_, _) => unawaited(_applyCurrentPlan()),
       fireImmediately: true,
     );
+    _permissionSubscription = _container
+        .listen<AsyncValue<NotificationPermissionState>>(
+          associationNotificationPermissionProvider,
+          (_, _) => unawaited(_applyCurrentPlan()),
+          fireImmediately: true,
+        );
   }
 
   final ProviderContainer _container;
-  late final ProviderSubscription<List<AssociationReminder>> _subscription;
+  final AssociationReminderPlatform _platform;
+  late final ProviderSubscription<List<AssociationReminder>> _planSubscription;
+  late final ProviderSubscription<AsyncValue<NotificationPermissionState>>
+  _permissionSubscription;
 
-  /// Serialised: two overlapping applies would race on cancel-then-schedule.
   Future<void> _inFlight = Future<void>.value();
 
   Future<void> _apply(List<AssociationReminder> plan) {
@@ -102,24 +140,30 @@ class AssociationReminderScheduler {
     return _inFlight;
   }
 
+  Future<void> _applyCurrentPlan() =>
+      _apply(_container.read(associationReminderPlanProvider));
+
   Future<void> _schedule(List<AssociationReminder> plan) async {
-    if (plan.isEmpty) {
-      await NotificationService.cancelAssociationReminders();
+    final permission = _container
+        .read(associationNotificationPermissionProvider)
+        .value;
+    if (permission?.isGranted != true || plan.isEmpty) {
+      await _platform.cancel();
       return;
     }
-    await NotificationService.scheduleAssociationReminders(
-      <({int id, DateTime fireAt, String title, String body, String payload})>[
-        for (final reminder in plan)
-          (
-            id: reminder.id,
-            fireAt: reminder.fireAt,
-            title: reminder.title,
-            body: reminder.body,
-            payload: reminder.payload,
-          ),
-      ],
-    );
+    await _platform.schedule(plan);
   }
 
-  void dispose() => _subscription.close();
+  Future<void> refreshPermission() async {
+    _container.invalidate(associationNotificationPermissionProvider);
+    await _container.read(associationNotificationPermissionProvider.future);
+    await _applyCurrentPlan();
+  }
+
+  Future<void> get idle => _inFlight;
+
+  void dispose() {
+    _planSubscription.close();
+    _permissionSubscription.close();
+  }
 }

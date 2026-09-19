@@ -4,17 +4,47 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:notes_insa/core/time.dart';
 import 'package:notes_insa/modules/associations/association.dart';
 import 'package:notes_insa/modules/associations/association_detail_screen.dart';
+import 'package:notes_insa/modules/associations/association_notification_permission.dart';
 import 'package:notes_insa/modules/associations/association_service.dart';
+import 'package:notes_insa/services/notification_service.dart';
 import 'package:notes_insa/theme/campus_theme.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
-Future<void> _pump(WidgetTester tester, Association association) async {
+class _FakePermissions implements NotificationPermissionGateway {
+  _FakePermissions(this.value);
+
+  NotificationPermissionState value;
+  var requests = 0;
+  var settingsOpened = 0;
+
+  @override
+  Future<void> openSettings() async {
+    settingsOpened++;
+  }
+
+  @override
+  Future<NotificationPermissionState> request() async {
+    requests++;
+    return value;
+  }
+
+  @override
+  Future<NotificationPermissionState> status() async => value;
+}
+
+Future<void> _pump(
+  WidgetTester tester,
+  Association association, {
+  NotificationPermissionGateway? permissions,
+}) async {
   await tester.pumpWidget(
     ProviderScope(
       overrides: [
         associationsProvider.overrideWith(
           (ref) async => <Association>[association],
         ),
+        if (permissions != null)
+          notificationPermissionGatewayProvider.overrideWithValue(permissions),
       ],
       child: MaterialApp(
         theme: campusTheme(Brightness.light),
@@ -71,5 +101,31 @@ void main() {
     expect(find.text('Maxime'), findsOneWidget);
     expect(find.text('Conseil d’administration'), findsOneWidget);
     expect(find.text('Mathys'), findsOneWidget);
+  });
+
+  testWidgets('asks once for reminders after the first follow', (tester) async {
+    final permissions = _FakePermissions(NotificationPermissionState.denied);
+    final association = Association(
+      id: 'a',
+      name: 'Arts',
+      category: AssociationCategory.culture,
+    );
+
+    await _pump(tester, association, permissions: permissions);
+    await tester.tap(find.text('Suivre'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Activer les rappels ?'), findsOneWidget);
+    await tester.tap(
+      find.descendant(
+        of: find.byType(AlertDialog),
+        matching: find.text('Activer'),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(permissions.requests, 1);
+    expect(find.text('Les rappels sont désactivés.'), findsOneWidget);
+    expect(find.text('Suivie'), findsOneWidget);
   });
 }

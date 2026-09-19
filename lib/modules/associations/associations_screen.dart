@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -8,6 +10,7 @@ import '../../theme/tokens.dart';
 import 'association.dart';
 import 'association_agenda.dart';
 import 'association_detail_screen.dart';
+import 'association_follow_action.dart';
 import 'association_follows.dart';
 import 'association_logo.dart';
 import 'association_service.dart';
@@ -41,7 +44,7 @@ class AssociationsScreen extends ConsumerWidget {
               all: all,
               follows: follows,
               onToggle: (id) =>
-                  ref.read(associationFollowsProvider.notifier).toggle(id),
+                  unawaited(toggleAssociationFollow(context, ref, id)),
             ),
     );
 
