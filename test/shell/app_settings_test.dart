@@ -42,6 +42,7 @@ void main() {
     tester,
   ) async {
     await pumpSettings(tester);
+    await tester.scrollUntilVisible(find.textContaining('À propos'), 200);
     expect(find.textContaining('À propos'), findsOneWidget);
   });
 

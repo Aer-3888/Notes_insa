@@ -1,5 +1,8 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:permission_handler/permission_handler.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../../core/campus_navigation.dart';
@@ -8,9 +11,13 @@ import '../../theme/campus_context.dart';
 import '../../theme/state_view.dart';
 import '../../theme/tokens.dart';
 import 'association.dart';
+import 'association_follow_action.dart';
 import 'association_follows.dart';
 import 'association_logo.dart';
+import 'association_notification_permission.dart';
 import 'association_organigram_screen.dart';
+import 'association_reminder_provider.dart';
+import 'association_reminders.dart';
 import 'association_service.dart';
 
 /// One association's page.
@@ -42,6 +49,8 @@ class AssociationDetailScreen extends ConsumerWidget {
 
     final follows = ref.watch(associationFollowsProvider);
     final isFollowed = follows.contains(association.id);
+    final reminderLead = ref.watch(associationReminderLeadProvider);
+    final permission = ref.watch(associationNotificationPermissionProvider);
     final now = campusNow();
     final upcoming = association.upcoming(now);
     final past = association.past(now);
@@ -59,9 +68,9 @@ class AssociationDetailScreen extends ConsumerWidget {
           _Identity(association: association),
           const SizedBox(height: CampusSpacing.x5),
           FilledButton.tonalIcon(
-            onPressed: () => ref
-                .read(associationFollowsProvider.notifier)
-                .toggle(association.id),
+            onPressed: () => unawaited(
+              toggleAssociationFollow(context, ref, association.id),
+            ),
             icon: Icon(
               isFollowed
                   ? Icons.notifications_active
@@ -77,6 +86,15 @@ class AssociationDetailScreen extends ConsumerWidget {
                 style: context.text.bodySmall?.copyWith(
                   color: context.scheme.onSurfaceVariant,
                 ),
+              ),
+            ),
+          if (isFollowed &&
+              reminderLead != AssociationReminderLead.off &&
+              permission.value?.isGranted == false)
+            Padding(
+              padding: const EdgeInsets.only(top: CampusSpacing.x2),
+              child: _ReminderDisabled(
+                onOpenSettings: () => unawaited(openAppSettings()),
               ),
             ),
           if (association.description case final description?) ...<Widget>[
@@ -122,6 +140,29 @@ class AssociationDetailScreen extends ConsumerWidget {
       ),
     );
   }
+}
+
+class _ReminderDisabled extends StatelessWidget {
+  const _ReminderDisabled({required this.onOpenSettings});
+
+  final VoidCallback onOpenSettings;
+
+  @override
+  Widget build(BuildContext context) => Card(
+    child: Padding(
+      padding: const EdgeInsets.all(CampusSpacing.x3),
+      child: Row(
+        children: <Widget>[
+          const Icon(Icons.notifications_off_outlined),
+          const SizedBox(width: CampusSpacing.x3),
+          Expanded(
+            child: Text('Rappels désactivés', style: context.text.bodyMedium),
+          ),
+          TextButton(onPressed: onOpenSettings, child: const Text('Activer')),
+        ],
+      ),
+    ),
+  );
 }
 
 class _OrganigramEntry extends StatelessWidget {

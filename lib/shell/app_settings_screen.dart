@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../modules/associations/association_notification_help_screen.dart';
 import '../modules/associations/association_reminder_provider.dart';
 import '../modules/associations/association_reminders.dart';
 import '../modules/grades/grades_provider.dart';
@@ -125,6 +126,17 @@ class AppSettingsScreen extends ConsumerWidget {
                 ref
                     .read(associationReminderLeadProvider.notifier)
                     .set(selection.first),
+              ),
+            ),
+          ),
+          ListTile(
+            leading: const Icon(Icons.help_outline),
+            title: const Text('Rappels non reçus ou en retard ?'),
+            subtitle: const Text('Aide pour les notifications et la batterie'),
+            trailing: const Icon(Icons.chevron_right),
+            onTap: () => Navigator.of(context).push(
+              MaterialPageRoute<void>(
+                builder: (_) => const AssociationNotificationHelpScreen(),
               ),
             ),
           ),
