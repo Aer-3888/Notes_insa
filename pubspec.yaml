@@ -105,6 +105,7 @@ flutter:
     - assets/data/campus_places.json
     - assets/data/campus_geo.json
     - assets/data/associations.json
+    - assets/images/associations/
 
   fonts:
     - family: PublicSans
