@@ -5,6 +5,7 @@ import 'package:notes_insa/core/search_text.dart';
 import 'package:notes_insa/core/time.dart';
 import 'package:notes_insa/modules/associations/association.dart';
 import 'package:notes_insa/modules/associations/association_service.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 Map<String, Object?> _row({
   Object? id = 'ktulu',
@@ -125,6 +126,24 @@ void main() {
     );
   });
 
+  test('recruitment is shown only when the feed explicitly opens it', () {
+    final association = Association.fromJson(<String, Object?>{
+      ..._row(),
+      'recruitment': <String, Object?>{
+        'isOpen': true,
+        'title': 'Candidate maintenant',
+        'url': 'https://example.test/apply',
+      },
+    });
+    final closed = AssociationRecruitment.fromJson(<String, Object?>{
+      'isOpen': false,
+    });
+
+    expect(association!.recruitment?.isVisible, isTrue);
+    expect(association.recruitment?.title, 'Candidate maintenant');
+    expect(closed?.isVisible, isFalse);
+  });
+
   test('remote public media is accepted only over HTTPS', () {
     final association = Association.fromJson(<String, Object?>{
       ..._row(
@@ -240,6 +259,31 @@ void main() {
         client: MockClient((_) async => http.Response('unavailable', 503)),
       );
       expect(directory, isNotEmpty);
+    });
+  });
+
+  group('fast directory', () {
+    setUp(() => SharedPreferences.setMockInitialValues(<String, Object>{}));
+
+    test(
+      'uses a valid cached Worker response before the bundled seed',
+      () async {
+        const response =
+            '{"version":1,"associations":[{"id":"cached",'
+            '"name":"En cache","category":"tech"}]}';
+        await Associations.refreshCache(
+          client: MockClient((_) async => http.Response(response, 200)),
+        );
+
+        final directory = await Associations.loadFast();
+        expect(directory.map((association) => association.id), <String>[
+          'cached',
+        ]);
+      },
+    );
+
+    test('falls back to the bundled seed without a cached directory', () async {
+      expect(await Associations.loadFast(), isNotEmpty);
     });
   });
 

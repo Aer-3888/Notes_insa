@@ -31,6 +31,29 @@
       "category": "entreprise",
       "summary": "La Junior-Entreprise de l’INSA Rennes.",
       "description": "Ouest INSA est la Junior-Entreprise de l’INSA Rennes, une association entièrement gérée par des étudiant·es. Elle crée un lien direct entre les entreprises et l’enseignement supérieur en réalisant des missions d’ingénierie sur mesure.\n\nL’équipe analyse les besoins techniques, mobilise les élèves-ingénieurs les plus adaptés au projet et accompagne chaque étude jusqu’à la remise des livrables.",
+      "recruitment": { "isOpen": false },
+      "faqs": [
+        {
+          "question": "Qu’est-ce qu’une Junior-Entreprise ?",
+          "answer": "C’est une association étudiante qui fonctionne comme une entreprise et permet aux élèves-ingénieurs de réaliser des projets concrets pour des organisations."
+        },
+        {
+          "question": "Que fait Ouest INSA ?",
+          "answer": "Ouest INSA accompagne des entreprises et collectivités sur des projets techniques, de l’analyse du besoin à la remise des livrables."
+        },
+        {
+          "question": "Comment rejoindre Ouest INSA ?",
+          "answer": "Les modalités de recrutement sont publiées sur les canaux officiels d’Ouest INSA. Suis l’association pour être informé·e de la prochaine campagne."
+        },
+        {
+          "question": "Comment rester informé·e ?",
+          "answer": "Utilise le bouton Suivre pour recevoir les prochains événements, puis retrouve Ouest INSA sur Instagram, LinkedIn ou son site web."
+        },
+        {
+          "question": "Je connais une entreprise avec un projet, que faire ?",
+          "answer": "Elle peut découvrir l’offre et demander un devis via le site web d’Ouest INSA."
+        }
+      ],
       "organigram": {
         "title": "Mandat 2026",
         "sections": [

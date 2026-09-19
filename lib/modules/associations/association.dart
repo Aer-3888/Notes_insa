@@ -263,6 +263,57 @@ class AssociationOrganigramMember {
 }
 
 @immutable
+class AssociationFaq {
+  const AssociationFaq({required this.question, required this.answer});
+
+  final String question;
+  final String answer;
+
+  static AssociationFaq? fromJson(Object? raw) {
+    if (raw is! Map) return null;
+    final question = raw['question'];
+    final answer = raw['answer'];
+    if (question is! String || question.trim().isEmpty) return null;
+    if (answer is! String || answer.trim().isEmpty) return null;
+    return AssociationFaq(question: question.trim(), answer: answer.trim());
+  }
+}
+
+@immutable
+class AssociationRecruitment {
+  const AssociationRecruitment({
+    required this.isOpen,
+    this.title,
+    this.description,
+    this.url,
+  });
+
+  final bool isOpen;
+  final String? title;
+  final String? description;
+  final String? url;
+
+  bool get isVisible => isOpen && (description != null || url != null);
+
+  static AssociationRecruitment? fromJson(Object? raw) {
+    if (raw is! Map || raw['isOpen'] is! bool) return null;
+    String? text(String key) {
+      final value = raw[key];
+      if (value is! String) return null;
+      final trimmed = value.trim();
+      return trimmed.isEmpty ? null : trimmed;
+    }
+
+    return AssociationRecruitment(
+      isOpen: raw['isOpen'] as bool,
+      title: text('title'),
+      description: text('description'),
+      url: text('url'),
+    );
+  }
+}
+
+@immutable
 class Association {
   Association({
     required this.id,
@@ -276,6 +327,8 @@ class Association {
     this.links = const AssociationLinks(),
     this.events = const <AssociationEvent>[],
     this.organigram,
+    this.faqs = const <AssociationFaq>[],
+    this.recruitment,
   });
 
   /// Stable slug. Follows and notifications key on it, so it must survive a
@@ -319,6 +372,8 @@ class Association {
   final List<AssociationEvent> events;
 
   final AssociationOrganigram? organigram;
+  final List<AssociationFaq> faqs;
+  final AssociationRecruitment? recruitment;
 
   String get displayName => shortName ?? name;
 
@@ -358,6 +413,7 @@ class Association {
     }
 
     final rawEvents = raw['events'];
+    final rawFaqs = raw['faqs'];
     return Association(
       id: id,
       name: name.trim(),
@@ -369,6 +425,12 @@ class Association {
       buildingCode: text('buildingCode'),
       links: AssociationLinks.fromJson(raw['links']),
       organigram: AssociationOrganigram.fromJson(raw['organigram']),
+      faqs: rawFaqs is! List
+          ? const <AssociationFaq>[]
+          : <AssociationFaq>[
+              for (final faq in rawFaqs) ?AssociationFaq.fromJson(faq),
+            ],
+      recruitment: AssociationRecruitment.fromJson(raw['recruitment']),
       events: rawEvents is! List
           ? const <AssociationEvent>[]
           : <AssociationEvent>[

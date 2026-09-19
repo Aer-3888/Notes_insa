@@ -54,6 +54,7 @@ class AssociationDetailScreen extends ConsumerWidget {
     final now = campusNow();
     final upcoming = association.upcoming(now);
     final past = association.past(now);
+    final recruitment = association.recruitment;
 
     return Scaffold(
       appBar: AppBar(title: Text(association.displayName)),
@@ -117,8 +118,16 @@ class AssociationDetailScreen extends ConsumerWidget {
             const SizedBox(height: CampusSpacing.x5),
             _Links(links: association.links),
           ],
-          if (upcoming.isNotEmpty) ...<Widget>[
-            const _SectionHeader('À venir'),
+          if (association.faqs.isNotEmpty) ...<Widget>[
+            const _SectionHeader('Questions fréquentes'),
+            _Faqs(faqs: association.faqs),
+          ],
+          if (recruitment?.isVisible == true ||
+              upcoming.isNotEmpty) ...<Widget>[
+            const _SectionHeader('Que puis-je faire ici ?'),
+            if (recruitment case final openRecruitment?
+                when openRecruitment.isVisible)
+              _RecruitmentEntry(recruitment: openRecruitment),
             for (final event in upcoming)
               _EventTile(event: event, isPast: false),
           ],
@@ -140,6 +149,83 @@ class AssociationDetailScreen extends ConsumerWidget {
       ),
     );
   }
+}
+
+class _RecruitmentEntry extends StatelessWidget {
+  const _RecruitmentEntry({required this.recruitment});
+
+  final AssociationRecruitment recruitment;
+
+  @override
+  Widget build(BuildContext context) => Card(
+    child: Padding(
+      padding: const EdgeInsets.all(CampusSpacing.x3),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: <Widget>[
+          const Icon(Icons.person_add_alt_1_outlined),
+          const SizedBox(width: CampusSpacing.x3),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: <Widget>[
+                Text(
+                  recruitment.title ?? 'Recrutement ouvert',
+                  style: context.text.titleSmall,
+                ),
+                if (recruitment.description
+                    case final description?) ...<Widget>[
+                  const SizedBox(height: CampusSpacing.x1),
+                  Text(description),
+                ],
+                if (recruitment.url case final url?)
+                  TextButton.icon(
+                    onPressed: () => launchUrl(
+                      Uri.parse(url),
+                      mode: LaunchMode.externalApplication,
+                    ),
+                    icon: const Icon(Icons.open_in_new, size: 18),
+                    label: const Text('Candidater'),
+                  ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    ),
+  );
+}
+
+class _Faqs extends StatelessWidget {
+  const _Faqs({required this.faqs});
+
+  final List<AssociationFaq> faqs;
+
+  @override
+  Widget build(BuildContext context) => Card(
+    child: Column(
+      children: <Widget>[
+        for (var index = 0; index < faqs.length; index++) ...<Widget>[
+          ExpansionTile(
+            title: Text(faqs[index].question),
+            childrenPadding: const EdgeInsets.fromLTRB(
+              CampusSpacing.x4,
+              0,
+              CampusSpacing.x4,
+              CampusSpacing.x3,
+            ),
+            children: <Widget>[
+              Align(
+                alignment: Alignment.centerLeft,
+                child: Text(faqs[index].answer),
+              ),
+            ],
+          ),
+          if (index != faqs.length - 1) const Divider(height: 1),
+        ],
+      ],
+    ),
+  );
 }
 
 class _ReminderDisabled extends StatelessWidget {
