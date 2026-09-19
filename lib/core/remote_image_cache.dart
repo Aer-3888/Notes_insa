@@ -11,13 +11,14 @@ import 'package:path_provider/path_provider.dart';
 
 /// A third-party image, kept on disk at the size this app actually draws.
 ///
-/// The association logos are the case this exists for: fifty-one files, 7.7 MB,
-/// several of them 3000 px square, every one of them destined for a 40 dp
-/// avatar. Flutter's image cache holds nothing across a restart, and
-/// `cacheWidth` only shrinks what is kept, not what the decoder has to build
-/// first, so scrolling the directory paid for the full-size bitmaps again on
-/// every launch. Here each URL is fetched once, re-encoded down to
-/// [storedSize], and read from a small local file ever after.
+/// Flutter's image cache holds nothing across a restart, and `cacheWidth` only
+/// shrinks what is kept, not what the decoder has to build first, so a list of
+/// oversized remote images pays for the full-size bitmaps again on every
+/// launch. Here each URL is fetched once, re-encoded down to [storedSize], and
+/// read from a small local file ever after.
+///
+/// Association logos are baked into the bundle instead, so what reaches here
+/// is event covers and any logo the baker has not seen.
 @immutable
 class CachedRemoteImage extends ImageProvider<CachedRemoteImage> {
   const CachedRemoteImage(this.url, {this.storedSize = 192});
@@ -77,9 +78,9 @@ class CachedRemoteImage extends ImageProvider<CachedRemoteImage> {
       throw StateError('No image at ${key.url}');
     }
     final file = await _fileFor(key);
-    if (await _isFresh(file)) return file.readAsBytes();
+    if (_isFresh(file)) return file.readAsBytes();
     return _gate.run(() async {
-      if (await _isFresh(file)) return file.readAsBytes();
+      if (_isFresh(file)) return file.readAsBytes();
       try {
         final downloaded = await _download(key);
         await file.parent.create(recursive: true);
@@ -110,10 +111,13 @@ class CachedRemoteImage extends ImageProvider<CachedRemoteImage> {
     }
   }
 
-  static Future<bool> _isFresh(File file) async {
-    if (!file.existsSync()) return false;
+  /// One stat answers both questions. The async `dart:io` stats are the slow
+  /// ones, which is what `avoid_slow_async_io` is about.
+  static bool _isFresh(File file) {
     try {
-      return DateTime.now().difference(await file.lastModified()) < _maxAge;
+      final stat = file.statSync();
+      if (stat.type == FileSystemEntityType.notFound) return false;
+      return DateTime.now().difference(stat.modified) < _maxAge;
     } on FileSystemException {
       return false;
     }
