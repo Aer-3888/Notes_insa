@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../core/search_text.dart';
 import '../../theme/campus_context.dart';
 import '../../theme/state_view.dart';
 import '../../theme/tokens.dart';
@@ -13,33 +14,11 @@ import 'association_service.dart';
 
 /// Associations open on what is happening next. Discovery stays one tap away
 /// in Explorer, where followed associations are lifted to the top.
-class AssociationsScreen extends ConsumerStatefulWidget {
+class AssociationsScreen extends ConsumerWidget {
   const AssociationsScreen({super.key});
 
   @override
-  ConsumerState<AssociationsScreen> createState() => _AssociationsScreenState();
-}
-
-class _AssociationsScreenState extends ConsumerState<AssociationsScreen> {
-  final TextEditingController _query = TextEditingController();
-  AssociationCategory? _selectedCategory;
-
-  @override
-  void dispose() {
-    _query.dispose();
-    super.dispose();
-  }
-
-  void _open(Association association) {
-    Navigator.of(context).push(
-      MaterialPageRoute<void>(
-        builder: (_) => AssociationDetailScreen(associationId: association.id),
-      ),
-    );
-  }
-
-  @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final async = ref.watch(associationsProvider);
     final follows = ref.watch(associationFollowsProvider);
 
@@ -50,7 +29,20 @@ class _AssociationsScreenState extends ConsumerState<AssociationsScreen> {
         title: 'Annuaire indisponible',
         body: 'La liste des associations n’a pas pu être lue.',
       ),
-      data: (all) => _body(all, follows),
+      data: (all) => all.isEmpty
+          ? const StateView(
+              icon: Icons.groups_outlined,
+              title: 'Bientôt',
+              body:
+                  'L’annuaire des associations du campus arrive. '
+                  'Il est en cours de préparation.',
+            )
+          : _Directory(
+              all: all,
+              follows: follows,
+              onToggle: (id) =>
+                  ref.read(associationFollowsProvider.notifier).toggle(id),
+            ),
     );
 
     return DefaultTabController(
@@ -71,26 +63,68 @@ class _AssociationsScreenState extends ConsumerState<AssociationsScreen> {
       ),
     );
   }
+}
 
-  Widget _body(List<Association> all, Set<String> follows) {
-    if (all.isEmpty) {
-      return const StateView(
-        icon: Icons.groups_outlined,
-        title: 'Bientôt',
-        body:
-            'L’annuaire des associations du campus arrive. '
-            'Il est en cours de préparation.',
-      );
+/// The searchable list. It owns the query and the category filter so typing
+/// rebuilds the list and nothing above it.
+class _Directory extends StatefulWidget {
+  const _Directory({
+    required this.all,
+    required this.follows,
+    required this.onToggle,
+  });
+
+  final List<Association> all;
+  final Set<String> follows;
+  final ValueChanged<String> onToggle;
+
+  @override
+  State<_Directory> createState() => _DirectoryState();
+}
+
+class _DirectoryState extends State<_Directory> {
+  final TextEditingController _query = TextEditingController();
+  AssociationCategory? _selectedCategory;
+
+  @override
+  void dispose() {
+    _query.dispose();
+    super.dispose();
+  }
+
+  void _open(Association association) {
+    Navigator.of(context).push(
+      MaterialPageRoute<void>(
+        builder: (_) => AssociationDetailScreen(associationId: association.id),
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final all = widget.all;
+    final follows = widget.follows;
+
+    final folded = foldForSearch(_query.text);
+    final offered = <AssociationCategory>{};
+    final followed = <Association>[];
+    final byCategory = <AssociationCategory, List<Association>>{};
+    var matches = 0;
+
+    for (final association in all) {
+      if (!association.matchesFolded(folded)) continue;
+      offered.add(association.category);
+      if (_selectedCategory != null &&
+          association.category != _selectedCategory) {
+        continue;
+      }
+      matches++;
+      if (follows.contains(association.id)) {
+        followed.add(association);
+      } else {
+        (byCategory[association.category] ??= <Association>[]).add(association);
+      }
     }
-
-    final searchMatches = all.where((a) => a.matches(_query.text)).toList();
-    final matches = _selectedCategory == null
-        ? searchMatches
-        : searchMatches
-              .where((association) => association.category == _selectedCategory)
-              .toList();
-    final followed = matches.where((a) => follows.contains(a.id)).toList();
-    final rest = matches.where((a) => !follows.contains(a.id)).toList();
 
     return CustomScrollView(
       slivers: <Widget>[
@@ -143,7 +177,7 @@ class _AssociationsScreenState extends ConsumerState<AssociationsScreen> {
                   ),
                 ),
                 for (final category in AssociationCategory.values)
-                  if (searchMatches.any((a) => a.category == category))
+                  if (offered.contains(category))
                     Padding(
                       padding: const EdgeInsets.only(right: CampusSpacing.x2),
                       child: ChoiceChip(
@@ -158,7 +192,7 @@ class _AssociationsScreenState extends ConsumerState<AssociationsScreen> {
             ),
           ),
         ),
-        if (matches.isEmpty)
+        if (matches == 0)
           const SliverFillRemaining(
             hasScrollBody: false,
             child: StateView(
@@ -169,26 +203,20 @@ class _AssociationsScreenState extends ConsumerState<AssociationsScreen> {
           ),
         if (followed.isNotEmpty) ...<Widget>[
           _header('Suivies'),
-          _list(followed, follows),
+          _list(followed),
         ],
         for (final category in AssociationCategory.values)
-          if (_inCategory(rest, category) case final group
-              when group.isNotEmpty) ...<Widget>[
+          if (byCategory[category] case final group?) ...<Widget>[
             _header(
               category.label,
               key: Key('association-category-${category.name}'),
             ),
-            _list(group, follows),
+            _list(group),
           ],
         const SliverToBoxAdapter(child: SizedBox(height: CampusSpacing.x8)),
       ],
     );
   }
-
-  List<Association> _inCategory(
-    List<Association> from,
-    AssociationCategory category,
-  ) => from.where((a) => a.category == category).toList();
 
   Widget _header(String label, {Key? key}) => SliverToBoxAdapter(
     child: Padding(
@@ -208,40 +236,48 @@ class _AssociationsScreenState extends ConsumerState<AssociationsScreen> {
     ),
   );
 
-  Widget _list(List<Association> group, Set<String> follows) =>
-      SliverList.builder(
-        itemCount: group.length,
-        itemBuilder: (context, i) => _AssociationRow(
-          association: group[i],
-          isFollowed: follows.contains(group[i].id),
-          onTap: () => _open(group[i]),
-        ),
-      );
+  Widget _list(List<Association> group) => SliverList.builder(
+    itemCount: group.length,
+    itemBuilder: (context, i) => _AssociationRow(
+      association: group[i],
+      isFollowed: widget.follows.contains(group[i].id),
+      onTap: () => _open(group[i]),
+      onToggle: () => widget.onToggle(group[i].id),
+    ),
+  );
 }
 
-class _AssociationRow extends ConsumerWidget {
+class _AssociationRow extends StatelessWidget {
   const _AssociationRow({
     required this.association,
     required this.isFollowed,
     required this.onTap,
+    required this.onToggle,
   });
 
   final Association association;
   final bool isFollowed;
   final VoidCallback onTap;
+  final VoidCallback onToggle;
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  Widget build(BuildContext context) {
     final summary = association.summary;
+    final scheme = context.scheme;
     return Padding(
       padding: const EdgeInsets.symmetric(
         horizontal: CampusSpacing.gutter,
         vertical: CampusSpacing.x1,
       ),
       child: Card(
-        clipBehavior: Clip.antiAlias,
+        // The card already draws the rounded corners. Giving the tile the same
+        // shape keeps the ink splash inside them without a clip layer.
+        clipBehavior: Clip.none,
         child: ListTile(
           onTap: onTap,
+          shape: const RoundedRectangleBorder(
+            borderRadius: CampusRadii.cardRadius,
+          ),
           contentPadding: const EdgeInsets.symmetric(
             horizontal: CampusSpacing.x3,
             vertical: CampusSpacing.x1,
@@ -254,9 +290,7 @@ class _AssociationRow extends ConsumerWidget {
               const SizedBox(height: CampusSpacing.x1),
               Text(
                 association.category.label,
-                style: context.text.labelSmall?.copyWith(
-                  color: context.scheme.primary,
-                ),
+                style: context.text.labelSmall?.copyWith(color: scheme.primary),
               ),
               if (summary != null)
                 Text(summary, maxLines: 2, overflow: TextOverflow.ellipsis),
@@ -269,10 +303,8 @@ class _AssociationRow extends ConsumerWidget {
                   : Icons.notifications_none,
             ),
             tooltip: isFollowed ? 'Ne plus suivre' : 'Suivre',
-            color: isFollowed ? context.scheme.primary : null,
-            onPressed: () => ref
-                .read(associationFollowsProvider.notifier)
-                .toggle(association.id),
+            color: isFollowed ? scheme.primary : null,
+            onPressed: onToggle,
           ),
         ),
       ),
