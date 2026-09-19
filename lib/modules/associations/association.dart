@@ -2,6 +2,7 @@ import 'package:flutter/foundation.dart';
 
 import '../../core/search_text.dart';
 import '../../core/time.dart';
+import 'association_logo_assets.dart';
 
 /// What kind of association this is, for grouping and filtering the list.
 ///
@@ -199,7 +200,6 @@ class Association {
     this.shortName,
     this.summary,
     this.description,
-    this.logoAsset,
     this.logoUrl,
     this.buildingCode,
     this.links = const AssociationLinks(),
@@ -221,8 +221,17 @@ class Association {
   /// The longer text on the detail page.
   final String? description;
 
-  /// Path under assets/images/associations, null until a logo is added.
-  final String? logoAsset;
+  /// The bundled logo for this association, null when it has none.
+  ///
+  /// Keyed on [id], so a row the Worker serves picks up its logo without
+  /// carrying a path. A baked file only matches the URL it came from, so a
+  /// logo that moved upstream falls through to [logoUrl].
+  String? get logoAsset {
+    final bakedFrom = kBundledAssociationLogos[id];
+    if (bakedFrom == null) return null;
+    if (logoUrl != null && logoUrl != bakedFrom) return null;
+    return 'assets/images/associations/$id.webp';
+  }
 
   /// Public logo supplied by an association. Bundled [logoAsset] still wins
   /// when present so an offline asset remains usable.
@@ -274,7 +283,6 @@ class Association {
       shortName: text('shortName'),
       summary: text('summary'),
       description: text('description'),
-      logoAsset: text('logoAsset'),
       logoUrl: _publicImageUrl(text('logoUrl')),
       buildingCode: text('buildingCode'),
       links: AssociationLinks.fromJson(raw['links']),
