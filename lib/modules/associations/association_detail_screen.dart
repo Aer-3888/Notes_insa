@@ -10,6 +10,7 @@ import '../../theme/tokens.dart';
 import 'association.dart';
 import 'association_follows.dart';
 import 'association_logo.dart';
+import 'association_organigram_screen.dart';
 import 'association_service.dart';
 
 /// One association's page.
@@ -80,7 +81,15 @@ class AssociationDetailScreen extends ConsumerWidget {
             ),
           if (association.description case final description?) ...<Widget>[
             const SizedBox(height: CampusSpacing.x5),
+            const _SectionHeader('À propos'),
             Text(description, style: context.text.bodyLarge),
+          ],
+          if (association.organigram case final organigram?) ...<Widget>[
+            const SizedBox(height: CampusSpacing.x5),
+            _OrganigramEntry(
+              associationName: association.displayName,
+              organigram: organigram,
+            ),
           ],
           if (association.buildingCode case final code?) ...<Widget>[
             const SizedBox(height: CampusSpacing.x4),
@@ -113,6 +122,35 @@ class AssociationDetailScreen extends ConsumerWidget {
       ),
     );
   }
+}
+
+class _OrganigramEntry extends StatelessWidget {
+  const _OrganigramEntry({
+    required this.associationName,
+    required this.organigram,
+  });
+
+  final String associationName;
+  final AssociationOrganigram organigram;
+
+  @override
+  Widget build(BuildContext context) => Card(
+    child: ListTile(
+      key: const Key('association-organigram'),
+      leading: const Icon(Icons.account_tree_outlined),
+      title: const Text('L’équipe'),
+      subtitle: Text('${organigram.title} · ${organigram.memberCount} membres'),
+      trailing: const Icon(Icons.chevron_right),
+      onTap: () => Navigator.of(context).push(
+        MaterialPageRoute<void>(
+          builder: (_) => AssociationOrganigramScreen(
+            associationName: associationName,
+            organigram: organigram,
+          ),
+        ),
+      ),
+    ),
+  );
 }
 
 class _Identity extends StatelessWidget {
@@ -211,6 +249,8 @@ class _Links extends StatelessWidget {
         (Icons.forum_outlined, 'Discord', Uri.parse(url)),
       if (links.facebook case final url?)
         (Icons.groups_outlined, 'Facebook', Uri.parse(url)),
+      if (links.linkedin case final url?)
+        (Icons.business_center_outlined, 'LinkedIn', Uri.parse(url)),
       if (links.email case final address?)
         (Icons.mail_outline, 'Écrire', Uri(scheme: 'mailto', path: address)),
     ];
