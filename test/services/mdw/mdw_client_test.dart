@@ -18,6 +18,7 @@ class _FakeMdw {
     required this.pageSize,
     this.lazy = const <String>{},
     this.publishes = defaultMethods,
+    this.reportsLoadedSize = false,
   }) {
     _server.listen(_handle);
   }
@@ -45,12 +46,17 @@ class _FakeMdw {
   /// Method names the grid declares to the client.
   final List<String> publishes;
 
+  final bool reportsLoadedSize;
+
   /// Every child range asked for, as (parentKey, firstIndex).
   final List<({int firstIndex, String parentKey})> asked =
       <({int firstIndex, String parentKey})>[];
 
   /// Every viewport range asked for, as (start, length).
   final List<({int length, int start})> ranges = <({int length, int start})>[];
+
+  /// Every RPC call received by the fake server.
+  final List<Map<String, dynamic>> allCalls = <Map<String, dynamic>>[];
 
   int _sync = 1;
   int _node = 1000;
@@ -120,6 +126,7 @@ class _FakeMdw {
   Map<String, dynamic> _respond(List<dynamic> rpc) {
     for (final Object? call in rpc) {
       if (call is! Map<String, dynamic>) continue;
+      allCalls.add(call);
 
       if (call['templateEventMethodName'] == 'setViewportRange') {
         final args = call['templateEventMethodArgs'] as List<dynamic>;
@@ -151,6 +158,11 @@ class _FakeMdw {
   /// plus the size and the blanked range standing for what was withheld.
   Map<String, dynamic> _openPage([int start = 0, int length = -1]) {
     final opening = length < 0;
+    final flat = _flat;
+    final end = opening
+        ? pageSize
+        : (start + length < flat.length ? start + length : flat.length);
+    final reportedSize = reportsLoadedSize ? end : flat.length;
     final changes = <Map<String, dynamic>>[
       if (opening) ...<Map<String, dynamic>>[
         _tag(gridNode, 'vaadin-grid'),
@@ -162,16 +174,12 @@ class _FakeMdw {
     ];
     final execute = <List<dynamic>>[];
 
-    final flat = _flat;
     execute.add(<dynamic>[
       <String, dynamic>{'@v-node': gridNode},
-      flat.length,
+      reportedSize,
       r'return $0.$connector.updateSize($1)',
     ]);
 
-    final end = opening
-        ? pageSize
-        : (start + length < flat.length ? start + length : flat.length);
     for (var i = opening ? 0 : start; i < flat.length && i < end; i++) {
       if (!_sent.add(i)) continue;
       execute.add(_rowCall(i, flat[i], changes));
@@ -299,6 +307,7 @@ void main() {
     int pageSize = 50,
     Set<String> lazy = const <String>{},
     List<String>? publishes,
+    bool reportsLoadedSize = false,
   }) async {
     final server = await HttpServer.bind(InternetAddress.loopbackIPv4, 0);
     fake = _FakeMdw(
@@ -307,6 +316,7 @@ void main() {
       pageSize: pageSize,
       lazy: lazy,
       publishes: publishes ?? _FakeMdw.defaultMethods,
+      reportsLoadedSize: reportsLoadedSize,
     );
     http = HttpSession();
     mdw = MdwClient(http, baseUrl: fake.baseUrl);
@@ -353,6 +363,16 @@ void main() {
     final root = GradeParser.parse(await mdw.openAllRows(0))!;
 
     expect(root.name, 'R');
+    expect(moduleCounts(root), <int>[30, 30]);
+  });
+
+  test('keeps widening when MDW reports only the loaded page size', () async {
+    await start(modules: 30, reportsLoadedSize: true);
+
+    final root = GradeParser.parse(await mdw.openAllRows(0))!;
+
+    expect(fake.ranges, hasLength(1));
+    expect(fake.ranges.single.length, 100);
     expect(moduleCounts(root), <int>[30, 30]);
   });
 
@@ -407,4 +427,67 @@ void main() {
       ]);
     },
   );
+
+  test(
+    'viewport widening does not emit confirmParentUpdate or duplicate opened-changed',
+    () async {
+      await start(modules: 30);
+      await mdw.openAllRows(0);
+
+      final openedChangedCalls = fake.allCalls
+          .where((call) => call['event'] == 'opened-changed')
+          .toList();
+      expect(openedChangedCalls, hasLength(1));
+
+      final confirmParentCalls = fake.allCalls
+          .where(
+            (call) => call['templateEventMethodName'] == 'confirmParentUpdate',
+          )
+          .toList();
+      expect(confirmParentCalls, isEmpty);
+
+      final confirmUpdateCalls = fake.allCalls
+          .where((call) => call['templateEventMethodName'] == 'confirmUpdate')
+          .toList();
+      expect(confirmUpdateCalls, isNotEmpty);
+    },
+  );
+
+  test('child range requests only confirm requested keys', () async {
+    await start(modules: 4, lazy: <String>{'s1'});
+    await mdw.openAllRows(0);
+
+    final confirmParentCalls = fake.allCalls
+        .where(
+          (call) => call['templateEventMethodName'] == 'confirmParentUpdate',
+        )
+        .toList();
+    expect(confirmParentCalls, isNotEmpty);
+    final confirmedKeys = confirmParentCalls
+        .map((call) => (call['templateEventMethodArgs'] as List<dynamic>)[1])
+        .toSet();
+    expect(confirmedKeys, <String>{'s1'});
+  });
+
+  test('closeGrades resets state even if session send throws', () async {
+    await start(modules: 4);
+    await mdw.openAllRows(0);
+    expect(mdw.openedGroup, isNot(0));
+    expect(mdw.gridNode, isNot(0));
+
+    // Close the fake server to force a connection failure
+    await fake.close();
+
+    try {
+      await mdw.closeGrades();
+    } catch (_) {}
+
+    expect(mdw.openedGroup, 0);
+    expect(mdw.gridNode, 0);
+    expect(mdw.dialogNode, 0);
+    expect(mdw.closeButtonNode, 0);
+    expect(mdw.rangeMethod, isEmpty);
+    expect(mdw.childRangeMethod, isEmpty);
+    expect(mdw.canConfirmParentUpdate, isFalse);
+  });
 }

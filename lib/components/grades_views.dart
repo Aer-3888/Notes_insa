@@ -15,6 +15,7 @@ class GradesViews extends StatelessWidget {
     this.isLoading = false,
     this.errorMessage,
     this.onRetry,
+    this.scrollStorageKey,
   });
 
   final GradesViewMode mode;
@@ -23,6 +24,7 @@ class GradesViews extends StatelessWidget {
   final bool isLoading;
   final String? errorMessage;
   final VoidCallback? onRetry;
+  final String? scrollStorageKey;
 
   @override
   Widget build(BuildContext context) {
@@ -34,11 +36,14 @@ class GradesViews extends StatelessWidget {
         isLoading: isLoading,
         errorMessage: errorMessage,
         onRetry: onRetry,
+        scrollKey: scrollStorageKey == null
+            ? null
+            : PageStorageKey('$scrollStorageKey-${mode.name}'),
       );
     }
 
     return ListView.separated(
-      key: PageStorageKey(mode),
+      key: PageStorageKey('${scrollStorageKey ?? 'grades'}-${mode.name}'),
       physics: const AlwaysScrollableScrollPhysics(),
       padding: const EdgeInsets.fromLTRB(
         CampusSpacing.gutter,

@@ -5,6 +5,8 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 const kGradesViewModeKey = 'grades_view_mode';
 
+const kDefaultGradesViewMode = GradesViewMode.synthese;
+
 enum GradesViewMode {
   cartes('Cartes'),
   liste('Liste'),
@@ -23,7 +25,7 @@ class GradesViewModeNotifier extends Notifier<GradesViewMode> {
   GradesViewMode build() {
     _selected = false;
     unawaited(_restore());
-    return GradesViewMode.cartes;
+    return kDefaultGradesViewMode;
   }
 
   Future<void> _restore() async {

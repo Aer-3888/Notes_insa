@@ -217,7 +217,11 @@ class GradesNotifier extends StateNotifier<GradesState> {
         needsReauth: false,
         academicYearBaseline: AveragesService.currentAcademicYear(),
       );
-      await _refreshCoefficients(fetched.json, fetched.groupCount);
+      await _refreshCoefficients(
+        fetched.json,
+        fetched.groupCount,
+        isCancelled: () => _isLoggingOut || !_isCurrentGeneration(generation),
+      );
     } catch (e) {
       if (!_isCurrentGeneration(generation)) return;
       state = state.copyWith(
@@ -403,7 +407,11 @@ class GradesNotifier extends StateNotifier<GradesState> {
         authStatus: AuthStatus.authenticated,
         academicYearBaseline: AveragesService.currentAcademicYear(),
       );
-      await _refreshCoefficients(fetched.json, fetched.groupCount);
+      await _refreshCoefficients(
+        fetched.json,
+        fetched.groupCount,
+        isCancelled: () => _isLoggingOut || !_isCurrentGeneration(generation),
+      );
     } catch (e) {
       if (!_isCurrentGeneration(generation)) return;
       state = state.copyWith(
@@ -448,9 +456,18 @@ class GradesNotifier extends StateNotifier<GradesState> {
   /// caller so it stays inside the single-flight section, native CAS calls
   /// (used by the coefficients fetch) must not interleave with a concurrent
   /// fetch. Non-fatal: on failure the averages simply stay provisional.
-  Future<void> _refreshCoefficients(String gradesJson, int groupCount) async {
+  Future<void> _refreshCoefficients(
+    String gradesJson,
+    int groupCount, {
+    bool Function()? isCancelled,
+  }) async {
     try {
-      await CoefficientsService.fetchAndCacheFromApi(gradesJson, groupCount);
+      await CoefficientsService.fetchAndCacheFromApi(
+        gradesJson,
+        groupCount,
+        isCancelled: isCancelled,
+      );
+      if (isCancelled?.call() == true) return;
       _ref.invalidate(coefficientsProvider);
     } catch (e) {
       if (kDebugMode) {
@@ -506,7 +523,7 @@ class GradesNotifier extends StateNotifier<GradesState> {
     state = const GradesState();
     // Reset dashboard-scoped UI state so a previous account's selected semester
     // does not carry into the next login.
-    _ref.invalidate(selectedSemesterProvider);
+    _ref.read(selectedSemesterProvider.notifier).state = -1;
   }
 
   /// Securely removes the current account. Repeated requests share one cleanup
@@ -519,8 +536,8 @@ class GradesNotifier extends StateNotifier<GradesState> {
     final completer = Completer<void>();
     _logoutFuture = completer.future;
     _accountGeneration++;
-    clearGrades();
-    state = state.copyWith(authStatus: AuthStatus.loggingOut, error: null);
+    _ref.read(selectedSemesterProvider.notifier).state = -1;
+    state = const GradesState(authStatus: AuthStatus.loggingOut);
     _ref.read(gradesUnlockedProvider.notifier).state = false;
     unawaited(_performLogout(completer));
     return completer.future;
@@ -557,8 +574,8 @@ class GradesNotifier extends StateNotifier<GradesState> {
     await attempt(GradesService.newCAS);
 
     if (failures.isEmpty) {
-      state = const GradesState();
       _ref.invalidate(hasCredentialsProvider);
+      state = const GradesState();
     } else {
       state = const GradesState(
         authStatus: AuthStatus.logoutFailed,

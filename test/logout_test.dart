@@ -190,4 +190,56 @@ void main() {
       );
     },
   );
+
+  test('logout cancels in-flight coefficients refresh immediately', () async {
+    store[kStorageUser] = 'jdoe';
+    store[kStoragePass] = 'secret';
+
+    messenger.setMockMethodCallHandler(nativeChannel, (call) async {
+      nativeCalls.add(call.method);
+      switch (call.method) {
+        case 'ExportCAS':
+          return 'old-session';
+        case 'StopBackgroundTask':
+        case 'ClearWorkerStore':
+          return null;
+      }
+      return null;
+    });
+
+    final coeffStarted = Completer<void>();
+    final coeffCompleter = Completer<String>();
+
+    GradesService.loadGroupsOverride = () async => 1;
+    GradesService.gradesOverride = (_) async =>
+        '{"details": [{"name": "3INFO-SEMESTRE5", "details": [{"name": "UE 51", "details": [{"name": "Maths", "score": ["15"]}]}]}]}';
+    GradesService.coefficientsOverride = (_) {
+      coeffStarted.complete();
+      return coeffCompleter.future;
+    };
+    addTearDown(() {
+      GradesService.loadGroupsOverride = null;
+      GradesService.gradesOverride = null;
+      GradesService.coefficientsOverride = null;
+    });
+
+    final container = ProviderContainer();
+    addTearDown(container.dispose);
+    final refresh = container
+        .read(gradesProvider.notifier)
+        .fetchGradesAfterAuth();
+    await coeffStarted.future;
+
+    final logout = container.read(gradesProvider.notifier).logout();
+    expect(container.read(gradesProvider).authStatus, AuthStatus.loggingOut);
+
+    coeffCompleter.complete('{"details": []}');
+
+    await Future.wait([refresh, logout]);
+    expect(store, isEmpty);
+    expect(
+      container.read(gradesProvider).authStatus,
+      AuthStatus.unauthenticated,
+    );
+  });
 }
