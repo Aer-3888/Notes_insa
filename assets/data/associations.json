@@ -30,8 +30,57 @@
       "name": "Ouest INSA",
       "category": "entreprise",
       "summary": "La Junior-Entreprise de l’INSA Rennes.",
-      "description": "Ouest INSA rapproche les élèves-ingénieurs du monde professionnel à travers projets, études et événements.",
-      "links": { "website": "https://ouest-insa.fr" }
+      "description": "Ouest INSA est la Junior-Entreprise de l’INSA Rennes, une association entièrement gérée par des étudiant·es. Elle crée un lien direct entre les entreprises et l’enseignement supérieur en réalisant des missions d’ingénierie sur mesure.\n\nL’équipe analyse les besoins techniques, mobilise les élèves-ingénieurs les plus adaptés au projet et accompagne chaque étude jusqu’à la remise des livrables.",
+      "organigram": {
+        "title": "Mandat 2026",
+        "sections": [
+          {
+            "title": "Bureau",
+            "members": [
+              { "role": "Président·e", "name": "Maxime" },
+              { "role": "Vice-président·e", "name": "Lucas" },
+              { "role": "Secrétaire général·e", "name": "Laurine" },
+              { "role": "Trésorier·e", "name": "Nicolas" }
+            ]
+          },
+          {
+            "title": "Conseil d’administration",
+            "members": [
+              { "role": "Comptable", "name": "Théo" },
+              { "role": "Responsable DSI", "name": "Mathys" },
+              {
+                "role": "Responsable qualité et performances",
+                "name": "Jean-Nicolas"
+              },
+              { "role": "Responsable marketing", "name": "Ghada" },
+              { "role": "Responsable affaires", "name": "Adrian" }
+            ]
+          },
+          {
+            "title": "Membres",
+            "members": [
+              { "role": "Chargé·e DSI", "name": "Irhary" },
+              {
+                "role": "Chargé·e qualité et performances",
+                "name": "Julie"
+              },
+              { "role": "Chargé·e communication", "name": "Thomas" },
+              {
+                "role": "Chargé·e de développement commercial",
+                "name": "Noé"
+              },
+              { "role": "Chargé·e d’affaires", "name": "Michel" },
+              { "role": "Chargé·e d’affaires", "name": "Louis" },
+              { "role": "Chargé·e d’affaires", "name": "Victor" }
+            ]
+          }
+        ]
+      },
+      "links": {
+        "instagram": "ouestinsa",
+        "linkedin": "https://www.linkedin.com/company/ouest-insa-junior-entreprise/posts/?feedView=all",
+        "website": "https://ouest-insa.fr"
+      }
     },
     {
       "id": "forum-grand-ouest",

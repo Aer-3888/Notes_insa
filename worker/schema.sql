@@ -63,11 +63,15 @@ CREATE TABLE IF NOT EXISTS association_profiles (
   logo_url         TEXT,
   building_code    TEXT,
   links_json       TEXT NOT NULL DEFAULT '{}',
+  organigram_json  TEXT,
   source_url       TEXT,
   last_verified_at TEXT,
   created_at       TEXT NOT NULL DEFAULT (datetime('now')),
   updated_at       TEXT NOT NULL DEFAULT (datetime('now'))
 );
+
+-- Existing deployments:
+-- ALTER TABLE association_profiles ADD COLUMN organigram_json TEXT;
 
 CREATE TABLE IF NOT EXISTS association_events (
   id               TEXT PRIMARY KEY,

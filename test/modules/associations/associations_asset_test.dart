@@ -6,6 +6,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:notes_insa/modules/associations/association.dart';
 import 'package:notes_insa/core/time.dart';
 import 'package:notes_insa/modules/associations/association_logo_assets.dart';
+import 'package:notes_insa/modules/associations/association_local_logo_assets.dart';
 import 'package:notes_insa/modules/associations/association_service.dart';
 
 /// Guards the seed while it is filled in by hand. A row the app would silently
@@ -98,7 +99,10 @@ void main() {
         reason: '${association.id} points at a missing $asset',
       );
     }
-    expect(checked, kBundledAssociationLogos.length);
+    expect(
+      checked,
+      kBundledAssociationLogos.length + kBundledAssociationLocalLogos.length,
+    );
   });
 
   test('every baked logo belongs to an association it was baked from', () {
@@ -144,7 +148,12 @@ void main() {
     final named = <String>{
       for (final f in files) f.uri.pathSegments.last.split('.').first,
     };
-    expect(named, kBundledAssociationLogos.keys.toSet());
+    expect(named, <String>{
+      ...kBundledAssociationLogos.keys,
+      ...kBundledAssociationLocalLogos.values.map(
+        (filename) => filename.split('.').first,
+      ),
+    });
 
     var total = 0;
     for (final file in files) {
@@ -212,6 +221,7 @@ void main() {
         association.links.website,
         association.links.discord,
         association.links.facebook,
+        association.links.linkedin,
         ...association.events.map((e) => e.url),
       ]) {
         if (url == null) continue;

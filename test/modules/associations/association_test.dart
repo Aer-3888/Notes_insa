@@ -101,6 +101,30 @@ void main() {
     expect(links.instagramUri.toString(), 'https://www.instagram.com/ktulu/');
   });
 
+  test('an organigram keeps its public roles grouped by mandate', () {
+    final association = Association.fromJson(<String, Object?>{
+      ..._row(),
+      'organigram': <String, Object?>{
+        'title': 'Mandat 2026',
+        'sections': <Object?>[
+          <String, Object?>{
+            'title': 'Bureau',
+            'members': <Object?>[
+              <String, Object?>{'role': 'Président·e', 'name': 'Maxime'},
+            ],
+          },
+        ],
+      },
+    });
+
+    expect(association!.organigram?.title, 'Mandat 2026');
+    expect(association.organigram?.memberCount, 1);
+    expect(
+      association.organigram?.sections.single.members.single.role,
+      'Président·e',
+    );
+  });
+
   test('remote public media is accepted only over HTTPS', () {
     final association = Association.fromJson(<String, Object?>{
       ..._row(
@@ -126,13 +150,18 @@ void main() {
     expect(unsafe!.logoUrl, isNull);
   });
 
-  test('blank links read as absent', () {
+  test('blank links read as absent while LinkedIn is kept', () {
     final links = AssociationLinks.fromJson(<String, Object?>{
       'instagram': '   ',
       'website': '',
       'email': 42,
+      'linkedin':
+          'https://www.linkedin.com/company/ouest-insa-junior-entreprise/',
     });
-    expect(links.isEmpty, isTrue);
+    expect(
+      links.linkedin,
+      'https://www.linkedin.com/company/ouest-insa-junior-entreprise/',
+    );
   });
 
   group('events split on the clock, not on a flag', () {

@@ -3,6 +3,7 @@ import 'package:flutter/foundation.dart';
 import '../../core/search_text.dart';
 import '../../core/time.dart';
 import 'association_logo_assets.dart';
+import 'association_local_logo_assets.dart';
 
 final RegExp _leadingAt = RegExp(r'^@');
 final RegExp _dateOnly = RegExp(r'^\d{4}-\d{2}-\d{2}$');
@@ -58,6 +59,7 @@ class AssociationLinks {
     this.email,
     this.discord,
     this.facebook,
+    this.linkedin,
   });
 
   /// Handle without the @, as it appears in the profile URL.
@@ -66,13 +68,15 @@ class AssociationLinks {
   final String? email;
   final String? discord;
   final String? facebook;
+  final String? linkedin;
 
   bool get isEmpty =>
       instagram == null &&
       website == null &&
       email == null &&
       discord == null &&
-      facebook == null;
+      facebook == null &&
+      linkedin == null;
 
   Uri? get instagramUri => instagram == null
       ? null
@@ -94,6 +98,7 @@ class AssociationLinks {
       email: text('email'),
       discord: text('discord'),
       facebook: text('facebook'),
+      linkedin: text('linkedin'),
     );
   }
 }
@@ -193,6 +198,71 @@ class AssociationEvent {
 }
 
 @immutable
+class AssociationOrganigram {
+  const AssociationOrganigram({required this.title, required this.sections});
+
+  final String title;
+  final List<AssociationOrganigramSection> sections;
+
+  int get memberCount =>
+      sections.fold<int>(0, (count, section) => count + section.members.length);
+
+  static AssociationOrganigram? fromJson(Object? raw) {
+    if (raw is! Map) return null;
+    final title = raw['title'];
+    final rows = raw['sections'];
+    if (title is! String || title.trim().isEmpty || rows is! List) return null;
+
+    final sections = <AssociationOrganigramSection>[
+      for (final row in rows) ?AssociationOrganigramSection.fromJson(row),
+    ];
+    if (sections.isEmpty) return null;
+    return AssociationOrganigram(title: title.trim(), sections: sections);
+  }
+}
+
+@immutable
+class AssociationOrganigramSection {
+  const AssociationOrganigramSection({
+    required this.title,
+    required this.members,
+  });
+
+  final String title;
+  final List<AssociationOrganigramMember> members;
+
+  static AssociationOrganigramSection? fromJson(Object? raw) {
+    if (raw is! Map) return null;
+    final title = raw['title'];
+    final rows = raw['members'];
+    if (title is! String || title.trim().isEmpty || rows is! List) return null;
+
+    final members = <AssociationOrganigramMember>[
+      for (final row in rows) ?AssociationOrganigramMember.fromJson(row),
+    ];
+    if (members.isEmpty) return null;
+    return AssociationOrganigramSection(title: title.trim(), members: members);
+  }
+}
+
+@immutable
+class AssociationOrganigramMember {
+  const AssociationOrganigramMember({required this.role, required this.name});
+
+  final String role;
+  final String name;
+
+  static AssociationOrganigramMember? fromJson(Object? raw) {
+    if (raw is! Map) return null;
+    final role = raw['role'];
+    final name = raw['name'];
+    if (role is! String || role.trim().isEmpty) return null;
+    if (name is! String || name.trim().isEmpty) return null;
+    return AssociationOrganigramMember(role: role.trim(), name: name.trim());
+  }
+}
+
+@immutable
 class Association {
   Association({
     required this.id,
@@ -205,6 +275,7 @@ class Association {
     this.buildingCode,
     this.links = const AssociationLinks(),
     this.events = const <AssociationEvent>[],
+    this.organigram,
   });
 
   /// Stable slug. Follows and notifications key on it, so it must survive a
@@ -228,6 +299,9 @@ class Association {
   /// carrying a path. A baked file only matches the URL it came from, so a
   /// logo that moved upstream falls through to [logoUrl].
   String? get logoAsset {
+    if (kBundledAssociationLocalLogos[id] case final filename?) {
+      return 'assets/images/associations/$filename';
+    }
     final bakedFrom = kBundledAssociationLogos[id];
     if (bakedFrom == null) return null;
     if (logoUrl != null && logoUrl != bakedFrom) return null;
@@ -243,6 +317,8 @@ class Association {
 
   final AssociationLinks links;
   final List<AssociationEvent> events;
+
+  final AssociationOrganigram? organigram;
 
   String get displayName => shortName ?? name;
 
@@ -292,6 +368,7 @@ class Association {
       logoUrl: _publicImageUrl(text('logoUrl')),
       buildingCode: text('buildingCode'),
       links: AssociationLinks.fromJson(raw['links']),
+      organigram: AssociationOrganigram.fromJson(raw['organigram']),
       events: rawEvents is! List
           ? const <AssociationEvent>[]
           : <AssociationEvent>[

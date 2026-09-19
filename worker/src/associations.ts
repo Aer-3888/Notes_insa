@@ -15,6 +15,7 @@ interface AssociationRow {
   logo_url: string | null;
   building_code: string | null;
   links_json: string;
+  organigram_json: string | null;
   source_url: string | null;
   last_verified_at: string | null;
 }
@@ -80,11 +81,40 @@ function links(value: unknown): JsonRecord | null {
   const candidate = asRecord(value);
   if (candidate === null) return null;
   const out: JsonRecord = {};
-  for (const key of ['instagram', 'website', 'email', 'discord', 'facebook']) {
+  for (const key of ['instagram', 'website', 'email', 'discord', 'facebook', 'linkedin']) {
     const item = optionalText(candidate[key], 2048);
     if (item !== null) out[key] = item;
   }
   return out;
+}
+
+function organigram(value: unknown): JsonRecord | null {
+  const candidate = asRecord(value);
+  const title = candidate === null ? null : text(candidate.title, 80);
+  const rawSections = candidate?.sections;
+  if (title === null || !Array.isArray(rawSections) || rawSections.length === 0 || rawSections.length > 12) {
+    return null;
+  }
+
+  const sections: JsonRecord[] = [];
+  for (const rawSection of rawSections) {
+    const section = asRecord(rawSection);
+    const sectionTitle = section === null ? null : text(section.title, 80);
+    const rawMembers = section?.members;
+    if (sectionTitle === null || !Array.isArray(rawMembers) || rawMembers.length === 0 || rawMembers.length > 60) {
+      return null;
+    }
+    const members: JsonRecord[] = [];
+    for (const rawMember of rawMembers) {
+      const member = asRecord(rawMember);
+      const role = member === null ? null : text(member.role, 120);
+      const name = member === null ? null : text(member.name, 80);
+      if (role === null || name === null) return null;
+      members.push({role, name});
+    }
+    sections.push({title: sectionTitle, members});
+  }
+  return {title, sections};
 }
 
 function isCategory(value: string): boolean {
@@ -130,13 +160,22 @@ function serializedLinks(value: string): JsonRecord {
   }
 }
 
+function serializedOrganigram(value: string | null): JsonRecord | null {
+  if (value === null) return null;
+  try {
+    return organigram(JSON.parse(value));
+  } catch {
+    return null;
+  }
+}
+
 async function publish(env: AssociationsEnv): Promise<void> {
   if (env.ASSOCIATIONS === undefined) {
     throw new Error('ASSOCIATIONS KV binding is unavailable');
   }
   const profiles = await env.DB.prepare(
     `SELECT id, name, short_name, category, summary, description, logo_url,
-            building_code, links_json, source_url, last_verified_at
+            building_code, links_json, organigram_json, source_url, last_verified_at
        FROM association_profiles
       ORDER BY name COLLATE NOCASE`,
   ).all<AssociationRow>();
@@ -155,35 +194,39 @@ async function publish(env: AssociationsEnv): Promise<void> {
   const payload = {
     version: 1,
     updatedAt: new Date().toISOString(),
-    associations: profiles.results.map((profile) => ({
-      id: profile.id,
-      name: profile.name,
-      ...(profile.short_name === null ? {} : {shortName: profile.short_name}),
-      category: profile.category,
-      ...(profile.summary === null ? {} : {summary: profile.summary}),
-      ...(profile.description === null ? {} : {description: profile.description}),
-      ...(profile.logo_url === null ? {} : {logoUrl: profile.logo_url}),
-      ...(profile.building_code === null ? {} : {buildingCode: profile.building_code}),
-      links: serializedLinks(profile.links_json),
-      ...(profile.source_url === null ? {} : {sourceUrl: profile.source_url}),
-      ...(profile.last_verified_at === null
-        ? {}
-        : {lastVerifiedAt: profile.last_verified_at}),
-      events: (byAssociation.get(profile.id) ?? []).map((event) => ({
-        id: event.id,
-        title: event.title,
-        startsAt: event.starts_at,
-        ...(event.ends_at === null ? {} : {endsAt: event.ends_at}),
-        ...(event.description === null ? {} : {description: event.description}),
-        ...(event.location === null ? {} : {location: event.location}),
-        ...(event.building_code === null
+    associations: profiles.results.map((profile) => {
+      const team = serializedOrganigram(profile.organigram_json);
+      return {
+        id: profile.id,
+        name: profile.name,
+        ...(profile.short_name === null ? {} : {shortName: profile.short_name}),
+        category: profile.category,
+        ...(profile.summary === null ? {} : {summary: profile.summary}),
+        ...(profile.description === null ? {} : {description: profile.description}),
+        ...(profile.logo_url === null ? {} : {logoUrl: profile.logo_url}),
+        ...(profile.building_code === null ? {} : {buildingCode: profile.building_code}),
+        links: serializedLinks(profile.links_json),
+        ...(team === null ? {} : {organigram: team}),
+        ...(profile.source_url === null ? {} : {sourceUrl: profile.source_url}),
+        ...(profile.last_verified_at === null
           ? {}
-          : {buildingCode: event.building_code}),
-        ...(event.url === null ? {} : {url: event.url}),
-        ...(event.cover_url === null ? {} : {coverUrl: event.cover_url}),
-        ...(event.is_all_day === 0 ? {} : {isAllDay: true}),
-      })),
-    })),
+          : {lastVerifiedAt: profile.last_verified_at}),
+        events: (byAssociation.get(profile.id) ?? []).map((event) => ({
+          id: event.id,
+          title: event.title,
+          startsAt: event.starts_at,
+          ...(event.ends_at === null ? {} : {endsAt: event.ends_at}),
+          ...(event.description === null ? {} : {description: event.description}),
+          ...(event.location === null ? {} : {location: event.location}),
+          ...(event.building_code === null
+            ? {}
+            : {buildingCode: event.building_code}),
+          ...(event.url === null ? {} : {url: event.url}),
+          ...(event.cover_url === null ? {} : {coverUrl: event.cover_url}),
+          ...(event.is_all_day === 0 ? {} : {isAllDay: true}),
+        })),
+      };
+    }),
   };
   await env.ASSOCIATIONS.put(publicKey, JSON.stringify(payload));
 }
@@ -222,7 +265,7 @@ export async function handleAdminAssociation(
   if (request.method === 'GET') {
     const association = await env.DB.prepare(
       `SELECT id, name, short_name, category, summary, description, logo_url,
-              building_code, links_json, source_url, last_verified_at
+              building_code, links_json, organigram_json, source_url, last_verified_at
          FROM association_profiles WHERE id = ?`,
     ).bind(associationId).first<AssociationRow>();
     return association === null
@@ -240,20 +283,27 @@ export async function handleAdminAssociation(
   const name = text(body.name, 160);
   const category = text(body.category, 32);
   const profileLinks = links(body.links);
-  if (name === null || category === null || !isCategory(category) || profileLinks === null) {
+  const hasOrganigram = body.organigram !== undefined;
+  const profileOrganigram = body.organigram === null
+    ? null
+    : organigram(body.organigram);
+  if (name === null || category === null || !isCategory(category) || profileLinks === null ||
+      (hasOrganigram && body.organigram !== null && profileOrganigram === null)) {
     return response({error: 'Invalid association payload'}, 400);
   }
   const result = await env.DB.prepare(
     `UPDATE association_profiles
         SET name = ?, short_name = ?, category = ?, summary = ?, description = ?,
             logo_url = ?, building_code = ?, links_json = ?, source_url = ?,
+            organigram_json = CASE WHEN ? THEN ? ELSE organigram_json END,
             last_verified_at = datetime('now'), updated_at = datetime('now')
       WHERE id = ?`,
   ).bind(
     name, optionalText(body.shortName, 80), category, optionalText(body.summary, 280),
     optionalText(body.description, 6000), publicUrl(body.logoUrl),
     optionalText(body.buildingCode, 32), JSON.stringify(profileLinks),
-    publicUrl(body.sourceUrl), associationId,
+    publicUrl(body.sourceUrl), hasOrganigram ? 1 : 0,
+    profileOrganigram === null ? null : JSON.stringify(profileOrganigram), associationId,
   ).run();
   if (result.meta.changes === 0) return response({error: 'Not found'}, 404);
   try {
