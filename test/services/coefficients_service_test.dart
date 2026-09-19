@@ -71,29 +71,32 @@ void main() {
   }
   ''';
 
-  test('fetchAndCacheFromApi skips MDW when Tier 1 cache already has coefficients', () async {
-    // Populate local cache for Semestre 5
-    final cacheKey = semesterCacheKey(
-      kStorageCoefficientsPrefix,
-      '3INFO',
-      5,
-      AveragesService.currentAcademicYear(),
-    );
-    store[cacheKey] = jsonEncode({
-      'ts': DateTime.now().millisecondsSinceEpoch,
-      'coeffs': {'UE 51|Algorithmique': 2.0},
-    });
+  test(
+    'fetchAndCacheFromApi skips MDW when Tier 1 cache already has coefficients',
+    () async {
+      // Populate local cache for Semestre 5
+      final cacheKey = semesterCacheKey(
+        kStorageCoefficientsPrefix,
+        '3INFO',
+        5,
+        AveragesService.currentAcademicYear(),
+      );
+      store[cacheKey] = jsonEncode({
+        'ts': DateTime.now().millisecondsSinceEpoch,
+        'coeffs': {'UE 51|Algorithmique': 2.0},
+      });
 
-    var mdwScrapeCalled = false;
-    GradesService.coefficientsOverride = (_) async {
-      mdwScrapeCalled = true;
-      return '{"details": []}';
-    };
+      var mdwScrapeCalled = false;
+      GradesService.coefficientsOverride = (_) async {
+        mdwScrapeCalled = true;
+        return '{"details": []}';
+      };
 
-    await CoefficientsService.fetchAndCacheFromApi(dummyGradesJson, 1);
+      await CoefficientsService.fetchAndCacheFromApi(dummyGradesJson, 1);
 
-    expect(mdwScrapeCalled, isFalse);
-  });
+      expect(mdwScrapeCalled, isFalse);
+    },
+  );
 
   test('fetchAndCacheFromApi calls MDW when cache misses', () async {
     var mdwScrapeCalled = false;
@@ -107,19 +110,22 @@ void main() {
     expect(mdwScrapeCalled, isTrue);
   });
 
-  test('fetchAndCacheFromApi respects isCancelled before calling MDW', () async {
-    var mdwScrapeCalled = false;
-    GradesService.coefficientsOverride = (_) async {
-      mdwScrapeCalled = true;
-      return '{"details": []}';
-    };
+  test(
+    'fetchAndCacheFromApi respects isCancelled before calling MDW',
+    () async {
+      var mdwScrapeCalled = false;
+      GradesService.coefficientsOverride = (_) async {
+        mdwScrapeCalled = true;
+        return '{"details": []}';
+      };
 
-    await CoefficientsService.fetchAndCacheFromApi(
-      dummyGradesJson,
-      1,
-      isCancelled: () => true,
-    );
+      await CoefficientsService.fetchAndCacheFromApi(
+        dummyGradesJson,
+        1,
+        isCancelled: () => true,
+      );
 
-    expect(mdwScrapeCalled, isFalse);
-  });
+      expect(mdwScrapeCalled, isFalse);
+    },
+  );
 }

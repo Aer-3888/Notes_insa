@@ -91,8 +91,9 @@ class CoefficientsService {
       final gradesData = JsonCurriculumParser.tryDecode(gradesJson);
       if (gradesData == null) return;
 
-      final availableSems =
-          JsonCurriculumParser.getAvailableSemesters(gradesData);
+      final availableSems = JsonCurriculumParser.getAvailableSemesters(
+        gradesData,
+      );
       if (availableSems.isEmpty) return;
       final maxSem = availableSems.last;
       final baseline = await AveragesService.loadAcademicYearBaseline();

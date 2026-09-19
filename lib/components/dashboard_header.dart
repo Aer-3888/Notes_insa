@@ -23,9 +23,10 @@ class DashboardHeader extends StatelessWidget {
   final String subtitle;
 
   final DateTime? lastUpdated;
-  final int selectedSemester;
-  final List<int> availableSemesters;
-  final ValueChanged<int> onSemesterChanged;
+
+  /// Injected rather than built here so the rail can share the tab controller
+  /// that drives the pages.
+  final Widget? semesterSelector;
 
   /// When true, the displayed average is a local estimate.
   final bool provisional;
@@ -37,9 +38,7 @@ class DashboardHeader extends StatelessWidget {
     this.titleWidget,
     required this.subtitle,
     this.lastUpdated,
-    required this.selectedSemester,
-    required this.availableSemesters,
-    required this.onSemesterChanged,
+    this.semesterSelector,
     this.provisional = false,
   });
 
@@ -69,67 +68,90 @@ class DashboardHeader extends StatelessWidget {
           'Moyenne',
           style: text.labelMedium?.copyWith(color: scheme.onSurfaceVariant),
         ),
-        Text(
-          averageText,
-          semanticsLabel: average == null
-              ? 'Moyenne du semestre indisponible'
-              : 'Moyenne du semestre $averageText sur 20',
-          style: context.campusType.displayNumeral.copyWith(
-            color: attention ? scheme.error : scheme.onSurface,
+        AnimatedSwitcher(
+          duration: CampusMotion.of(context, CampusMotion.exit),
+          switchInCurve: CampusMotion.standard,
+          switchOutCurve: CampusMotion.standard,
+          // Overlap the two numerals so a digit-count change does not shift
+          // the layout mid-fade.
+          layoutBuilder: (current, previous) => Stack(
+            alignment: Alignment.centerRight,
+            children: <Widget>[...previous, ?current],
+          ),
+          child: Text(
+            averageText,
+            key: ValueKey<String>('$averageText/$attention'),
+            semanticsLabel: average == null
+                ? 'Moyenne du semestre indisponible'
+                : 'Moyenne du semestre $averageText sur 20',
+            style: context.campusType.displayNumeral.copyWith(
+              color: attention ? scheme.error : scheme.onSurface,
+            ),
           ),
         ),
       ],
     );
 
     return Padding(
-      padding: const EdgeInsets.fromLTRB(
-        CampusSpacing.gutter,
-        CampusSpacing.x4,
-        CampusSpacing.gutter,
-        0,
-      ),
+      padding: const EdgeInsets.only(top: CampusSpacing.x4),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          LayoutBuilder(
-            builder: (context, constraints) {
-              final scale = MediaQuery.textScalerOf(context).scale(16) / 16;
-              if (constraints.maxWidth < 320 * scale) {
-                return Column(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
+          Padding(
+            padding: const EdgeInsets.symmetric(
+              horizontal: CampusSpacing.gutter,
+            ),
+            child: LayoutBuilder(
+              builder: (context, constraints) {
+                final scale = MediaQuery.textScalerOf(context).scale(16) / 16;
+                if (constraints.maxWidth < 320 * scale) {
+                  return Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      heading,
+                      const SizedBox(height: CampusSpacing.x2),
+                      Align(
+                        alignment: Alignment.centerRight,
+                        child: averageLabel,
+                      ),
+                    ],
+                  );
+                }
+                return Row(
+                  crossAxisAlignment: CrossAxisAlignment.end,
                   children: [
-                    heading,
-                    const SizedBox(height: CampusSpacing.x2),
-                    Align(
-                      alignment: Alignment.centerRight,
-                      child: averageLabel,
-                    ),
+                    Expanded(child: heading),
+                    const SizedBox(width: CampusSpacing.x4),
+                    averageLabel,
                   ],
                 );
-              }
-              return Row(
-                crossAxisAlignment: CrossAxisAlignment.end,
-                children: [
-                  Expanded(child: heading),
-                  const SizedBox(width: CampusSpacing.x4),
-                  averageLabel,
-                ],
-              );
-            },
+              },
+            ),
           ),
-          if (provisional && average != null)
-            Text(
-              'Moyenne estimée à partir des notes publiées',
-              style: text.labelMedium?.copyWith(color: scheme.onSurfaceVariant),
-            ),
-          if (availableSemesters.isNotEmpty) ...[
+          AnimatedSize(
+            duration: CampusMotion.of(context, CampusMotion.enter),
+            curve: CampusMotion.standard,
+            child: (provisional && average != null)
+                ? Padding(
+                    padding: const EdgeInsets.fromLTRB(
+                      CampusSpacing.gutter,
+                      CampusSpacing.x1,
+                      CampusSpacing.gutter,
+                      0,
+                    ),
+                    child: Text(
+                      'Moyenne estimée à partir des notes publiées',
+                      style: text.labelMedium?.copyWith(
+                        color: scheme.onSurfaceVariant,
+                      ),
+                    ),
+                  )
+                : const SizedBox.shrink(),
+          ),
+          if (semesterSelector != null) ...[
             const SizedBox(height: CampusSpacing.x3),
-            _SemesterSelector(
-              availableSemesters: availableSemesters,
-              selectedSemester: selectedSemester,
-              onSemesterChanged: onSemesterChanged,
-            ),
-            const SizedBox(height: CampusSpacing.x3),
+            semesterSelector!,
+            const SizedBox(height: CampusSpacing.x2),
           ],
         ],
       ),
@@ -172,41 +194,4 @@ class _LastUpdatedLabelState extends State<_LastUpdatedLabel> {
       color: context.campus.onSurfaceMuted,
     ),
   );
-}
-
-/// Selection reads the same here as everywhere else in the app, because it is
-/// the themed Material control rather than a hand-built pill.
-class _SemesterSelector extends StatelessWidget {
-  const _SemesterSelector({
-    required this.availableSemesters,
-    required this.selectedSemester,
-    required this.onSemesterChanged,
-  });
-
-  final List<int> availableSemesters;
-  final int selectedSemester;
-  final ValueChanged<int> onSemesterChanged;
-
-  @override
-  Widget build(BuildContext context) {
-    final selected = availableSemesters.contains(selectedSemester)
-        ? selectedSemester
-        : availableSemesters.first;
-    final button = SegmentedButton<int>(
-      segments: [
-        for (final s in availableSemesters)
-          ButtonSegment<int>(value: s, label: Text('S$s')),
-      ],
-      selected: <int>{selected},
-      showSelectedIcon: false,
-      onSelectionChanged: (choice) => onSemesterChanged(choice.first),
-    );
-
-    // Beyond four semesters the segments stop fitting a phone's width.
-    if (availableSemesters.length <= 4) return button;
-    return SingleChildScrollView(
-      scrollDirection: Axis.horizontal,
-      child: button,
-    );
-  }
 }

@@ -232,6 +232,31 @@ final academicYearForSemesterProvider = Provider.family<String, int>((
   );
 });
 
+/// One academic year's semesters, in order.
+typedef SemesterYearGroup = ({String academicYear, List<int> semesters});
+
+/// [availableSemestersProvider] grouped by academic year, oldest first.
+///
+/// Groups on the year each semester reports rather than assuming a fixed
+/// number per year, so a partial or repeated year still groups correctly.
+final semesterYearGroupsProvider = Provider<List<SemesterYearGroup>>((ref) {
+  final semesters = ref.watch(availableSemestersProvider);
+  final order = <String>[];
+  final byYear = <String, List<int>>{};
+  for (final semester in semesters) {
+    final year = ref.watch(academicYearForSemesterProvider(semester));
+    byYear
+        .putIfAbsent(year, () {
+          order.add(year);
+          return <int>[];
+        })
+        .add(semester);
+  }
+  return [
+    for (final year in order) (academicYear: year, semesters: byYear[year]!),
+  ];
+});
+
 /// Academic year for the currently selected semester.
 final academicYearProvider = Provider<String>((ref) {
   final semester = ref.watch(effectiveSemesterProvider);
