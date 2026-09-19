@@ -103,6 +103,49 @@ void main() {
     expect(find.text('Mathys'), findsOneWidget);
   });
 
+  testWidgets('shows live opportunities and expands an FAQ', (tester) async {
+    final association = Association(
+      id: 'ouest-insa',
+      name: 'Ouest INSA',
+      category: AssociationCategory.entreprise,
+      recruitment: const AssociationRecruitment(
+        isOpen: true,
+        title: 'Candidatures ouvertes',
+        description: 'Candidate avant la date indiquée.',
+        url: 'https://example.test/apply',
+      ),
+      events: <AssociationEvent>[
+        AssociationEvent(
+          id: 'open-day',
+          associationId: 'ouest-insa',
+          title: 'Réunion de découverte',
+          startsAt: campusInstant(DateTime(2027, 1, 15, 18)),
+        ),
+      ],
+      faqs: const <AssociationFaq>[
+        AssociationFaq(
+          question: 'Le recrutement est-il ouvert ?',
+          answer: 'Non, il est fermé pendant la formation.',
+        ),
+      ],
+    );
+
+    await _pump(tester, association);
+    expect(find.text('Que puis-je faire ici ?'), findsOneWidget);
+    expect(find.text('Candidatures ouvertes'), findsOneWidget);
+    expect(find.text('Réunion de découverte'), findsOneWidget);
+    await tester.scrollUntilVisible(find.text('Questions fréquentes'), 300);
+    expect(find.text('Non, il est fermé pendant la formation.'), findsNothing);
+
+    await tester.tap(find.text('Le recrutement est-il ouvert ?'));
+    await tester.pumpAndSettle();
+
+    expect(
+      find.text('Non, il est fermé pendant la formation.'),
+      findsOneWidget,
+    );
+  });
+
   testWidgets('asks once for reminders after the first follow', (tester) async {
     final permissions = _FakePermissions(NotificationPermissionState.denied);
     final association = Association(
