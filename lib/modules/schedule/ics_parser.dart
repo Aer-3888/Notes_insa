@@ -21,6 +21,7 @@ List<ScheduleEvent> parseAdeIcs(String source) {
 
     final parts = _describe(fields['DESCRIPTION'] ?? '');
     final room = _clean(fields['LOCATION']);
+    final uid = _clean(fields['UID']);
 
     events.add(
       ScheduleEvent(
@@ -31,6 +32,8 @@ List<ScheduleEvent> parseAdeIcs(String source) {
         teachers: parts.teachers,
         module: parts.module,
         room: room,
+        uid: uid,
+        activityId: adeActivityId(uid),
       ),
     );
   }
@@ -74,6 +77,38 @@ DateTime? _parseUtcStamp(String? raw) {
     int.parse(match.group(6)!),
   );
   return campusFromEpochMs(utc.millisecondsSinceEpoch);
+}
+
+/// The course series [uid] belongs to, or null when it is not an ADE uid.
+///
+/// ADE writes a uid as a short prefix then the hex of an ASCII identifier:
+/// `ADE60323032362d…` decodes to `2026-2027-5506-0-0`, whose third field is
+/// the activity. Every session of a series carries the same one.
+String? adeActivityId(String? uid) {
+  if (uid == null) return null;
+  // The prefix is itself valid hex, so every plausible start is tried.
+  for (var start = 3; start <= 8 && start < uid.length; start++) {
+    if ((uid.length - start) % 2 != 0) continue;
+    final decoded = _fromHex(uid.substring(start));
+    if (decoded == null) continue;
+    final match = _adeIdentifier.firstMatch(decoded);
+    if (match != null) return match.group(1);
+  }
+  return null;
+}
+
+/// `<year>-<year>-<activity>-<n>-<occurrence>`.
+final RegExp _adeIdentifier = RegExp(r'^\d{4}-\d{4}-(\d+)-\d+-\d+$');
+
+String? _fromHex(String hex) {
+  final units = <int>[];
+  for (var i = 0; i < hex.length; i += 2) {
+    final byte = int.tryParse(hex.substring(i, i + 2), radix: 16);
+    // Not the payload if it does not decode to printable ASCII.
+    if (byte == null || byte < 0x20 || byte > 0x7e) return null;
+    units.add(byte);
+  }
+  return String.fromCharCodes(units);
 }
 
 String _unescape(String v) => v

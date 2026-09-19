@@ -1,43 +1,9 @@
+import 'french_dates.dart';
 import 'schedule_view_mode.dart';
 
-/// The module's one French date vocabulary.
-const List<String> frenchWeekdays = <String>[
-  'lundi',
-  'mardi',
-  'mercredi',
-  'jeudi',
-  'vendredi',
-  'samedi',
-  'dimanche',
-];
-
-const List<String> frenchWeekdaysShort = <String>[
-  'lun',
-  'mar',
-  'mer',
-  'jeu',
-  'ven',
-  'sam',
-  'dim',
-];
-
-const List<String> frenchMonths = <String>[
-  'janvier',
-  'février',
-  'mars',
-  'avril',
-  'mai',
-  'juin',
-  'juillet',
-  'août',
-  'septembre',
-  'octobre',
-  'novembre',
-  'décembre',
-];
-
-String frenchDayLabel(DateTime d) =>
-    '${frenchWeekdays[d.weekday - 1]} ${d.day} ${frenchMonths[d.month - 1]}';
+// The vocabulary stays a plain file so models can name a date too. It is
+// re-exported so its readers keep importing this one file.
+export 'french_dates.dart';
 
 typedef PeriodRange = ({DateTime from, DateTime to});
 

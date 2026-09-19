@@ -9,6 +9,8 @@ import '../../core/module_cache.dart';
 import '../../core/time.dart';
 import '../../core/module_cache_provider.dart';
 import 'ade_service.dart';
+import 'hidden_courses_provider.dart';
+import 'hide_rule.dart';
 import 'schedule_event.dart';
 
 const String kScheduleModuleId = 'edt';
@@ -120,14 +122,18 @@ final scheduleProvider = StreamProvider<CachedEntry<List<ScheduleEvent>>>((
 const int kUpcomingPreviewCount = 8;
 
 /// The sessions still to come, for the hub preview. Reads the same cache, so
-/// it costs no extra request and works offline.
+/// it costs no extra request and works offline. Hidden courses never reach it.
 final upcomingCoursesProvider = Provider<List<ScheduleEvent>>((ref) {
   final events = ref.watch(scheduleProvider).value?.data;
   if (events == null) return const <ScheduleEvent>[];
+  // Filtered here rather than through a derived provider: an extra provider
+  // between the stream and the card invalidates itself mid build.
+  final rules = ref.watch(hiddenRulesProvider);
   final now = campusNow();
   final upcoming = <ScheduleEvent>[];
   for (final e in events) {
     if (!e.end.isAfter(now)) continue;
+    if (isHidden(e, rules)) continue;
     upcoming.add(e);
     if (upcoming.length == kUpcomingPreviewCount) break;
   }

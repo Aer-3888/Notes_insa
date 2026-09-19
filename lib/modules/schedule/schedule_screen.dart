@@ -10,6 +10,10 @@ import '../../theme/campus_context.dart';
 import '../../theme/state_view.dart';
 import '../../theme/tokens.dart';
 import 'group_picker_screen.dart';
+import 'hidden_courses_provider.dart';
+import 'hidden_courses_scope.dart';
+import 'hide_course_sheet.dart';
+import 'hide_rule.dart';
 import 'month_grid.dart';
 import 'schedule_day_index.dart';
 import 'event_sheet.dart';
@@ -174,6 +178,8 @@ class _ScheduleScreenState extends ConsumerState<ScheduleScreen> {
     final showStrip = ref.watch(stripProvider);
     final showMonthPreview = ref.watch(scheduleMonthPreviewProvider);
     final dayWidth = ref.watch(scheduleDayWidthProvider);
+    final rules = ref.watch(hiddenRulesProvider);
+    final reveal = ref.watch(scheduleRevealHiddenProvider);
 
     ref.listen<ScheduleFocus?>(scheduleFocusProvider, (_, next) {
       if (next == null) return;
@@ -210,8 +216,28 @@ class _ScheduleScreenState extends ConsumerState<ScheduleScreen> {
           ),
         ),
         actions: [
+          // Leftmost. The row is anchored right, so an eye that comes and
+          // goes here leaves every other button where it was. Every action is
+          // keyed, or they inherit one another's element as this one and the
+          // mode toggles come and go, and the ripple plays on the wrong icon.
+          if (rules.isNotEmpty)
+            IconButton(
+              key: const ValueKey<String>('schedule-reveal-hidden'),
+              icon: Icon(
+                reveal
+                    ? Icons.visibility_outlined
+                    : Icons.visibility_off_outlined,
+              ),
+              tooltip: reveal
+                  ? 'Masquer les cours filtrés'
+                  : 'Afficher les cours masqués',
+              onPressed: () => unawaited(
+                ref.read(scheduleRevealHiddenProvider.notifier).toggle(),
+              ),
+            ),
           if (mode.showsStrip)
             IconButton(
+              key: const ValueKey<String>('schedule-week-strip'),
               icon: Icon(
                 showStrip
                     ? Icons.calendar_view_week_outlined
@@ -225,6 +251,7 @@ class _ScheduleScreenState extends ConsumerState<ScheduleScreen> {
             ),
           if (mode == ScheduleViewMode.mois)
             IconButton(
+              key: const ValueKey<String>('schedule-month-preview'),
               icon: Icon(
                 showMonthPreview
                     ? Icons.view_agenda_outlined
@@ -238,6 +265,7 @@ class _ScheduleScreenState extends ConsumerState<ScheduleScreen> {
               ),
             ),
           IconButton(
+            key: const ValueKey<String>('schedule-groups'),
             icon: const Icon(Icons.group_outlined),
             tooltip: 'Changer de groupe',
             onPressed: () => Navigator.of(context).push(
@@ -278,10 +306,18 @@ class _ScheduleScreenState extends ConsumerState<ScheduleScreen> {
                 ),
               ),
               data: (entry) {
+                final all = entry.data ?? const <ScheduleEvent>[];
+                // Revealing keeps the hidden sessions in the index so they can
+                // be drawn dimmed; otherwise they leave before it is built and
+                // the free time they held is recomputed.
+                final shown = reveal ? all : visibleEvents(all, rules);
                 final index = ScheduleDayIndex.build(
-                  events: entry.data ?? const <ScheduleEvent>[],
+                  events: shown,
                   from: _rangeStart,
                   to: _rangeEnd,
+                  hidden: reveal
+                      ? const <ScheduleEvent>[]
+                      : hiddenEvents(all, rules),
                 );
                 // Both surfaces measure with the same function, or the strip
                 // drifts from the list.
@@ -335,17 +371,22 @@ class _ScheduleScreenState extends ConsumerState<ScheduleScreen> {
                     onTapEvent: (e) => showEventSheet(context, e),
                   ),
                 };
-                return Column(
-                  children: <Widget>[
-                    SchedulePeriodHeader(
-                      mode: mode,
-                      day: _day,
-                      today: campusNow(),
-                      onShift: _shiftPeriod,
-                      onToday: () => _goTo(_today()),
-                    ),
-                    Expanded(child: body),
-                  ],
+                return HiddenCoursesScope(
+                  rules: rules,
+                  onHide: (ctx, event) =>
+                      unawaited(showHideCourseSheet(ctx, event)),
+                  child: Column(
+                    children: <Widget>[
+                      SchedulePeriodHeader(
+                        mode: mode,
+                        day: _day,
+                        today: campusNow(),
+                        onShift: _shiftPeriod,
+                        onToday: () => _goTo(_today()),
+                      ),
+                      Expanded(child: body),
+                    ],
+                  ),
                 );
               },
             ),

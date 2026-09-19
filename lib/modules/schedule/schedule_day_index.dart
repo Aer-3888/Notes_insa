@@ -1,11 +1,18 @@
 import 'schedule_event.dart';
 
-enum ScheduleRowKind { dayHeader, event, gap, emptyDay, rangeEnd }
+enum ScheduleRowKind { dayHeader, event, gap, emptyDay, allHidden, rangeEnd }
 
 /// One row of the timeline. Every row belongs to a day, so the week strip can
 /// be driven from whichever row is on screen.
 class ScheduleRow {
-  const ScheduleRow._(this.kind, this.day, {this.event, this.from, this.to});
+  const ScheduleRow._(
+    this.kind,
+    this.day, {
+    this.event,
+    this.from,
+    this.to,
+    this.hiddenCount = 0,
+  });
 
   const ScheduleRow.dayHeader(DateTime day)
     : this._(ScheduleRowKind.dayHeader, day);
@@ -18,6 +25,9 @@ class ScheduleRow {
 
   const ScheduleRow.emptyDay(DateTime day)
     : this._(ScheduleRowKind.emptyDay, day);
+
+  const ScheduleRow.allHidden(DateTime day, int count)
+    : this._(ScheduleRowKind.allHidden, day, hiddenCount: count);
 
   const ScheduleRow.rangeEnd(DateTime day)
     : this._(ScheduleRowKind.rangeEnd, day);
@@ -33,6 +43,9 @@ class ScheduleRow {
   /// Set only when [kind] is `gap`: the free window's bounds.
   final DateTime? from;
   final DateTime? to;
+
+  /// Set only when [kind] is `allHidden`: how many sessions a rule took out.
+  final int hiddenCount;
 
   Duration? get gap => from == null ? null : to!.difference(from!);
 }
@@ -54,7 +67,14 @@ class ScheduleDayIndex {
     required List<ScheduleEvent> events,
     required DateTime from,
     required DateTime to,
+    List<ScheduleEvent> hidden = const <ScheduleEvent>[],
   }) {
+    final hiddenPerDay = <DateTime, int>{};
+    for (final event in hidden) {
+      final day = _midnight(event.start);
+      hiddenPerDay[day] = (hiddenPerDay[day] ?? 0) + 1;
+    }
+
     final byDay = <DateTime, List<ScheduleEvent>>{};
     for (final event in events) {
       final day = _midnight(event.start);
@@ -76,7 +96,13 @@ class ScheduleDayIndex {
 
       final dayEvents = byDay[day] ?? const <ScheduleEvent>[];
       if (dayEvents.isEmpty) {
-        rows.add(ScheduleRow.emptyDay(day));
+        // A day emptied by a rule must never read as a free one.
+        final count = hiddenPerDay[day] ?? 0;
+        rows.add(
+          count == 0
+              ? ScheduleRow.emptyDay(day)
+              : ScheduleRow.allHidden(day, count),
+        );
         continue;
       }
 

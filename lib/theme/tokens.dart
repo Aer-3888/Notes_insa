@@ -434,6 +434,11 @@ abstract final class CampusRadii {
   );
 }
 
+abstract final class CampusOpacity {
+  /// A session kept on screen only to show that a rule filters it out.
+  static const double hidden = 0.38;
+}
+
 abstract final class CampusMotion {
   static const Duration fast = Duration(milliseconds: 100);
   static const Duration exit = Duration(milliseconds: 200);

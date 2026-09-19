@@ -8,6 +8,8 @@ class ScheduleEvent {
     required this.teachers,
     this.module,
     this.room,
+    this.uid,
+    this.activityId,
   });
 
   final String title;
@@ -28,6 +30,12 @@ class ScheduleEvent {
   /// Raw room text. Null rather than empty when ADE gives no location.
   final String? room;
 
+  /// ADE's identifier for this one session.
+  final String? uid;
+
+  /// The course series, decoded from [uid]. Sessions of one series share it.
+  final String? activityId;
+
   Duration get duration => end.difference(start);
 
   Map<String, dynamic> toJson() => <String, dynamic>{
@@ -38,6 +46,8 @@ class ScheduleEvent {
     'teachers': teachers,
     'module': module,
     'room': room,
+    'uid': uid,
+    'activityId': activityId,
   };
 
   /// Rebuilds from cache. Timestamps come back through the campus zone so a
@@ -53,5 +63,8 @@ class ScheduleEvent {
     teachers: <String>[...(json['teachers'] as List<dynamic>).cast<String>()],
     module: json['module'] as String?,
     room: json['room'] as String?,
+    // Absent from entries cached before these were kept.
+    uid: json['uid'] as String?,
+    activityId: json['activityId'] as String?,
   );
 }

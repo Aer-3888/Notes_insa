@@ -39,23 +39,31 @@ class SchedulePeriodHeader extends StatelessWidget {
               style: context.text.titleMedium,
             ),
           ),
+          // Before the arrows, not after. The label takes the slack, so a
+          // button appended here would slide both arrows one place left and
+          // put the next arrow where the previous one was.
+          //
+          // Keyed, or the arrows inherit one another's element when this one
+          // comes and goes, and the tap ripple plays on the wrong icon.
+          if (!onScreen)
+            IconButton(
+              key: const ValueKey<String>('schedule-today'),
+              icon: const Icon(Icons.today_outlined),
+              tooltip: 'Aujourd’hui',
+              onPressed: onToday,
+            ),
           IconButton(
+            key: const ValueKey<String>('schedule-previous-period'),
             icon: const Icon(Icons.chevron_left),
             tooltip: 'Période précédente',
             onPressed: () => onShift(-1),
           ),
           IconButton(
+            key: const ValueKey<String>('schedule-next-period'),
             icon: const Icon(Icons.chevron_right),
             tooltip: 'Période suivante',
             onPressed: () => onShift(1),
           ),
-          // Last, so the arrows keep their place when it appears.
-          if (!onScreen)
-            IconButton(
-              icon: const Icon(Icons.today_outlined),
-              tooltip: 'Aujourd’hui',
-              onPressed: onToday,
-            ),
         ],
       ),
     );

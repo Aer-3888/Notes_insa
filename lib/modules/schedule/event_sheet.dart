@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -9,6 +11,9 @@ import '../campus_map/campus_geo.dart';
 import '../campus_map/campus_places.dart';
 import '../campus_map/map_preview.dart';
 import '../campus_map/map_screen.dart';
+import 'hidden_courses_provider.dart';
+import 'hide_course_sheet.dart';
+import 'hide_rule.dart';
 import 'room_lookup.dart';
 import 'schedule_event.dart';
 
@@ -72,6 +77,7 @@ class _EventSheet extends ConsumerWidget {
         ref.watch(campusPlacesProvider).value ?? const <CampusPlace>[];
     final geo = ref.watch(campusGeoProvider).value;
     final room = resolveRoom(event.room, places);
+    final hidden = isHidden(event, ref.watch(hiddenRulesProvider));
     final hasRoom = event.room != null && event.room!.isNotEmpty;
     final title = event.module ?? event.title;
 
@@ -176,6 +182,23 @@ class _EventSheet extends ConsumerWidget {
                         icon: const Icon(Icons.directions_walk),
                         label: const Text('Me guider'),
                       ),
+                    TextButton.icon(
+                      onPressed: () {
+                        // The sheet's own context dies with the pop, so the
+                        // chooser opens from the navigator's.
+                        final navigator = Navigator.of(context);
+                        navigator.pop();
+                        unawaited(
+                          showHideCourseSheet(navigator.context, event),
+                        );
+                      },
+                      icon: Icon(
+                        hidden
+                            ? Icons.visibility_outlined
+                            : Icons.visibility_off_outlined,
+                      ),
+                      label: Text(hidden ? 'Afficher' : 'Masquer'),
+                    ),
                     if (hasRoom)
                       TextButton.icon(
                         onPressed: () async {
