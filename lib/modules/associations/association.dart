@@ -4,6 +4,9 @@ import '../../core/search_text.dart';
 import '../../core/time.dart';
 import 'association_logo_assets.dart';
 
+final RegExp _leadingAt = RegExp(r'^@');
+final RegExp _dateOnly = RegExp(r'^\d{4}-\d{2}-\d{2}$');
+
 /// What kind of association this is, for grouping and filtering the list.
 ///
 /// Close to the groups INSA uses on its own associations page, but coarser.
@@ -86,7 +89,7 @@ class AssociationLinks {
 
     return AssociationLinks(
       // Tolerated so a pasted "@ktulu" does not become a broken profile URL.
-      instagram: text('instagram')?.replaceFirst(RegExp(r'^@'), ''),
+      instagram: text('instagram')?.replaceFirst(_leadingAt, ''),
       website: text('website'),
       email: text('email'),
       discord: text('discord'),
@@ -169,9 +172,7 @@ class AssociationEvent {
 
     final endsAt = DateTime.tryParse(raw['endsAt'] as String? ?? '');
     // "2026-05-06" is a day; "2026-05-06T20:00:00" is a time.
-    final isAllDay = RegExp(
-      r'^\d{4}-\d{2}-\d{2}$',
-    ).hasMatch(raw['startsAt'] as String);
+    final isAllDay = _dateOnly.hasMatch(raw['startsAt'] as String);
     return AssociationEvent(
       id: id,
       associationId: associationId,
@@ -193,7 +194,7 @@ class AssociationEvent {
 
 @immutable
 class Association {
-  const Association({
+  Association({
     required this.id,
     required this.name,
     required this.category,
@@ -253,13 +254,18 @@ class Association {
       events.where((e) => e.isPast(now)).toList()
         ..sort((a, b) => b.startsAt.compareTo(a.startsAt));
 
-  bool matches(String query) {
-    final q = foldForSearch(query);
-    if (q.isEmpty) return true;
-    return foldForSearch(name).contains(q) ||
-        foldForSearch(shortName ?? '').contains(q) ||
-        foldForSearch(summary ?? '').contains(q);
-  }
+  /// Everything the directory searches on, folded once. Folding walks runes,
+  /// so it cannot be done per association per keystroke.
+  late final String searchKey = <String>[
+    name,
+    shortName ?? '',
+    summary ?? '',
+  ].map(foldForSearch).join(' ');
+
+  /// [foldedQuery] has already been through [foldForSearch]: the caller folds
+  /// once for the directory rather than once per association.
+  bool matchesFolded(String foldedQuery) =>
+      foldedQuery.isEmpty || searchKey.contains(foldedQuery);
 
   static Association? fromJson(Object? raw) {
     if (raw is! Map) return null;

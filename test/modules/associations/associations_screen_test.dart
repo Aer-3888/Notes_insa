@@ -150,6 +150,116 @@ void main() {
         findsNothing,
       );
     });
+
+    testWidgets('scrolls smoothly through a large directory without errors', (
+      tester,
+    ) async {
+      final bigDirectory = <Association>[
+        for (var i = 0; i < 50; i++)
+          _asso(
+            id: 'asso-$i',
+            name: 'Association $i',
+            category: AssociationCategory
+                .values[i % AssociationCategory.values.length],
+            summary: 'Summary for association $i',
+          ),
+      ];
+      await _pump(tester, const AssociationsScreen(), directory: bigDirectory);
+      await _openExplorer(tester);
+
+      await tester.fling(
+        find.byType(CustomScrollView),
+        const Offset(0, -2000),
+        3000,
+      );
+      await tester.pumpAndSettle();
+
+      await tester.fling(
+        find.byType(CustomScrollView),
+        const Offset(0, 2000),
+        3000,
+      );
+      await tester.pumpAndSettle();
+
+      expect(tester.takeException(), isNull);
+      expect(find.text('Association 0'), findsOneWidget);
+    });
+
+    testWidgets('search folds accents and case', (tester) async {
+      await _pump(
+        tester,
+        const AssociationsScreen(),
+        directory: <Association>[
+          _asso(id: 'theatre', name: 'Club Théâtre'),
+          _asso(id: 'robot', name: 'Club Robotique'),
+        ],
+      );
+      await _openExplorer(tester);
+
+      // Nobody types the accents into a search field.
+      await tester.enterText(find.byType(TextField), 'THEATRE');
+      await tester.pumpAndSettle();
+
+      expect(find.text('Club Théâtre'), findsOneWidget);
+      expect(find.text('Club Robotique'), findsNothing);
+    });
+
+    testWidgets('the chips offer only categories the search still matches', (
+      tester,
+    ) async {
+      await _pump(
+        tester,
+        const AssociationsScreen(),
+        directory: <Association>[
+          _asso(
+            id: 'as',
+            name: 'Association Sportive',
+            category: AssociationCategory.sport,
+          ),
+          _asso(
+            id: 'ktulu',
+            name: 'Ktulu',
+            category: AssociationCategory.culture,
+          ),
+        ],
+      );
+      await _openExplorer(tester);
+
+      expect(find.widgetWithText(ChoiceChip, 'Sport'), findsOneWidget);
+      expect(
+        find.widgetWithText(ChoiceChip, AssociationCategory.culture.label),
+        findsOneWidget,
+      );
+
+      await tester.enterText(find.byType(TextField), 'sportive');
+      await tester.pumpAndSettle();
+
+      expect(find.widgetWithText(ChoiceChip, 'Sport'), findsOneWidget);
+      expect(
+        find.widgetWithText(ChoiceChip, AssociationCategory.culture.label),
+        findsNothing,
+      );
+    });
+
+    testWidgets('following from a row lifts it under Suivies', (tester) async {
+      await _pump(
+        tester,
+        const AssociationsScreen(),
+        directory: <Association>[
+          _asso(id: 'ktulu', name: 'Ktulu'),
+          _asso(id: 'gala', name: 'Gala'),
+        ],
+      );
+      await _openExplorer(tester);
+
+      expect(find.text('Suivies'), findsNothing);
+
+      await tester.tap(find.byTooltip('Suivre').first);
+      await tester.pumpAndSettle();
+
+      expect(find.text('Suivies'), findsOneWidget);
+      expect(find.byTooltip('Ne plus suivre'), findsOneWidget);
+    });
   });
 
   group('the today card', () {

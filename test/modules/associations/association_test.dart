@@ -1,6 +1,7 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
+import 'package:notes_insa/core/search_text.dart';
 import 'package:notes_insa/core/time.dart';
 import 'package:notes_insa/modules/associations/association.dart';
 import 'package:notes_insa/modules/associations/association_service.dart';
@@ -228,11 +229,14 @@ void main() {
       'shortName': 'Ktulu',
       'summary': 'Le club théâtre du campus',
     })!;
-    expect(association.matches(''), isTrue);
-    expect(association.matches('ktu'), isTrue);
+    bool search(String typed) =>
+        association.matchesFolded(foldForSearch(typed));
+
+    expect(search(''), isTrue);
+    expect(search('ktu'), isTrue);
     // Nobody types the accents into a search field.
-    expect(association.matches('THEATRE'), isTrue);
-    expect(association.matches('théâtre'), isTrue);
-    expect(association.matches('robotique'), isFalse);
+    expect(search('THEATRE'), isTrue);
+    expect(search('théâtre'), isTrue);
+    expect(search('robotique'), isFalse);
   });
 }
