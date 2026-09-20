@@ -6,24 +6,52 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import '../modules/registry.dart';
 
-const String kHomeLayoutKey = 'home_layout_v2';
+/// Bumped with the default below: a stored v2 layout describes the old home.
+const String kHomeLayoutKey = 'home_layout_v3';
 
 const String kCoursesCardId = 'courses';
-const List<String> kTodayCardIds = <String>[
-  kCoursesCardId,
-  'weather',
-  'crous',
-  'library',
-  'associations',
-];
 
 String moduleCardId(String moduleId) => 'module:$moduleId';
 
-List<String> get kDefaultHomeCardOrder => <String>[
-  ...kTodayCardIds,
-  for (final module in kCampusModules.whereType<ReadyModule>())
-    moduleCardId(module.id),
+/// The day read top to bottom, shortcuts above it for the modules the bottom
+/// bar has no room for, and the associations tile under the news it continues.
+List<String> get _defaultOrder => <String>[
+  moduleCardId('salles'),
+  moduleCardId('laverie'),
+  moduleCardId('meteo'),
+  moduleCardId('notes'),
+  kCoursesCardId,
+  'weather',
+  'associations',
+  moduleCardId('assos'),
+  moduleCardId('carte'),
+  moduleCardId('edt'),
+  'library',
+  'crous',
 ];
+
+/// Read before the square fallback. Never written to disk: a size enters
+/// [HomeLayout.sizes] only once the user resizes that card.
+final Map<String, HomeCardSize> kDefaultCardSizes = <String, HomeCardSize>{
+  moduleCardId('salles'): HomeCardSize.dot,
+  moduleCardId('laverie'): HomeCardSize.dot,
+  moduleCardId('meteo'): HomeCardSize.dot,
+  moduleCardId('notes'): HomeCardSize.dot,
+  moduleCardId('assos'): HomeCardSize.full,
+  moduleCardId('carte'): HomeCardSize.horizontal,
+  moduleCardId('edt'): HomeCardSize.horizontal,
+};
+
+/// A module the default order does not place still lands on the home, at the
+/// end, so registering one is never a silent way to hide it.
+List<String> get kDefaultHomeCardOrder {
+  final placed = _defaultOrder;
+  return <String>[
+    ...placed,
+    for (final module in kCampusModules.whereType<ReadyModule>())
+      if (!placed.contains(moduleCardId(module.id))) moduleCardId(module.id),
+  ];
+}
 
 enum HomeCardSize { dot, horizontal, square, full }
 
@@ -46,8 +74,9 @@ class HomeLayout {
 
   bool isModule(String id) => id.startsWith('module:');
 
-  HomeCardSize sizeOf(String id) =>
-      isModule(id) ? sizes[id] ?? HomeCardSize.square : HomeCardSize.full;
+  HomeCardSize sizeOf(String id) => isModule(id)
+      ? sizes[id] ?? kDefaultCardSizes[id] ?? HomeCardSize.square
+      : HomeCardSize.full;
 
   HomeLayout normalized() {
     final known = kDefaultHomeCardOrder;

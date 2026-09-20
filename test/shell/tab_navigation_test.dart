@@ -280,7 +280,8 @@ void main() {
     tester,
   ) async {
     await pumpShell(tester);
-    final card = find.widgetWithText(ModuleCard, 'Météo');
+    // Météo is a dot on the default home, so it is found by its icon.
+    final card = find.widgetWithIcon(ModuleCard, Icons.wb_sunny_outlined);
     expect(card, findsOneWidget);
 
     await tester.tap(card);
