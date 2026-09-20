@@ -177,6 +177,29 @@ void main() {
     expect(prefs.getDouble(kScheduleDayWidthKey), isNull);
   });
 
+  test('hour height defaults to Normal density and is written down', () async {
+    final container = ProviderContainer();
+    addTearDown(container.dispose);
+
+    expect(container.read(scheduleHourHeightProvider), 64);
+    await container.read(scheduleHourHeightProvider.notifier).set(80);
+    expect(container.read(scheduleHourHeightProvider), 80);
+
+    final prefs = await SharedPreferences.getInstance();
+    expect(prefs.getDouble(kScheduleHourHeightKey), 80);
+  });
+
+  test('hour height is held to readable grid bounds', () async {
+    final container = ProviderContainer();
+    addTearDown(container.dispose);
+    final notifier = container.read(scheduleHourHeightProvider.notifier);
+
+    await notifier.set(10);
+    expect(container.read(scheduleHourHeightProvider), kScheduleHourHeightMin);
+    await notifier.set(900);
+    expect(container.read(scheduleHourHeightProvider), kScheduleHourHeightMax);
+  });
+
   test('a width only carries a preset name when it lands on one', () {
     expect(scheduleDayWidthLabel(104), 'Normal');
     expect(scheduleDayWidthLabel(48), 'Compact');

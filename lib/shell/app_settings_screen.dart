@@ -36,6 +36,7 @@ class AppSettingsScreen extends ConsumerWidget {
     final mode = ref.watch(themeModeProvider);
     final reminderLead = ref.watch(associationReminderLeadProvider);
     final dayWidth = ref.watch(scheduleDayWidthProvider);
+    final hourHeight = ref.watch(scheduleHourHeightProvider);
     final hiddenRules = ref.watch(hiddenRulesProvider);
 
     return Scaffold(
@@ -94,8 +95,11 @@ class AppSettingsScreen extends ConsumerWidget {
           ),
           ListTile(
             leading: const Icon(Icons.view_column_outlined),
-            title: const Text('Largeur des jours'),
-            subtitle: Text('Vue Semaine : ${scheduleDayWidthLabel(dayWidth)}'),
+            title: const Text('Grille de l’emploi du temps'),
+            subtitle: Text(
+              'Semaine : ${scheduleDayWidthLabel(dayWidth)} · '
+              '${hourHeight.round()} dp/h · pincez pour ajuster',
+            ),
             trailing: const Icon(Icons.chevron_right),
             onTap: () => Navigator.of(context).push(
               MaterialPageRoute<void>(

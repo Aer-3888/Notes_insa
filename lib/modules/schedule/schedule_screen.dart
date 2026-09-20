@@ -26,6 +26,7 @@ import 'schedule_period.dart';
 import 'schedule_period_header.dart';
 import 'schedule_provider.dart';
 import 'schedule_view_mode.dart';
+import 'schedule_width_screen.dart';
 import 'schedule_timeline.dart';
 import 'week_strip.dart';
 
@@ -180,6 +181,7 @@ class _ScheduleScreenState extends ConsumerState<ScheduleScreen> {
     final showStrip = ref.watch(stripProvider);
     final showMonthPreview = ref.watch(scheduleMonthPreviewProvider);
     final dayWidth = ref.watch(scheduleDayWidthProvider);
+    final hourHeight = ref.watch(scheduleHourHeightProvider);
     final rules = ref.watch(hiddenRulesProvider);
     final reveal = ref.watch(scheduleRevealHiddenProvider);
 
@@ -268,6 +270,17 @@ class _ScheduleScreenState extends ConsumerState<ScheduleScreen> {
                 ref.read(scheduleMonthPreviewProvider.notifier).toggle(),
               ),
             ),
+          if (mode.dayColumns > 0)
+            IconButton(
+              key: const ValueKey<String>('schedule-day-width'),
+              icon: const Icon(Icons.view_column_outlined),
+              tooltip: 'Réglages de la grille, pincez pour ajuster',
+              onPressed: () => Navigator.of(context).push(
+                MaterialPageRoute<void>(
+                  builder: (_) => const ScheduleWidthScreen(),
+                ),
+              ),
+            ),
           IconButton(
             key: const ValueKey<String>('schedule-groups'),
             icon: const Icon(Icons.group_outlined),
@@ -348,11 +361,27 @@ class _ScheduleScreenState extends ConsumerState<ScheduleScreen> {
                     index: index,
                     days: _daysFor(mode),
                     showStrip: mode.showsStrip && showStrip,
-                    // Only Semaine is tight enough for the choice to change
-                    // anything, and only Semaine offers it.
+                    // Day width applies only in Semaine.
                     minColumnWidth: mode == ScheduleViewMode.semaine
                         ? dayWidth
                         : kDefaultColumnWidth,
+                    hourHeight: hourHeight,
+                    onDayWidthDrag: mode == ScheduleViewMode.semaine
+                        ? ref.read(scheduleDayWidthProvider.notifier).drag
+                        : null,
+                    onHourHeightDrag: ref
+                        .read(scheduleHourHeightProvider.notifier)
+                        .drag,
+                    onHourHeightCommit: (height) => unawaited(
+                      ref.read(scheduleHourHeightProvider.notifier).set(height),
+                    ),
+                    onDayWidthCommit: mode == ScheduleViewMode.semaine
+                        ? (width) => unawaited(
+                            ref
+                                .read(scheduleDayWidthProvider.notifier)
+                                .set(width),
+                          )
+                        : null,
                     onDayTap: _goTo,
                     onShiftPeriod: _shiftPeriod,
                     onTapEvent: (e) => showEventSheet(context, e),
@@ -534,6 +563,11 @@ class _GridView extends StatefulWidget {
     required this.rangeStart,
     required this.rangeEnd,
     required this.minColumnWidth,
+    required this.hourHeight,
+    this.onDayWidthDrag,
+    this.onDayWidthCommit,
+    required this.onHourHeightDrag,
+    required this.onHourHeightCommit,
   });
 
   final CachedEntry<List<ScheduleEvent>> entry;
@@ -548,6 +582,11 @@ class _GridView extends StatefulWidget {
   final DateTime rangeStart;
   final DateTime rangeEnd;
   final double minColumnWidth;
+  final double hourHeight;
+  final ValueChanged<double>? onDayWidthDrag;
+  final ValueChanged<double>? onDayWidthCommit;
+  final ValueChanged<double> onHourHeightDrag;
+  final ValueChanged<double> onHourHeightCommit;
 
   @override
   State<_GridView> createState() => _GridViewState();
@@ -569,7 +608,7 @@ class _GridViewState extends State<_GridView> {
     if (!_initialized) {
       _initialized = true;
       final scale = MediaQuery.textScalerOf(context).scale(1);
-      final hourHeight = 64.0 * scale;
+      final hourHeight = widget.hourHeight * scale;
       final now = campusNow();
       _sharedVerticalOffset.value = calculateInitialGridScrollOffset(
         day: widget.day,
@@ -589,7 +628,7 @@ class _GridViewState extends State<_GridView> {
     final isNowToday = _isToday(widget.day, now);
     if (!wasToday && isNowToday) {
       final scale = MediaQuery.textScalerOf(context).scale(1);
-      final hourHeight = 64.0 * scale;
+      final hourHeight = widget.hourHeight * scale;
       _sharedVerticalOffset.value = calculateInitialGridScrollOffset(
         day: widget.day,
         now: now,
@@ -635,6 +674,11 @@ class _GridViewState extends State<_GridView> {
               now: campusNow(),
               onTapEvent: widget.onTapEvent,
               minColumnWidth: widget.minColumnWidth,
+              hourHeight: widget.hourHeight,
+              onDayWidthDrag: widget.onDayWidthDrag,
+              onDayWidthCommit: widget.onDayWidthCommit,
+              onHourHeightDrag: widget.onHourHeightDrag,
+              onHourHeightCommit: widget.onHourHeightCommit,
               verticalOffsetNotifier: _sharedVerticalOffset,
             ),
           ),

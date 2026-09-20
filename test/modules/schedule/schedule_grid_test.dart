@@ -83,6 +83,100 @@ void main() {
     expect(tapped.single.title, 'Algèbre 3');
   });
 
+  testWidgets('a two-finger pinch drags and commits the Week day width', (
+    tester,
+  ) async {
+    final dragged = <double>[];
+    final committed = <double>[];
+    tester.view.physicalSize = const Size(384, 800);
+    tester.view.devicePixelRatio = 1.0;
+    addTearDown(tester.view.reset);
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: campusTheme(Brightness.light),
+        home: Scaffold(
+          body: ScheduleGrid(
+            index: index(),
+            days: <DateTime>[
+              for (var i = 0; i < 7; i++)
+                DateTime(monday.year, monday.month, monday.day + i),
+            ],
+            minColumnWidth: 104,
+            onTapEvent: (_) {},
+            onDayWidthDrag: dragged.add,
+            onDayWidthCommit: committed.add,
+          ),
+        ),
+      ),
+    );
+    await tester.pump();
+
+    final first = await tester.startGesture(const Offset(100, 300), pointer: 1);
+    final second = await tester.startGesture(
+      const Offset(220, 300),
+      pointer: 2,
+    );
+    await tester.pump();
+    await first.moveTo(const Offset(70, 300));
+    await second.moveTo(const Offset(260, 300));
+    await tester.pump();
+
+    expect(dragged, isNotEmpty);
+    expect(find.textContaining('Largeur des jours'), findsOneWidget);
+
+    await first.up();
+    await second.up();
+    await tester.pump();
+    expect(committed, hasLength(1));
+    expect(committed.single, greaterThan(104));
+    expect(committed.single % 4, 0);
+  });
+
+  testWidgets('a vertical two-finger pinch drags and commits hour height', (
+    tester,
+  ) async {
+    final dragged = <double>[];
+    final committed = <double>[];
+    tester.view.physicalSize = const Size(384, 800);
+    tester.view.devicePixelRatio = 1.0;
+    addTearDown(tester.view.reset);
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: campusTheme(Brightness.light),
+        home: Scaffold(
+          body: ScheduleGrid(
+            index: index(),
+            days: <DateTime>[monday],
+            onTapEvent: (_) {},
+            onHourHeightDrag: dragged.add,
+            onHourHeightCommit: committed.add,
+          ),
+        ),
+      ),
+    );
+    await tester.pump();
+
+    final first = await tester.startGesture(const Offset(180, 220), pointer: 1);
+    final second = await tester.startGesture(
+      const Offset(180, 380),
+      pointer: 2,
+    );
+    await tester.pump();
+    await first.moveTo(const Offset(180, 180));
+    await second.moveTo(const Offset(180, 430));
+    await tester.pump();
+
+    expect(dragged, isNotEmpty);
+    expect(find.textContaining('Hauteur des heures'), findsOneWidget);
+
+    await first.up();
+    await second.up();
+    await tester.pump();
+    expect(committed, hasLength(1));
+    expect(committed.single, greaterThan(kDefaultScheduleHourHeight));
+    expect(committed.single % 4, 0);
+  });
+
   testWidgets('a longer class is drawn taller than a shorter one', (
     tester,
   ) async {
