@@ -7,9 +7,13 @@ import 'package:notes_insa/modules/campus_map/campus_places.dart';
 import 'package:notes_insa/modules/campus_map/map_painter.dart';
 import 'package:notes_insa/modules/campus_map/map_preview.dart';
 import 'package:notes_insa/modules/schedule/event_sheet.dart';
+import 'package:notes_insa/modules/schedule/hidden_courses_provider.dart';
+import 'package:notes_insa/modules/schedule/hide_course_sheet.dart';
+import 'package:notes_insa/modules/schedule/hide_rule.dart';
 import 'package:notes_insa/modules/schedule/schedule_event.dart';
 import 'package:notes_insa/theme/campus_theme.dart';
 import 'package:notes_insa/theme/tokens.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 ScheduleEvent _event({String? room}) => ScheduleEvent(
   title: 'Algèbre 3 - GHIJKL',
@@ -52,7 +56,7 @@ final _geo = CampusGeo(
   attribution: '© OpenStreetMap contributors, ODbL',
 );
 
-Future<void> _open(
+Future<ProviderContainer> _open(
   WidgetTester tester,
   ScheduleEvent event, {
   Size size = const Size(384, 800),
@@ -60,12 +64,15 @@ Future<void> _open(
   tester.view.physicalSize = size;
   tester.view.devicePixelRatio = 1.0;
   addTearDown(tester.view.reset);
+  final container = ProviderContainer.test(
+    overrides: [
+      campusPlacesProvider.overrideWith((ref) async => _places),
+      campusGeoProvider.overrideWith((ref) async => _geo),
+    ],
+  );
   await tester.pumpWidget(
-    ProviderScope(
-      overrides: [
-        campusPlacesProvider.overrideWith((ref) async => _places),
-        campusGeoProvider.overrideWith((ref) async => _geo),
-      ],
+    UncontrolledProviderScope(
+      container: container,
       child: MaterialApp(
         theme: campusTheme(Brightness.light),
         home: Scaffold(
@@ -82,6 +89,7 @@ Future<void> _open(
   await tester.pump();
   await tester.tap(find.text('open'));
   await tester.pumpAndSettle();
+  return container;
 }
 
 void main() {
@@ -91,6 +99,7 @@ void main() {
   // a widget test, and the sheet only reports success after it resolves.
   final clipboard = <MethodCall>[];
   setUp(() {
+    SharedPreferences.setMockInitialValues(<String, Object>{});
     TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
         .setMockMethodCallHandler(SystemChannels.platform, (call) async {
           if (call.method == 'Clipboard.setData') clipboard.add(call);
@@ -166,5 +175,98 @@ void main() {
       'Amphi C (V)',
       reason: 'the raw room is what people paste into a message',
     );
+  });
+  testWidgets('the sheet offers to hide the course', (tester) async {
+    await _open(tester, _event(room: 'Amphi C (V)'));
+    expect(find.text('Masquer'), findsOneWidget);
+  });
+
+  testWidgets('hiding from the sheet asks what to hide', (tester) async {
+    await _open(tester, _event(room: 'Amphi C (V)'));
+    await tester.tap(find.text('Masquer'));
+    await tester.pumpAndSettle();
+
+    // No uid and no activity id in this fixture, so only the module is on
+    // offer rather than a series or a single session.
+    expect(find.text('Tout Algebre 3'), findsOneWidget);
+    expect(find.text('Cette séance'), findsNothing);
+  });
+
+  testWidgets('an event with ADE identifiers offers all three levels', (
+    tester,
+  ) async {
+    final event = ScheduleEvent(
+      title: 'ANGLAIS_L',
+      start: DateTime(2026, 9, 7, 8, 15),
+      end: DateTime(2026, 9, 7, 10, 15),
+      groups: const <String>[],
+      teachers: const <String>[],
+      module: 'Anglais 3',
+      room: '*111 (VPI)',
+      uid: 'ADE60-422-0',
+      activityId: '422',
+    );
+    await _open(tester, event);
+    await tester.tap(find.text('Masquer'));
+    await tester.pumpAndSettle();
+
+    expect(hideOptionsFor(event).map((r) => r.field), <HideField>[
+      HideField.occurrence,
+      HideField.series,
+      HideField.module,
+    ]);
+    expect(find.text('Cette séance'), findsOneWidget);
+    expect(find.text('Les TD · ANGLAIS_L'), findsOneWidget);
+    expect(find.text('Tout Anglais 3'), findsOneWidget);
+  });
+  testWidgets('choosing a level from the sheet actually hides the course', (
+    tester,
+  ) async {
+    // The sheet pops itself before the chooser opens, so anything that held
+    // its WidgetRef across that pop throws on a disposed element.
+    final container = await _open(tester, _event(room: 'Amphi C (V)'));
+    await tester.tap(find.text('Masquer'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Tout Algebre 3'));
+    await tester.pumpAndSettle();
+
+    expect(tester.takeException(), isNull);
+    final rules = container.read(hiddenRulesProvider);
+    expect(rules.single.field, HideField.module);
+    expect(rules.single.value, 'algebre 3');
+  });
+
+  testWidgets('the snackbar undoes the hide it announced', (tester) async {
+    final container = await _open(tester, _event(room: 'Amphi C (V)'));
+    await tester.tap(find.text('Masquer'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Tout Algebre 3'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Algebre 3 masqué'), findsOneWidget);
+    await tester.tap(find.text('Annuler'));
+    await tester.pumpAndSettle();
+
+    expect(container.read(hiddenRulesProvider), isEmpty);
+  });
+  testWidgets('the sheet offers to show a course a rule already hides', (
+    tester,
+  ) async {
+    final container = await _open(tester, _event(room: 'Amphi C (V)'));
+    await tester.tap(find.text('Masquer'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Tout Algebre 3'));
+    await tester.pumpAndSettle();
+    expect(container.read(hiddenRulesProvider), hasLength(1));
+
+    await tester.tap(find.text('open'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Afficher'), findsOneWidget);
+    expect(find.text('Masquer'), findsNothing);
+
+    await tester.tap(find.text('Afficher'));
+    await tester.pumpAndSettle();
+    expect(container.read(hiddenRulesProvider), isEmpty);
   });
 }

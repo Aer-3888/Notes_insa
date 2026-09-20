@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../theme/campus_context.dart';
 import '../../theme/tokens.dart';
+import 'hidden_courses_scope.dart';
 import 'module_palette.dart';
 import 'schedule_event.dart';
 
@@ -49,11 +50,16 @@ class GridBlock extends StatelessWidget {
       ModulePalette.normalize(event.module ?? event.title),
       fallback: campus.surfaceContainerHighest,
     );
-    return Material(
+    final scope = HiddenCoursesScope.maybeOf(context);
+    final hidden = scope?.hides(event) ?? false;
+    final block = Material(
       color: tint,
       borderRadius: BorderRadius.circular(CampusRadii.bar),
       child: InkWell(
         onTap: onTap,
+        onLongPress: scope == null || onTap == null
+            ? null
+            : () => scope.onHide(context, event),
         borderRadius: BorderRadius.circular(CampusRadii.bar),
         child: LayoutBuilder(
           builder: (context, constraints) {
@@ -75,6 +81,7 @@ class GridBlock extends StatelessWidget {
                       event.module ?? event.title,
                       style: context.text.labelMedium?.copyWith(
                         color: campus.onModuleBlockTint,
+                        decoration: hidden ? TextDecoration.lineThrough : null,
                       ),
                       maxLines: truncated ? 1 : 2,
                       // A fade keeps the letters an ellipsis would spend on
@@ -102,5 +109,7 @@ class GridBlock extends StatelessWidget {
         ),
       ),
     );
+    if (!hidden) return block;
+    return Opacity(opacity: CampusOpacity.hidden, child: block);
   }
 }

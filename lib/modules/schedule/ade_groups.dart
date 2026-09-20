@@ -117,64 +117,8 @@ class AdeGroups {
     return groups;
   }
 
-  /// Rows of one category, for the picker's tabs.
+  /// Rows of one category, for the picker's tabs. Navigating what comes
+  /// back is [AdeTree]'s job.
   static List<AdeGroup> ofCategory(List<AdeGroup> all, AdeCategory category) =>
       all.where((g) => g.category == category).toList();
-
-  /// Direct children of [parentId], or the top level when it is null.
-  ///
-  /// ADE nests by department, then semester, then group (INFO > S7-INFO >
-  /// S7-INFO-G1). Browsing that beats scrolling 1433 rows.
-  static List<AdeGroup> childrenOf(List<AdeGroup> rows, int? parentId) {
-    final out = rows.where((g) => g.parentId == parentId).toList();
-    out.sort((a, b) => a.name.compareTo(b.name));
-    return out;
-  }
-
-  static bool hasChildren(List<AdeGroup> rows, int id) =>
-      rows.any((g) => g.parentId == id);
-
-  /// Ancestors of [id], outermost first, for the breadcrumb.
-  static List<AdeGroup> pathTo(List<AdeGroup> rows, int id) {
-    final byId = <int, AdeGroup>{for (final g in rows) g.id: g};
-    final path = <AdeGroup>[];
-    var current = byId[id];
-    while (current != null) {
-      path.insert(0, current);
-      final parent = current.parentId;
-      current = parent == null ? null : byId[parent];
-      if (path.length > 12) break; // defensive: never loop on malformed data
-    }
-    return path;
-  }
-
-  /// Case- and accent-insensitive contains search over group names.
-  static List<AdeGroup> search(List<AdeGroup> groups, String query) {
-    final q = _normalize(query);
-    if (q.isEmpty) return groups;
-    return groups.where((g) => _normalize(g.name).contains(q)).toList();
-  }
-
-  static String _normalize(String v) {
-    var s = v.toLowerCase().trim();
-    const accents = {
-      'à': 'a',
-      'â': 'a',
-      'ä': 'a',
-      'é': 'e',
-      'è': 'e',
-      'ê': 'e',
-      'ë': 'e',
-      'î': 'i',
-      'ï': 'i',
-      'ô': 'o',
-      'ö': 'o',
-      'ù': 'u',
-      'û': 'u',
-      'ü': 'u',
-      'ç': 'c',
-    };
-    accents.forEach((a, b) => s = s.replaceAll(a, b));
-    return s;
-  }
 }

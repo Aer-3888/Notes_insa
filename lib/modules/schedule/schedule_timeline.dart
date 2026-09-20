@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../../theme/campus_context.dart';
 import '../../theme/now_line.dart';
 import '../../theme/tokens.dart';
+import 'hidden_courses_scope.dart';
 import 'module_palette.dart';
 import 'schedule_day_index.dart';
 import 'schedule_event.dart';
@@ -43,6 +44,7 @@ double scheduleRowHeight(BuildContext context, ScheduleRow row) {
     ScheduleRowKind.event => _eventHeight,
     ScheduleRowKind.gap => _gapHeight,
     ScheduleRowKind.emptyDay => _emptyHeight,
+    ScheduleRowKind.allHidden => _emptyHeight,
     ScheduleRowKind.rangeEnd => _rangeEndHeight,
   };
   return base * scale;
@@ -53,6 +55,7 @@ class ScheduleTimeline extends StatelessWidget {
     required this.index,
     required this.controller,
     this.now,
+    this.onTapEvent,
     super.key,
   });
 
@@ -61,6 +64,9 @@ class ScheduleTimeline extends StatelessWidget {
 
   /// Campus-local now. Null in tests that do not exercise the now treatment.
   final DateTime? now;
+
+  /// Called when an event row is tapped.
+  final ValueChanged<ScheduleEvent>? onTapEvent;
 
   @override
   Widget build(BuildContext context) {
@@ -81,6 +87,7 @@ class ScheduleTimeline extends StatelessWidget {
     ScheduleRowKind.event => ScheduleEventRow(
       event: row.event!,
       inProgress: _nowFallsIn(row.event!.start, row.event!.end),
+      onTap: onTapEvent != null ? () => onTapEvent!(row.event!) : null,
     ),
     ScheduleRowKind.gap => _GapRow(
       from: row.from!,
@@ -88,6 +95,7 @@ class ScheduleTimeline extends StatelessWidget {
       showNow: _nowFallsIn(row.from!, row.to!),
     ),
     ScheduleRowKind.emptyDay => const _EmptyDayRow(),
+    ScheduleRowKind.allHidden => _AllHiddenRow(count: row.hiddenCount),
     ScheduleRowKind.rangeEnd => const _RangeEndRow(),
   };
 
@@ -136,6 +144,7 @@ class ScheduleEventRow extends StatelessWidget {
   const ScheduleEventRow({
     required this.event,
     this.inProgress = false,
+    this.onTap,
     super.key,
   });
 
@@ -144,6 +153,9 @@ class ScheduleEventRow extends StatelessWidget {
   /// True when now falls inside this class. Shown beside the module name, not
   /// on a line of its own, so the row height never changes.
   final bool inProgress;
+
+  /// Optional callback when the row is tapped.
+  final VoidCallback? onTap;
 
   @override
   Widget build(BuildContext context) {
@@ -157,8 +169,10 @@ class ScheduleEventRow extends StatelessWidget {
       ModulePalette.normalize(event.module ?? event.title),
       fallback: scheme.outlineVariant,
     );
+    final scope = HiddenCoursesScope.maybeOf(context);
+    final hidden = scope?.hides(event) ?? false;
 
-    return Padding(
+    final rowContent = Padding(
       padding: const EdgeInsets.symmetric(
         horizontal: CampusSpacing.gutter,
         vertical: CampusSpacing.x2,
@@ -209,7 +223,11 @@ class ScheduleEventRow extends StatelessWidget {
                     Expanded(
                       child: Text(
                         event.module ?? event.title,
-                        style: context.text.titleMedium,
+                        style: context.text.titleMedium?.copyWith(
+                          decoration: hidden
+                              ? TextDecoration.lineThrough
+                              : null,
+                        ),
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                       ),
@@ -238,6 +256,21 @@ class ScheduleEventRow extends StatelessWidget {
         ],
       ),
     );
+
+    final row = onTap == null
+        ? rowContent
+        : Material(
+            color: Colors.transparent,
+            child: InkWell(
+              onTap: onTap,
+              onLongPress: scope == null
+                  ? null
+                  : () => scope.onHide(context, event),
+              child: rowContent,
+            ),
+          );
+    if (!hidden) return row;
+    return Opacity(opacity: CampusOpacity.hidden, child: row);
   }
 }
 
@@ -287,6 +320,37 @@ class _EmptyDayRow extends StatelessWidget {
           color: context.scheme.onSurfaceVariant,
         ),
       ),
+    ),
+  );
+}
+
+/// French plural for a count of hidden sessions.
+String frenchHiddenLabel(int count) =>
+    count == 1 ? '1 cours masqué' : '$count cours masqués';
+
+class _AllHiddenRow extends StatelessWidget {
+  const _AllHiddenRow({required this.count});
+
+  final int count;
+
+  @override
+  Widget build(BuildContext context) => Padding(
+    padding: const EdgeInsets.symmetric(horizontal: CampusSpacing.gutter),
+    child: Row(
+      children: <Widget>[
+        Icon(
+          Icons.visibility_off_outlined,
+          size: 16,
+          color: context.scheme.onSurfaceVariant,
+        ),
+        const SizedBox(width: CampusSpacing.x2),
+        Text(
+          frenchHiddenLabel(count),
+          style: context.text.bodyMedium?.copyWith(
+            color: context.scheme.onSurfaceVariant,
+          ),
+        ),
+      ],
     ),
   );
 }

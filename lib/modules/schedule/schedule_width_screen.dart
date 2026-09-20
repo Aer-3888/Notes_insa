@@ -49,9 +49,11 @@ class ScheduleWidthScreen extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final width = ref.watch(scheduleDayWidthProvider);
     final notifier = ref.read(scheduleDayWidthProvider.notifier);
+    final hourHeight = ref.watch(scheduleHourHeightProvider);
+    final hourHeightNotifier = ref.read(scheduleHourHeightProvider.notifier);
 
     return Scaffold(
-      appBar: AppBar(title: const Text('Largeur des jours')),
+      appBar: AppBar(title: const Text('Grille de l’emploi du temps')),
       body: ListView(
         padding: const EdgeInsets.only(bottom: CampusSpacing.x8),
         children: <Widget>[
@@ -74,7 +76,7 @@ class ScheduleWidthScreen extends ConsumerWidget {
             padding: const EdgeInsets.symmetric(
               horizontal: CampusSpacing.gutter,
             ),
-            child: _Preview(width: width),
+            child: _Preview(width: width, hourHeight: hourHeight),
           ),
           Padding(
             padding: const EdgeInsets.fromLTRB(
@@ -102,6 +104,50 @@ class ScheduleWidthScreen extends ConsumerWidget {
             semanticFormatterCallback: (value) => '${value.round()} dp',
             onChanged: notifier.drag,
             onChangeEnd: (value) => unawaited(notifier.set(value)),
+          ),
+          const _SectionHeader('Hauteur des heures'),
+          Padding(
+            padding: const EdgeInsets.fromLTRB(
+              CampusSpacing.gutter,
+              0,
+              CampusSpacing.gutter,
+              CampusSpacing.x2,
+            ),
+            child: Text(
+              'Dans Jour, 3 jours et Semaine, pincez verticalement dans la '
+              'grille pour voir plus ou moins de la journée.',
+              style: context.text.bodyMedium?.copyWith(
+                color: context.scheme.onSurfaceVariant,
+              ),
+            ),
+          ),
+          Padding(
+            padding: const EdgeInsets.symmetric(
+              horizontal: CampusSpacing.gutter,
+            ),
+            child: Row(
+              children: <Widget>[
+                Expanded(
+                  child: Text('Par heure', style: context.text.titleMedium),
+                ),
+                Text(
+                  '${hourHeight.round()} dp',
+                  style: context.campusType.numeral,
+                ),
+              ],
+            ),
+          ),
+          Slider(
+            value: hourHeight,
+            min: kScheduleHourHeightMin,
+            max: kScheduleHourHeightMax,
+            divisions:
+                ((kScheduleHourHeightMax - kScheduleHourHeightMin) / _step)
+                    .round(),
+            label: '${hourHeight.round()} dp',
+            semanticFormatterCallback: (value) => '${value.round()} dp',
+            onChanged: hourHeightNotifier.drag,
+            onChangeEnd: (value) => unawaited(hourHeightNotifier.set(value)),
           ),
           const _SectionHeader('Réglages courants'),
           for (final preset in ScheduleDayWidth.values)
@@ -162,9 +208,10 @@ class _PresetRow extends StatelessWidget {
 /// The real grid at the chosen width, so the preview cannot promise something
 /// the week does not deliver.
 class _Preview extends StatelessWidget {
-  const _Preview({required this.width});
+  const _Preview({required this.width, required this.hourHeight});
 
   final double width;
+  final double hourHeight;
 
   @override
   Widget build(BuildContext context) {
@@ -187,6 +234,7 @@ class _Preview extends StatelessWidget {
                 DateTime(_monday.year, _monday.month, _monday.day + i),
             ],
             minColumnWidth: width,
+            hourHeight: hourHeight,
             onTapEvent: (_) {},
           ),
         ),

@@ -10,15 +10,15 @@ import 'grid_block.dart';
 import 'schedule_day_index.dart';
 import 'schedule_event.dart';
 import 'schedule_period.dart';
+import 'schedule_view_mode.dart';
 
-/// Fallback bounds for a period with nothing in it, so the axis is never zero
-/// height and the gutter keeps its shape.
-const int _fallbackFirstHour = 8;
-const int _fallbackLastHour = 18;
+/// Full 24 hour day bounds.
+const int kScheduleFirstHour = 0;
+const int kScheduleLastHour = 24;
 
 /// Height of one hour. The whole grid scrolls vertically, so this can be
 /// generous enough to read rather than squeezed to fit a screen.
-const double _hourHeight = 64;
+const double kDefaultScheduleHourHeight = kScheduleHourHeightDefault;
 
 /// A 30 minute class is 32 dp at the hour height above, under the 48 dp
 /// minimum target (CP-10). Short blocks are floored to it and so run slightly
@@ -31,6 +31,61 @@ const double _minBlockHeight = 48;
 /// of drawing bare bars.
 const double kDefaultColumnWidth = 104;
 
+/// Computes the initial vertical scroll offset for [ScheduleGrid].
+///
+/// If [day] is today (or [days] contains today):
+/// anchors around the current time ([now] minus 45 minutes lead-in),
+/// floored at 07:00 (or the earliest class in [days] if earlier).
+///
+/// For other days:
+/// anchors at 07:00 (or the earliest class in [days] if earlier).
+double calculateInitialGridScrollOffset({
+  required DateTime day,
+  required DateTime now,
+  required ScheduleDayIndex index,
+  required double hourHeight,
+  List<DateTime>? days,
+  double viewportHeight = 0,
+}) {
+  const defaultHour = 7.0;
+  const leadInMinutes = 45;
+
+  final checkDays = days ?? <DateTime>[day];
+  final isToday = checkDays.any(
+    (d) => d.year == now.year && d.month == now.month && d.day == now.day,
+  );
+
+  // Find earliest event start hour across checkDays
+  double? earliestClassHour;
+  for (final d in checkDays) {
+    for (final e in index.eventsOn(d)) {
+      final h = e.start.hour + e.start.minute / 60.0;
+      if (earliestClassHour == null || h < earliestClassHour) {
+        earliestClassHour = h;
+      }
+    }
+  }
+
+  final floorHour = earliestClassHour != null
+      ? math.min(defaultHour, earliestClassHour)
+      : defaultHour;
+
+  double targetHour;
+  if (isToday) {
+    final currentHour = now.hour + (now.minute - leadInMinutes) / 60.0;
+    targetHour = math.max(floorHour, currentHour);
+  } else {
+    targetHour = floorHour;
+  }
+
+  final offset = targetHour * hourHeight;
+  final maxScroll = (kScheduleLastHour * hourHeight - viewportHeight).clamp(
+    0.0,
+    double.infinity,
+  );
+  return offset.clamp(0.0, maxScroll);
+}
+
 /// The time grid behind Jour, 3 jours and Semaine. The modes differ only in
 /// how many days are passed in.
 class ScheduleGrid extends StatefulWidget {
@@ -40,8 +95,22 @@ class ScheduleGrid extends StatefulWidget {
     required this.onTapEvent,
     this.now,
     this.minColumnWidth = kDefaultColumnWidth,
+    this.hourHeight = kDefaultScheduleHourHeight,
+    this.initialVerticalOffset,
+    this.verticalOffsetNotifier,
+    this.onDayWidthDrag,
+    this.onDayWidthCommit,
+    this.onHourHeightDrag,
+    this.onHourHeightCommit,
     super.key,
-  });
+  }) : assert(
+         (onDayWidthDrag == null) == (onDayWidthCommit == null),
+         'Day-width drag and commit callbacks must be supplied together.',
+       ),
+       assert(
+         (onHourHeightDrag == null) == (onHourHeightCommit == null),
+         'Hour-height drag and commit callbacks must be supplied together.',
+       );
 
   final ScheduleDayIndex index;
   final List<DateTime> days;
@@ -52,24 +121,93 @@ class ScheduleGrid extends StatefulWidget {
   /// stretch past it when the period has room to spare.
   final double minColumnWidth;
 
+  /// Height of an hour before the user's text-size preference is applied.
+  final double hourHeight;
+
+  /// Initial vertical scroll offset if no [verticalOffsetNotifier] is provided.
+  final double? initialVerticalOffset;
+
+  /// Shared vertical scroll offset notifier to synchronize scroll across pages.
+  final ValueNotifier<double>? verticalOffsetNotifier;
+
+  /// Called while a two-finger pinch changes Week day width.
+  final ValueChanged<double>? onDayWidthDrag;
+
+  /// Commits the width chosen by a two-finger pinch when the fingers lift.
+  final ValueChanged<double>? onDayWidthCommit;
+
+  /// Called while a vertical pinch changes hour height.
+  final ValueChanged<double>? onHourHeightDrag;
+
+  /// Commits the hour height chosen by a vertical pinch when fingers lift.
+  final ValueChanged<double>? onHourHeightCommit;
+
   static const double gutterWidth = 40;
 
   @override
   State<ScheduleGrid> createState() => _ScheduleGridState();
 }
 
+enum _PinchAxis { horizontal, vertical }
+
 class _ScheduleGridState extends State<ScheduleGrid> {
   final ScrollController _headings = ScrollController();
   final ScrollController _columns = ScrollController();
+  late final ScrollController _vertical;
+  bool _isSyncingVertical = false;
+  _PinchAxis? _pinchAxis;
+  double? _pinchStartDayWidth;
+  double? _pinchedDayWidth;
+  double? _pinchColumnUnits;
+  double? _pinchFocalX;
+  double? _pinchStartHourHeight;
+  double? _pinchedHourHeight;
+  double? _pinchHourUnits;
+  double? _pinchFocalY;
+  final Map<int, Offset> _pinchPointers = <int, Offset>{};
+  Offset? _pinchInitialSeparation;
+  final GlobalKey _gestureAreaKey = GlobalKey();
+  final GlobalKey _verticalViewportKey = GlobalKey();
+  double _lastColumnWidth = 0;
+  double _lastHourHeight = 0;
+  double _lastGutter = 0;
+  double _lastContentWidth = 0;
 
   @override
   void initState() {
     super.initState();
+    final initialOffset =
+        widget.verticalOffsetNotifier?.value ??
+        widget.initialVerticalOffset ??
+        0.0;
+    _vertical = ScrollController(initialScrollOffset: initialOffset);
+    _vertical.addListener(_onVerticalScroll);
+    widget.verticalOffsetNotifier?.addListener(_onNotifierScroll);
     _columns.addListener(_followColumns);
   }
 
   @override
+  void didUpdateWidget(covariant ScheduleGrid oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (widget.verticalOffsetNotifier != oldWidget.verticalOffsetNotifier) {
+      oldWidget.verticalOffsetNotifier?.removeListener(_onNotifierScroll);
+      widget.verticalOffsetNotifier?.addListener(_onNotifierScroll);
+      _onNotifierScroll();
+    }
+    if (widget.minColumnWidth != oldWidget.minColumnWidth) {
+      _restorePinchAnchorsAfterLayout();
+    }
+    if (widget.hourHeight != oldWidget.hourHeight) {
+      _restorePinchAnchorsAfterLayout();
+    }
+  }
+
+  @override
   void dispose() {
+    widget.verticalOffsetNotifier?.removeListener(_onNotifierScroll);
+    _vertical
+      ..removeListener(_onVerticalScroll)
+      ..dispose();
     _columns
       ..removeListener(_followColumns)
       ..dispose();
@@ -81,29 +219,230 @@ class _ScheduleGridState extends State<ScheduleGrid> {
     if (_headings.hasClients) _headings.jumpTo(_columns.offset);
   }
 
+  void _onVerticalScroll() {
+    if (_isSyncingVertical) return;
+    final notifier = widget.verticalOffsetNotifier;
+    if (notifier != null && (notifier.value - _vertical.offset).abs() > 0.5) {
+      _isSyncingVertical = true;
+      notifier.value = _vertical.offset;
+      _isSyncingVertical = false;
+    }
+  }
+
+  void _onNotifierScroll() {
+    if (_isSyncingVertical) return;
+    final notifier = widget.verticalOffsetNotifier;
+    if (notifier != null &&
+        _vertical.hasClients &&
+        _vertical.position.haveDimensions) {
+      final target = notifier.value.clamp(
+        0.0,
+        _vertical.position.maxScrollExtent,
+      );
+      if ((_vertical.offset - target).abs() > 0.5) {
+        _isSyncingVertical = true;
+        _vertical.jumpTo(target);
+        _isSyncingVertical = false;
+      }
+    }
+  }
+
+  void _onPointerDown(PointerDownEvent event) {
+    _pinchPointers[event.pointer] = event.position;
+    if (_pinchPointers.length != 2) return;
+    _pinchStartDayWidth = widget.minColumnWidth;
+    _pinchedDayWidth = widget.minColumnWidth;
+    _pinchStartHourHeight = widget.hourHeight;
+    _pinchedHourHeight = widget.hourHeight;
+    _pinchInitialSeparation = _pointerSeparation;
+  }
+
+  void _onPointerMove(PointerMoveEvent event) {
+    if (!_pinchPointers.containsKey(event.pointer)) return;
+    _pinchPointers[event.pointer] = event.position;
+    final initial = _pinchInitialSeparation;
+    if (_pinchPointers.length != 2 || initial == null) return;
+    final separation = _pointerSeparation;
+    final horizontalScale = _axisScale(separation.dx, initial.dx);
+    final verticalScale = _axisScale(separation.dy, initial.dy);
+
+    // Raw events avoid competing with the grid's scroll views.
+    final axis = _pinchAxis ?? _selectPinchAxis(horizontalScale, verticalScale);
+    if (axis == null) return;
+    _pinchAxis ??= axis;
+
+    if (axis == _PinchAxis.horizontal) {
+      _updateDayWidth(horizontalScale);
+    } else {
+      _updateHourHeight(verticalScale);
+    }
+  }
+
+  _PinchAxis? _selectPinchAxis(double horizontalScale, double verticalScale) {
+    final horizontalChange = (horizontalScale - 1).abs();
+    final verticalChange = (verticalScale - 1).abs();
+    const threshold = 0.025;
+    final canAdjustDays = widget.onDayWidthDrag != null;
+    final canAdjustHours = widget.onHourHeightDrag != null;
+    if ((!canAdjustDays || horizontalChange < threshold) &&
+        (!canAdjustHours || verticalChange < threshold)) {
+      return null;
+    }
+    if (!canAdjustHours ||
+        (canAdjustDays && horizontalChange >= verticalChange)) {
+      return _PinchAxis.horizontal;
+    }
+    return _PinchAxis.vertical;
+  }
+
+  void _updateDayWidth(double scale) {
+    if (_pinchColumnUnits == null) {
+      final box =
+          _gestureAreaKey.currentContext?.findRenderObject() as RenderBox?;
+      if (box == null) return;
+      final focalX = (box.globalToLocal(_pointerFocalPoint).dx - _lastGutter)
+          .clamp(0.0, _lastContentWidth);
+      _pinchFocalX = focalX;
+      if (_lastColumnWidth > 0 && _columns.hasClients) {
+        _pinchColumnUnits = (_columns.offset + focalX) / _lastColumnWidth;
+      }
+    }
+
+    final start = _pinchStartDayWidth ?? widget.minColumnWidth;
+    final width = (start * scale)
+        .clamp(kScheduleDayWidthMin, kScheduleDayWidthMax)
+        .toDouble();
+    _pinchedDayWidth = width;
+    widget.onDayWidthDrag!(width);
+    setState(() {});
+  }
+
+  void _updateHourHeight(double scale) {
+    if (_pinchHourUnits == null) {
+      final box =
+          _verticalViewportKey.currentContext?.findRenderObject() as RenderBox?;
+      if (box == null) return;
+      final focalY = box
+          .globalToLocal(_pointerFocalPoint)
+          .dy
+          .clamp(0.0, box.size.height);
+      _pinchFocalY = focalY;
+      if (_lastHourHeight > 0 && _vertical.hasClients) {
+        _pinchHourUnits = (_vertical.offset + focalY) / _lastHourHeight;
+      }
+    }
+
+    final start = _pinchStartHourHeight ?? widget.hourHeight;
+    final height = (start * scale)
+        .clamp(kScheduleHourHeightMin, kScheduleHourHeightMax)
+        .toDouble();
+    _pinchedHourHeight = height;
+    widget.onHourHeightDrag!(height);
+    setState(() {});
+  }
+
+  void _onPointerUpOrCancel(PointerEvent event) {
+    if (_pinchAxis != null &&
+        _pinchPointers.length == 2 &&
+        _pinchPointers.containsKey(event.pointer)) {
+      switch (_pinchAxis!) {
+        case _PinchAxis.horizontal:
+          _commitPinchedDayWidth();
+        case _PinchAxis.vertical:
+          _commitPinchedHourHeight();
+      }
+    }
+    _pinchPointers.remove(event.pointer);
+    if (_pinchPointers.length < 2) _pinchInitialSeparation = null;
+  }
+
+  void _commitPinchedDayWidth() {
+    if (_pinchAxis != _PinchAxis.horizontal) return;
+    _pinchAxis = null;
+    final width = _pinchedDayWidth ?? widget.minColumnWidth;
+    final snapped = (width / CampusSpacing.x1).round() * CampusSpacing.x1;
+    widget.onDayWidthCommit!(
+      snapped.clamp(kScheduleDayWidthMin, kScheduleDayWidthMax).toDouble(),
+    );
+    _pinchStartDayWidth = null;
+    _pinchedDayWidth = null;
+    setState(() {});
+  }
+
+  void _commitPinchedHourHeight() {
+    if (_pinchAxis != _PinchAxis.vertical) return;
+    _pinchAxis = null;
+    final height = _pinchedHourHeight ?? widget.hourHeight;
+    final snapped = (height / CampusSpacing.x1).round() * CampusSpacing.x1;
+    widget.onHourHeightCommit!(
+      snapped.clamp(kScheduleHourHeightMin, kScheduleHourHeightMax).toDouble(),
+    );
+    _pinchStartHourHeight = null;
+    _pinchedHourHeight = null;
+    setState(() {});
+  }
+
+  Offset get _pointerSeparation {
+    final points = _pinchPointers.values.toList(growable: false);
+    return points[0] - points[1];
+  }
+
+  Offset get _pointerFocalPoint {
+    final points = _pinchPointers.values.toList(growable: false);
+    return (points[0] + points[1]) / 2;
+  }
+
+  double _axisScale(double current, double initial) {
+    if (initial.abs() < 24) return 1;
+    return current.abs() / initial.abs();
+  }
+
+  void _restorePinchAnchorsAfterLayout() {
+    final units = _pinchColumnUnits;
+    final focalX = _pinchFocalX;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      if (units != null &&
+          focalX != null &&
+          _columns.hasClients &&
+          _lastColumnWidth > 0) {
+        final target = (units * _lastColumnWidth - focalX).clamp(
+          0.0,
+          _columns.position.maxScrollExtent,
+        );
+        _columns.jumpTo(target);
+      }
+      final hourUnits = _pinchHourUnits;
+      final focalY = _pinchFocalY;
+      if (hourUnits != null &&
+          focalY != null &&
+          _vertical.hasClients &&
+          _lastHourHeight > 0) {
+        final target = (hourUnits * _lastHourHeight - focalY).clamp(
+          0.0,
+          _vertical.position.maxScrollExtent,
+        );
+        _vertical.jumpTo(target);
+      }
+      if (_pinchAxis == null) {
+        _pinchColumnUnits = null;
+        _pinchFocalX = null;
+        _pinchHourUnits = null;
+        _pinchFocalY = null;
+      }
+    });
+  }
+
   @override
   Widget build(BuildContext context) {
     final index = widget.index;
     final days = widget.days;
     final now = widget.now;
-    var first = 24;
-    var last = 0;
-    for (final day in days) {
-      for (final event in index.eventsOn(day)) {
-        if (event.start.hour < first) first = event.start.hour;
-        final endHour = event.end.minute > 0
-            ? event.end.hour + 1
-            : event.end.hour;
-        if (endHour > last) last = endHour;
-      }
-    }
-    if (first >= last) {
-      first = _fallbackFirstHour;
-      last = _fallbackLastHour;
-    }
+    const first = kScheduleFirstHour;
+    const last = kScheduleLastHour;
 
     final scale = MediaQuery.textScalerOf(context).scale(1);
-    final hourHeight = _hourHeight * scale;
+    final hourHeight = widget.hourHeight * scale;
     final bodyHeight = (last - first) * hourHeight;
 
     // One column needs no heading: the page header already names that day.
@@ -120,13 +459,17 @@ class _ScheduleGridState extends State<ScheduleGrid> {
           free / days.length,
         );
         final trackWidth = columnWidth * days.length + rules;
+        _lastColumnWidth = columnWidth;
+        _lastHourHeight = hourHeight;
+        _lastGutter = gutter;
+        _lastContentWidth = math.max(0, constraints.maxWidth - gutter);
         // A track that fits must not claim horizontal drags: the screen reads
         // those as "next period".
         final physics = trackWidth > constraints.maxWidth - gutter
             ? const ClampingScrollPhysics()
             : const NeverScrollableScrollPhysics();
 
-        return Column(
+        final grid = Column(
           children: <Widget>[
             if (headed)
               Row(
@@ -151,6 +494,8 @@ class _ScheduleGridState extends State<ScheduleGrid> {
               ),
             Expanded(
               child: SingleChildScrollView(
+                key: _verticalViewportKey,
+                controller: _vertical,
                 child: SizedBox(
                   height: bodyHeight,
                   child: Row(
@@ -201,6 +546,51 @@ class _ScheduleGridState extends State<ScheduleGrid> {
               ),
             ),
           ],
+        );
+
+        if (widget.onDayWidthDrag == null && widget.onHourHeightDrag == null) {
+          return grid;
+        }
+        return Listener(
+          key: _gestureAreaKey,
+          behavior: HitTestBehavior.translucent,
+          onPointerDown: _onPointerDown,
+          onPointerMove: _onPointerMove,
+          onPointerUp: _onPointerUpOrCancel,
+          onPointerCancel: _onPointerUpOrCancel,
+          child: Stack(
+            fit: StackFit.expand,
+            children: <Widget>[
+              grid,
+              if (_pinchAxis != null)
+                Positioned(
+                  top: CampusSpacing.x2,
+                  right: CampusSpacing.x2,
+                  child: ExcludeSemantics(
+                    child: Material(
+                      color: context.scheme.inverseSurface,
+                      borderRadius: BorderRadius.circular(CampusSpacing.x2),
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: CampusSpacing.x2,
+                          vertical: CampusSpacing.x1,
+                        ),
+                        child: Text(
+                          _pinchAxis == _PinchAxis.horizontal
+                              ? 'Largeur des jours · '
+                                    '${(_pinchedDayWidth ?? widget.minColumnWidth).round()} dp'
+                              : 'Hauteur des heures · '
+                                    '${(_pinchedHourHeight ?? widget.hourHeight).round()} dp',
+                          style: context.text.labelLarge?.copyWith(
+                            color: context.scheme.onInverseSurface,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+            ],
+          ),
         );
       },
     );
@@ -376,6 +766,16 @@ class _DayColumn extends StatelessWidget {
     return LayoutBuilder(
       builder: (context, constraints) => Stack(
         children: <Widget>[
+          for (var h = 1; h < kScheduleLastHour; h++)
+            Positioned(
+              top: h * hourHeight,
+              left: 0,
+              right: 0,
+              child: Container(
+                height: 1,
+                color: context.scheme.outlineVariant.withValues(alpha: 0.35),
+              ),
+            ),
           for (var i = 0; i < events.length; i++)
             Positioned(
               top: _offsetOf(events[i].start),

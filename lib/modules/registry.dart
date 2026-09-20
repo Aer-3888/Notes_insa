@@ -5,6 +5,7 @@ import 'campus_map/map_screen.dart';
 import 'grades/dashboard_screen.dart';
 import 'grades/two_factor_screen.dart';
 import 'laundry/laundry_screen.dart';
+import 'rooms/rooms_screen.dart';
 import 'schedule/schedule_screen.dart';
 import 'weather/weather_screen.dart';
 
@@ -75,6 +76,13 @@ const List<CampusModule> kCampusModules = <CampusModule>[
     builder: _map,
   ),
   ReadyModule(
+    id: 'salles',
+    label: 'Salles libres',
+    shortLabel: 'Salles',
+    icon: Icons.meeting_room_outlined,
+    builder: _rooms,
+  ),
+  ReadyModule(
     id: 'assos',
     label: 'Associations',
     shortLabel: 'Assos',
@@ -94,6 +102,8 @@ Widget _schedule(BuildContext context) => const ScheduleScreen();
 Widget _weather(BuildContext context) => const WeatherScreen();
 
 Widget _map(BuildContext context) => const MapScreen();
+
+Widget _rooms(BuildContext context) => const RoomsScreen();
 
 Widget _laundry(BuildContext context) => const LaundryScreen();
 

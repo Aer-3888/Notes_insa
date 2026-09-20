@@ -32,10 +32,10 @@ void main() {
     expect(ScheduleViewMode.mois.showsStrip, isFalse);
   });
 
-  test('defaults to Liste, which is what shipped before modes existed', () {
+  test('defaults to Jour', () {
     final container = ProviderContainer();
     addTearDown(container.dispose);
-    expect(container.read(scheduleViewModeProvider), ScheduleViewMode.liste);
+    expect(container.read(scheduleViewModeProvider), ScheduleViewMode.jour);
   });
 
   test('a chosen mode is written to preferences', () async {
@@ -66,21 +66,21 @@ void main() {
   });
 
   test(
-    'the Day week strip is visible by default and can be remembered off',
+    'the Day week strip is hidden by default and can be remembered on',
     () async {
       final container = ProviderContainer();
       addTearDown(container.dispose);
 
-      expect(container.read(scheduleDayWeekStripProvider), isTrue);
-      await container.read(scheduleDayWeekStripProvider.notifier).toggle();
       expect(container.read(scheduleDayWeekStripProvider), isFalse);
+      await container.read(scheduleDayWeekStripProvider.notifier).toggle();
+      expect(container.read(scheduleDayWeekStripProvider), isTrue);
 
       final prefs = await SharedPreferences.getInstance();
-      expect(prefs.getBool(kScheduleDayWeekStripKey), isFalse);
+      expect(prefs.getBool(kScheduleDayWeekStripKey), isTrue);
     },
   );
 
-  test('an unknown stored value falls back to Liste', () async {
+  test('an unknown stored value falls back to Jour', () async {
     SharedPreferences.setMockInitialValues(<String, Object>{
       kScheduleViewModeKey: 'trimestre',
     });
@@ -88,7 +88,7 @@ void main() {
     addTearDown(container.dispose);
     container.read(scheduleViewModeProvider);
     await Future<void>.delayed(Duration.zero);
-    expect(container.read(scheduleViewModeProvider), ScheduleViewMode.liste);
+    expect(container.read(scheduleViewModeProvider), ScheduleViewMode.jour);
   });
 
   test('Liste starts without the strip and can be remembered on', () async {
@@ -103,16 +103,16 @@ void main() {
     expect(prefs.getBool(kScheduleListWeekStripKey), isTrue);
   });
 
-  test('Mois draws its classes until it is told not to', () async {
+  test('Mois leaves its cells bare until it is told otherwise', () async {
     final container = ProviderContainer();
     addTearDown(container.dispose);
 
-    expect(container.read(scheduleMonthPreviewProvider), isTrue);
-    await container.read(scheduleMonthPreviewProvider.notifier).toggle();
     expect(container.read(scheduleMonthPreviewProvider), isFalse);
+    await container.read(scheduleMonthPreviewProvider.notifier).toggle();
+    expect(container.read(scheduleMonthPreviewProvider), isTrue);
 
     final prefs = await SharedPreferences.getInstance();
-    expect(prefs.getBool(kScheduleMonthPreviewKey), isFalse);
+    expect(prefs.getBool(kScheduleMonthPreviewKey), isTrue);
   });
 
   test('a stored flag is restored', () async {
@@ -175,6 +175,29 @@ void main() {
 
     final prefs = await SharedPreferences.getInstance();
     expect(prefs.getDouble(kScheduleDayWidthKey), isNull);
+  });
+
+  test('hour height defaults to Normal density and is written down', () async {
+    final container = ProviderContainer();
+    addTearDown(container.dispose);
+
+    expect(container.read(scheduleHourHeightProvider), 64);
+    await container.read(scheduleHourHeightProvider.notifier).set(80);
+    expect(container.read(scheduleHourHeightProvider), 80);
+
+    final prefs = await SharedPreferences.getInstance();
+    expect(prefs.getDouble(kScheduleHourHeightKey), 80);
+  });
+
+  test('hour height is held to readable grid bounds', () async {
+    final container = ProviderContainer();
+    addTearDown(container.dispose);
+    final notifier = container.read(scheduleHourHeightProvider.notifier);
+
+    await notifier.set(10);
+    expect(container.read(scheduleHourHeightProvider), kScheduleHourHeightMin);
+    await notifier.set(900);
+    expect(container.read(scheduleHourHeightProvider), kScheduleHourHeightMax);
   });
 
   test('a width only carries a preset name when it lands on one', () {

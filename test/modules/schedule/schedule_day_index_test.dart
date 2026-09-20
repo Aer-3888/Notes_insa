@@ -117,4 +117,68 @@ void main() {
     expect(index.rows[row].kind, ScheduleRowKind.dayHeader);
     expect(index.rows[row].day, tuesday);
   });
+  group('days emptied by a filter', () {
+    test('say so rather than reading as a free day', () {
+      final index = ScheduleDayIndex.build(
+        events: const <ScheduleEvent>[],
+        from: monday,
+        to: monday,
+        hidden: <ScheduleEvent>[
+          _event('Anglais', DateTime(2026, 9, 7, 8), DateTime(2026, 9, 7, 10)),
+          _event('Anglais', DateTime(2026, 9, 7, 10), DateTime(2026, 9, 7, 12)),
+        ],
+      );
+      final row = index.rows.firstWhere(
+        (r) => r.kind == ScheduleRowKind.allHidden,
+      );
+      expect(row.hiddenCount, 2);
+      expect(
+        index.rows.any((r) => r.kind == ScheduleRowKind.emptyDay),
+        isFalse,
+      );
+    });
+
+    test('a day with something left to show is untouched', () {
+      final index = ScheduleDayIndex.build(
+        events: <ScheduleEvent>[
+          _event('Analyse', DateTime(2026, 9, 7, 8), DateTime(2026, 9, 7, 10)),
+        ],
+        from: monday,
+        to: monday,
+        hidden: <ScheduleEvent>[
+          _event('Anglais', DateTime(2026, 9, 7, 10), DateTime(2026, 9, 7, 12)),
+        ],
+      );
+      expect(
+        index.rows.any((r) => r.kind == ScheduleRowKind.allHidden),
+        isFalse,
+      );
+    });
+
+    test('a hidden session on another day does not leak', () {
+      final index = ScheduleDayIndex.build(
+        events: const <ScheduleEvent>[],
+        from: monday,
+        to: tuesday,
+        hidden: <ScheduleEvent>[
+          _event('Anglais', DateTime(2026, 9, 8, 8), DateTime(2026, 9, 8, 10)),
+        ],
+      );
+      final kinds = index.rows
+          .where((r) => r.day == monday)
+          .map((r) => r.kind)
+          .toList();
+      expect(kinds, contains(ScheduleRowKind.emptyDay));
+    });
+
+    test('a day with nothing at all still reads as free', () {
+      final index = ScheduleDayIndex.build(
+        events: const <ScheduleEvent>[],
+        from: monday,
+        to: monday,
+        hidden: const <ScheduleEvent>[],
+      );
+      expect(index.rows.any((r) => r.kind == ScheduleRowKind.emptyDay), isTrue);
+    });
+  });
 }

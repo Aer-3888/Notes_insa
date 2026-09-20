@@ -3,6 +3,22 @@ import 'package:notes_insa/modules/schedule/schedule_period.dart';
 import 'package:notes_insa/modules/schedule/schedule_view_mode.dart';
 
 void main() {
+  group('academicYearRange', () {
+    test('starts in September and ends in August', () {
+      expect(academicYearRange(DateTime(2026, 9, 20)), (
+        from: DateTime(2026, 9, 1),
+        to: DateTime(2027, 8, 31),
+      ));
+    });
+
+    test('keeps summer in the preceding academic year', () {
+      expect(academicYearRange(DateTime(2027, 8, 2)), (
+        from: DateTime(2026, 9, 1),
+        to: DateTime(2027, 8, 31),
+      ));
+    });
+  });
+
   // Tuesday 8 September 2026; its Monday is the 7th.
   final tuesday = DateTime(2026, 9, 8);
 

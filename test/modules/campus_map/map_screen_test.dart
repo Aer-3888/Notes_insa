@@ -9,6 +9,7 @@ import 'package:notes_insa/modules/campus_map/campus_location.dart';
 import 'package:notes_insa/modules/campus_map/campus_places.dart';
 import 'package:notes_insa/modules/campus_map/map_painter.dart';
 import 'package:notes_insa/modules/campus_map/map_screen.dart';
+import 'package:notes_insa/modules/rooms/rooms_screen.dart';
 import 'package:notes_insa/theme/campus_theme.dart';
 import 'package:notes_insa/theme/tokens.dart';
 
@@ -459,6 +460,25 @@ void main() {
     expect(find.text('Ouvrir le plan officiel'), findsOneWidget);
     expect(find.text('Amphi A'), findsOneWidget);
     expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('toggles free room counts on the map', (tester) async {
+    await pumpMap(tester, fixture);
+    final action = find.byTooltip('Afficher les salles libres');
+    expect(action, findsOneWidget);
+    await tester.tap(action);
+    await tester.pump();
+    expect(find.byTooltip('Masquer les salles libres'), findsOneWidget);
+    await openSearch(tester);
+    await tester.enterText(find.byType(TextField), 'amphi a');
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Amphi A').last);
+    await tester.pumpAndSettle();
+    expect(find.text('Voir les salles libres'), findsOneWidget);
+    await tester.tap(find.text('Voir les salles libres'));
+    await tester.pump(const Duration(seconds: 1));
+    await tester.pump();
+    expect(find.byType(RoomsScreen), findsOneWidget);
   });
 
   testWidgets('meets the tap target and contrast guidelines', (tester) async {

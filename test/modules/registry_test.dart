@@ -32,4 +32,11 @@ void main() {
     final ids = kCampusModules.map((m) => m.id).toSet();
     expect(ids.containsAll(<String>['edt', 'notes', 'carte']), isTrue);
   });
+
+  test('free rooms are available from the hub', () {
+    final rooms = kCampusModules.whereType<ReadyModule>().singleWhere(
+      (module) => module.id == 'salles',
+    );
+    expect(rooms.label, 'Salles libres');
+  });
 }

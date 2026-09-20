@@ -10,6 +10,7 @@ const String kScheduleDayWeekStripKey = 'schedule_day_week_strip';
 const String kScheduleListWeekStripKey = 'schedule_list_week_strip';
 const String kScheduleMonthPreviewKey = 'schedule_month_preview';
 const String kScheduleDayWidthKey = 'schedule_day_width';
+const String kScheduleHourHeightKey = 'schedule_hour_height';
 
 enum ScheduleViewMode {
   liste('Liste', 0),
@@ -37,7 +38,7 @@ class ScheduleViewModeNotifier extends Notifier<ScheduleViewMode> {
   @override
   ScheduleViewMode build() {
     unawaited(_restore());
-    return ScheduleViewMode.liste;
+    return ScheduleViewMode.jour;
   }
 
   Future<void> _restore() async {
@@ -90,9 +91,9 @@ abstract class ScheduleFlagNotifier extends Notifier<bool> {
   }
 }
 
-/// Whether Jour keeps the compact week strip above its day timeline.
+/// Whether Jour shows the compact week strip.
 class ScheduleDayWeekStripNotifier extends ScheduleFlagNotifier {
-  ScheduleDayWeekStripNotifier() : super(kScheduleDayWeekStripKey, true);
+  ScheduleDayWeekStripNotifier() : super(kScheduleDayWeekStripKey, false);
 }
 
 final scheduleDayWeekStripProvider =
@@ -111,9 +112,9 @@ final scheduleListWeekStripProvider =
       ScheduleListWeekStripNotifier.new,
     );
 
-/// Whether Mois draws the day's classes inside each cell.
+/// Whether Mois shows classes in each day cell.
 class ScheduleMonthPreviewNotifier extends ScheduleFlagNotifier {
-  ScheduleMonthPreviewNotifier() : super(kScheduleMonthPreviewKey, true);
+  ScheduleMonthPreviewNotifier() : super(kScheduleMonthPreviewKey, false);
 }
 
 final scheduleMonthPreviewProvider =
@@ -146,6 +147,11 @@ enum ScheduleDayWidth {
 /// shows part of a module name; past the ceiling one day fills the screen.
 const double kScheduleDayWidthMin = 40;
 const double kScheduleDayWidthMax = 200;
+
+/// Bounds for hour height in time grids.
+const double kScheduleHourHeightMin = 40;
+const double kScheduleHourHeightMax = 112;
+const double kScheduleHourHeightDefault = 64;
 
 /// The preset [width] lands on, or null when it was set by hand.
 ScheduleDayWidth? scheduleDayWidthPreset(double width) {
@@ -202,4 +208,35 @@ class ScheduleDayWidthNotifier extends Notifier<double> {
 final scheduleDayWidthProvider =
     NotifierProvider<ScheduleDayWidthNotifier, double>(
       ScheduleDayWidthNotifier.new,
+    );
+
+/// Saved hour height for time grids.
+class ScheduleHourHeightNotifier extends Notifier<double> {
+  @override
+  double build() {
+    unawaited(_restore());
+    return kScheduleHourHeightDefault;
+  }
+
+  Future<void> _restore() async {
+    final prefs = await SharedPreferences.getInstance();
+    final stored = prefs.getDouble(kScheduleHourHeightKey);
+    if (stored != null) state = _clamp(stored);
+  }
+
+  void drag(double height) => state = _clamp(height);
+
+  Future<void> set(double height) async {
+    state = _clamp(height);
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setDouble(kScheduleHourHeightKey, state);
+  }
+
+  static double _clamp(double height) =>
+      height.clamp(kScheduleHourHeightMin, kScheduleHourHeightMax);
+}
+
+final scheduleHourHeightProvider =
+    NotifierProvider<ScheduleHourHeightNotifier, double>(
+      ScheduleHourHeightNotifier.new,
     );

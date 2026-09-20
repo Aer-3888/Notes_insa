@@ -53,7 +53,7 @@ void main() {
 
     // Drag the thumb left; the exact landing is the slider's business, the
     // point is that it moves and commits something off the preset list.
-    await tester.drag(find.byType(Slider), const Offset(-60, 0));
+    await tester.drag(find.byType(Slider).first, const Offset(-60, 0));
     await tester.pumpAndSettle();
 
     final prefs = await SharedPreferences.getInstance();
@@ -68,9 +68,20 @@ void main() {
     tester,
   ) async {
     await pump(tester);
-    final slider = tester.widget<Slider>(find.byType(Slider));
+    final slider = tester.widget<Slider>(find.byType(Slider).first);
     expect(slider.min, kScheduleDayWidthMin);
     expect(slider.max, kScheduleDayWidthMax);
+  });
+
+  testWidgets('hour-height slider is visible and uses its safe bounds', (
+    tester,
+  ) async {
+    await pump(tester);
+    final slider = tester.widget<Slider>(find.byType(Slider).at(1));
+    expect(slider.value, kScheduleHourHeightDefault);
+    expect(slider.min, kScheduleHourHeightMin);
+    expect(slider.max, kScheduleHourHeightMax);
+    expect(find.text('Hauteur des heures'), findsOneWidget);
   });
 }
 

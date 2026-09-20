@@ -36,6 +36,13 @@ void main() {
           scheduleProvider.overrideWith(
             (ref) => Stream<CachedEntry<List<ScheduleEvent>>>.value(_entry),
           ),
+          scheduleRangeProvider.overrideWith(
+            (ref, request) async => ScheduleRangeData(
+              range: request.range,
+              events: const <ScheduleEvent>[],
+              state: RefreshState.fresh,
+            ),
+          ),
         ],
         child: MaterialApp(
           theme: campusTheme(Brightness.light),
@@ -115,7 +122,7 @@ void main() {
     expect(find.byTooltip('Aujourd’hui'), findsNothing);
   });
 
-  testWidgets('the arrows stop at the end of the fetched window', (
+  testWidgets('the arrows continue beyond the initially fetched window', (
     tester,
   ) async {
     await pump(tester, ScheduleViewMode.semaine);
@@ -125,6 +132,6 @@ void main() {
     }
     await tester.pumpAndSettle();
     final last = shownDays(tester).last;
-    expect(last.difference(DateTime.now()).inDays, lessThan(70));
+    expect(last.difference(DateTime.now()).inDays, greaterThan(120));
   });
 }

@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/foundation.dart';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
@@ -7,8 +9,7 @@ import '../modules/associations/associations_today_card.dart';
 import '../modules/crous/crous_today_card.dart';
 import '../modules/library/library_today_card.dart';
 import '../modules/registry.dart';
-import '../modules/schedule/schedule_focus.dart';
-import '../modules/schedule/schedule_provider.dart';
+import '../modules/schedule/event_sheet.dart';
 import '../modules/schedule/upcoming_courses_card.dart';
 import '../modules/weather/weather_screen.dart';
 import '../theme/campus_context.dart';
@@ -96,27 +97,23 @@ class _HomeDashboard extends ConsumerWidget {
         continue;
       }
       addModules();
-      slivers.add(SliverToBoxAdapter(child: _todayCard(id, ref)));
+      slivers.add(SliverToBoxAdapter(child: _todayCard(context, id, ref)));
     }
     addModules();
     return CustomScrollView(slivers: slivers);
   }
 
-  Widget _todayCard(String id, WidgetRef ref) => switch (id) {
-    kCoursesCardId => UpcomingCoursesCard(
-      onOpenEvent: onOpenModule == null
-          ? null
-          : (event) {
-              ref.read(scheduleFocusProvider.notifier).request(event);
-              onOpenModule!(kScheduleModuleId);
-            },
-    ),
-    'weather' => const WeatherStrip(),
-    'crous' => const CrousTodayCard(),
-    'library' => const LibraryTodayCard(),
-    'associations' => const AssociationsTodayCard(),
-    _ => const SizedBox.shrink(),
-  };
+  Widget _todayCard(BuildContext context, String id, WidgetRef ref) =>
+      switch (id) {
+        kCoursesCardId => UpcomingCoursesCard(
+          onOpenEvent: (event) => unawaited(showEventSheet(context, event)),
+        ),
+        'weather' => const WeatherStrip(),
+        'crous' => const CrousTodayCard(),
+        'library' => const LibraryTodayCard(),
+        'associations' => const AssociationsTodayCard(),
+        _ => const SizedBox.shrink(),
+      };
 }
 
 class _ModuleShortcuts extends StatelessWidget {

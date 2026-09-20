@@ -1,15 +1,26 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../theme/campus_context.dart';
-import '../../theme/state_view.dart';
+import '../../theme/tokens.dart';
+import 'ade_breadcrumb.dart';
 import 'ade_groups.dart';
+import 'ade_groups_provider.dart';
 import 'ade_link.dart';
+import 'ade_tree.dart';
+import 'ade_tree_list.dart';
+import 'import_link_sheet.dart';
 import 'schedule_provider.dart';
 
-/// Browse ADE resources the way the web app does: drill down by department,
-/// then semester, then group. Typing switches to a flat search across the whole
-/// category, because 1433 rows are unusable as a single list.
+/// The whole ADE group tree, for the cases the wizard's four questions cannot
+/// express: a second promo, a branch that does not nest the way the others do,
+/// or adding one elective to an existing selection.
+///
+/// Reached from "Ma sélection", never as the first thing a new user sees. It
+/// browses rather than teaches, so it assumes you know what you are looking
+/// for.
 class GroupPickerScreen extends ConsumerStatefulWidget {
   const GroupPickerScreen({super.key});
 
@@ -24,95 +35,22 @@ class GroupPickerScreen extends ConsumerStatefulWidget {
 class _GroupPickerScreenState extends ConsumerState<GroupPickerScreen> {
   final _controller = TextEditingController();
 
-  List<AdeGroup> _all = const <AdeGroup>[];
   late Set<int> _selected;
-  bool _loading = true;
-  AdeCategory _category = AdeCategory.student;
+  late Set<int> _initial;
 
-  /// Null at the top level; otherwise the node we have drilled into.
+  /// Null at the top level, otherwise the node we have drilled into.
   int? _parentId;
+
+  /// Set on the first toggle. Until then the draft follows the stored
+  /// selection, which arrives a frame or two late because it is restored from
+  /// shared_preferences asynchronously.
+  bool _touched = false;
 
   @override
   void initState() {
     super.initState();
-    _selected = ref.read(selectedGroupsProvider).toSet();
-    _load();
-  }
-
-  Future<void> _load() async {
-    final groups = await AdeGroups.load();
-    if (!mounted) return;
-    setState(() {
-      _all = groups;
-      _loading = false;
-    });
-  }
-
-  List<AdeGroup> get _categoryRows => AdeGroups.ofCategory(_all, _category);
-
-  bool get _searching => _controller.text.trim().isNotEmpty;
-
-  /// Search ignores the current position in the tree: someone typing
-  /// "S7-INFO-ROBO" should find it without knowing it lives under INFO.
-  List<AdeGroup> get _rows => _searching
-      ? AdeGroups.search(_categoryRows, _controller.text)
-      : AdeGroups.childrenOf(_categoryRows, _parentId);
-
-  void _toggle(AdeGroup g) {
-    setState(() {
-      if (_selected.contains(g.id)) {
-        _selected.remove(g.id);
-      } else if (_selected.length < GroupPickerScreen.maxSelection) {
-        _selected.add(g.id);
-      }
-    });
-  }
-
-  void _openCategory(AdeCategory c) => setState(() {
-    _category = c;
-    _parentId = null;
-    _controller.clear();
-  });
-
-  Future<void> _importFromLink() async {
-    final field = TextEditingController();
-    final link = await showDialog<String>(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Coller un lien ADE'),
-        content: TextField(
-          controller: field,
-          autofocus: true,
-          minLines: 1,
-          maxLines: 3,
-          decoration: const InputDecoration(
-            hintText: 'https://ade-planning.insa-rennes.fr/view/...',
-          ),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(),
-            child: const Text('Annuler'),
-          ),
-          FilledButton(
-            onPressed: () => Navigator.of(context).pop(field.text),
-            child: const Text('Importer'),
-          ),
-        ],
-      ),
-    );
-    field.dispose();
-    if (link == null || !mounted) return;
-
-    final ids = AdeLink.parseIds(link);
-    if (ids.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Aucun groupe trouvé dans ce lien.')),
-      );
-      return;
-    }
-    await ref.read(selectedGroupsProvider.notifier).set(ids);
-    if (mounted) Navigator.of(context).pop();
+    _initial = ref.read(selectedGroupsProvider).toSet();
+    _selected = _initial.toSet();
   }
 
   @override
@@ -121,39 +59,121 @@ class _GroupPickerScreenState extends ConsumerState<GroupPickerScreen> {
     super.dispose();
   }
 
+  bool get _searching => _controller.text.trim().isNotEmpty;
+
+  bool get _dirty =>
+      _selected.length != _initial.length || !_selected.containsAll(_initial);
+
+  void _toggle(AdeGroup g) {
+    _touched = true;
+    if (_selected.contains(g.id)) {
+      setState(() => _selected.remove(g.id));
+      return;
+    }
+    if (_selected.length >= GroupPickerScreen.maxSelection) {
+      // Silently refusing the tap was the old behaviour, and it read as the
+      // screen being broken.
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(
+            'ADE n’accepte pas plus de '
+            '${GroupPickerScreen.maxSelection} groupes à la fois.',
+          ),
+        ),
+      );
+      return;
+    }
+    setState(() => _selected.add(g.id));
+  }
+
+  Future<void> _save() async {
+    await ref.read(selectedGroupsProvider.notifier).set(_selected.toList());
+    _initial = _selected.toSet();
+  }
+
+  /// Back leaves the screen. Climbing is the breadcrumb's job. The old picker
+  /// bound it to the system back button, which meant five presses to escape a
+  /// five-level branch and no way out at all from the deepest ones.
+  Future<void> _confirmLeave() async {
+    final keep = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Garder les modifications ?'),
+        content: const Text(
+          'Votre sélection de groupes a changé mais n’a pas été enregistrée.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(false),
+            child: const Text('Abandonner'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.of(context).pop(true),
+            child: const Text('Enregistrer'),
+          ),
+        ],
+      ),
+    );
+    if (keep == null || !mounted) return;
+    if (keep) await _save();
+    if (mounted) Navigator.of(context).pop();
+  }
+
+  Future<void> _import() async {
+    final ids = await showImportLinkSheet(context);
+    if (ids == null || !mounted) return;
+    setState(() {
+      _touched = true;
+      _selected
+        ..clear()
+        ..addAll(ids);
+    });
+  }
+
   @override
   Widget build(BuildContext context) {
+    ref.listen(selectedGroupsProvider, (_, next) {
+      if (_touched) return;
+      setState(() {
+        _initial = next.toSet();
+        _selected = next.toSet();
+      });
+    });
+    final all = ref.watch(adeGroupsProvider).value;
+    final students = all == null
+        ? const <AdeGroup>[]
+        : AdeGroups.ofCategory(all, AdeCategory.student);
+    // Search ignores the current position in the tree: someone typing
+    // "S7-INFO-ROBO" should find it without knowing it lives under INFO.
+    final visible = all == null
+        ? const <AdeGroup>[]
+        : _searching
+        ? AdeTree.search(students, _controller.text)
+        : AdeTree.childrenOf(students, _parentId);
     final breadcrumb = _parentId == null
         ? const <AdeGroup>[]
-        : AdeGroups.pathTo(_categoryRows, _parentId!);
+        : AdeTree.pathTo(students, _parentId!);
 
     return PopScope(
-      // Back steps up the tree before it leaves the screen.
-      canPop: _parentId == null,
+      canPop: !_dirty,
       onPopInvokedWithResult: (didPop, _) {
         if (didPop) return;
-        setState(
-          () => _parentId = breadcrumb.length >= 2
-              ? breadcrumb[breadcrumb.length - 2].id
-              : null,
-        );
+        unawaited(_confirmLeave());
       },
       child: Scaffold(
         appBar: AppBar(
-          title: const Text('Choisir un groupe'),
+          title: const Text('Parcourir les groupes'),
           actions: [
             IconButton(
               icon: const Icon(Icons.link),
               tooltip: 'Coller un lien ADE',
-              onPressed: _importFromLink,
+              onPressed: () => unawaited(_import()),
             ),
             TextButton(
-              onPressed: _selected.isEmpty
+              onPressed: !_dirty
                   ? null
                   : () async {
-                      await ref
-                          .read(selectedGroupsProvider.notifier)
-                          .set(_selected.toList());
+                      await _save();
                       if (context.mounted) Navigator.of(context).pop();
                     },
               child: Text('Valider (${_selected.length})'),
@@ -163,7 +183,12 @@ class _GroupPickerScreenState extends ConsumerState<GroupPickerScreen> {
         body: Column(
           children: [
             Padding(
-              padding: const EdgeInsets.fromLTRB(12, 12, 12, 8),
+              padding: const EdgeInsets.fromLTRB(
+                CampusSpacing.x3,
+                CampusSpacing.x3,
+                CampusSpacing.x3,
+                CampusSpacing.x2,
+              ),
               child: TextField(
                 controller: _controller,
                 onChanged: (_) => setState(() {}),
@@ -180,113 +205,87 @@ class _GroupPickerScreenState extends ConsumerState<GroupPickerScreen> {
                 ),
               ),
             ),
-            SizedBox(
-              height: 38,
-              child: ListView(
-                scrollDirection: Axis.horizontal,
-                padding: const EdgeInsets.symmetric(horizontal: 12),
-                children: [
-                  for (final c in AdeCategory.values)
-                    Padding(
-                      padding: const EdgeInsets.only(right: 8),
-                      child: ChoiceChip(
-                        label: Text(c.label),
-                        selected: _category == c,
-                        onSelected: (_) => _openCategory(c),
-                      ),
-                    ),
-                ],
-              ),
-            ),
             if (!_searching && breadcrumb.isNotEmpty)
-              _Breadcrumb(
+              AdeBreadcrumb(
                 path: breadcrumb,
                 onRoot: () => setState(() => _parentId = null),
                 onTap: (g) => setState(() => _parentId = g.id),
               ),
-            const SizedBox(height: 4),
-            if (_loading)
+            if (all == null)
               const Expanded(child: Center(child: CircularProgressIndicator()))
             else
-              Expanded(child: _buildList()),
+              Expanded(
+                child: AdeTreeList(
+                  rows: students,
+                  visible: visible,
+                  selected: _selected,
+                  showPath: _searching,
+                  onToggle: _toggle,
+                  onDrill: (g) => setState(() => _parentId = g.id),
+                ),
+              ),
+            _SelectionTray(
+              rows: students,
+              selected: _selected,
+              onRemove: (id) => setState(() {
+                _touched = true;
+                _selected.remove(id);
+              }),
+            ),
           ],
         ),
       ),
     );
   }
-
-  Widget _buildList() {
-    final rows = _rows;
-    if (rows.isEmpty) {
-      return const StateView(
-        icon: Icons.search_off_outlined,
-        title: 'Aucun r\u00e9sultat',
-        body: 'Essayez un autre nom de groupe, par exemple S7-INFO.',
-      );
-    }
-    return ListView.builder(
-      itemCount: rows.length,
-      itemBuilder: (context, i) {
-        final g = rows[i];
-        final selected = _selected.contains(g.id);
-        final expandable =
-            !_searching && AdeGroups.hasChildren(_categoryRows, g.id);
-        return ListTile(
-          leading: Checkbox(value: selected, onChanged: (_) => _toggle(g)),
-          title: Text(g.name),
-          // A parent is selectable in its own right: picking S7-INFO gives the
-          // whole promotion's timetable, which is what many students want.
-          subtitle: expandable
-              ? Text(
-                  'Contient des sous-groupes',
-                  style: context.text.labelMedium?.copyWith(
-                    color: context.scheme.onSurfaceVariant,
-                  ),
-                )
-              : null,
-          trailing: expandable
-              ? Icon(
-                  Icons.chevron_right,
-                  color: context.scheme.onSurfaceVariant,
-                )
-              : null,
-          onTap: expandable
-              ? () => setState(() => _parentId = g.id)
-              : () => _toggle(g),
-        );
-      },
-    );
-  }
 }
 
-class _Breadcrumb extends StatelessWidget {
-  const _Breadcrumb({
-    required this.path,
-    required this.onRoot,
-    required this.onTap,
+/// The current selection, pinned under the list.
+///
+/// Without it the selection is invisible the moment you drill into another
+/// branch, and the only feedback is a count in the app bar, which is how the
+/// old screen let people lose track of what they had already picked.
+class _SelectionTray extends StatelessWidget {
+  const _SelectionTray({
+    required this.rows,
+    required this.selected,
+    required this.onRemove,
   });
 
-  final List<AdeGroup> path;
-  final VoidCallback onRoot;
-  final ValueChanged<AdeGroup> onTap;
+  final List<AdeGroup> rows;
+  final Set<int> selected;
+  final ValueChanged<int> onRemove;
 
   @override
-  Widget build(BuildContext context) => SizedBox(
-    height: 34,
-    child: ListView(
-      scrollDirection: Axis.horizontal,
-      padding: const EdgeInsets.symmetric(horizontal: 12),
-      children: [
-        TextButton(onPressed: onRoot, child: const Text('Tout')),
-        for (final g in path) ...[
-          Icon(
-            Icons.chevron_right,
-            size: 16,
-            color: context.scheme.onSurfaceVariant,
+  Widget build(BuildContext context) {
+    if (selected.isEmpty) return const SizedBox.shrink();
+    final byId = <int, AdeGroup>{for (final g in rows) g.id: g};
+    return Material(
+      color: context.scheme.surfaceContainerHigh,
+      child: SafeArea(
+        top: false,
+        child: SizedBox(
+          height: 56,
+          child: ListView(
+            scrollDirection: Axis.horizontal,
+            padding: const EdgeInsets.symmetric(
+              horizontal: CampusSpacing.x3,
+              vertical: CampusSpacing.x2,
+            ),
+            children: [
+              for (final id in selected)
+                Padding(
+                  padding: const EdgeInsets.only(right: CampusSpacing.x2),
+                  child: InputChip(
+                    label: Text(byId[id]?.name ?? 'Ressource $id'),
+                    onDeleted: () => onRemove(id),
+                    deleteButtonTooltipMessage:
+                        'Retirer ${byId[id]?.name ?? id}',
+                  ),
+                ),
+            ],
           ),
-          TextButton(onPressed: () => onTap(g), child: Text(g.name)),
-        ],
-      ],
-    ),
-  );
+        ),
+      ),
+    );
+  }
 }

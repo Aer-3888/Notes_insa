@@ -12,6 +12,7 @@ void main() {
     ScheduleRowKind.dayHeader => 48,
     ScheduleRowKind.event => 72,
     ScheduleRowKind.gap => 40,
+    ScheduleRowKind.allHidden => 44,
     ScheduleRowKind.emptyDay => 44,
     ScheduleRowKind.rangeEnd => 56,
   };

@@ -224,7 +224,11 @@ void main() {
       await tester.pump();
 
       expect(tester.getSize(card).height, lessThan(squareHeight));
-      expect(scrollable.position.pixels, scrollBeforeShrink);
+      // A shorter grid can clamp a bottommost scroll offset.
+      expect(
+        scrollable.position.pixels,
+        anyOf(scrollBeforeShrink, scrollable.position.maxScrollExtent),
+      );
 
       await shrink.up();
       await tester.pumpAndSettle();

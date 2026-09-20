@@ -14,6 +14,7 @@ void main() {
     required DateTime day,
     required DateTime today,
     VoidCallback? onToday,
+    VoidCallback? onPickDate,
     double textScale = 1.0,
   }) async {
     final shifts = <int>[];
@@ -32,6 +33,7 @@ void main() {
               today: today,
               onShift: shifts.add,
               onToday: onToday ?? () {},
+              onPickDate: onPickDate ?? () {},
             ),
           ),
         ),
@@ -62,6 +64,21 @@ void main() {
     await tester.tap(find.byTooltip('Période précédente'));
     await tester.pump();
     expect(shifts, <int>[1, -1]);
+  });
+
+  testWidgets('the period label opens date selection', (tester) async {
+    var opened = 0;
+    await pump(
+      tester,
+      mode: ScheduleViewMode.semaine,
+      day: tuesday,
+      today: tuesday,
+      onPickDate: () => opened++,
+    );
+
+    await tester.tap(find.byTooltip('Choisir une date'));
+    await tester.pump();
+    expect(opened, 1);
   });
 
   testWidgets('offers a way back only when today is off screen', (
@@ -120,5 +137,95 @@ void main() {
       find.text(periodLabel(ScheduleViewMode.mois, tuesday)),
       findsOneWidget,
     );
+  });
+
+  group('the today button', () {
+    Offset centerOf(WidgetTester tester, String tooltip) =>
+        tester.getCenter(find.byTooltip(tooltip));
+
+    testWidgets('appearing leaves both arrows where they were', (tester) async {
+      await pump(
+        tester,
+        mode: ScheduleViewMode.semaine,
+        day: tuesday,
+        today: tuesday,
+      );
+      final back = centerOf(tester, 'Période précédente');
+      final forward = centerOf(tester, 'Période suivante');
+
+      await pump(
+        tester,
+        mode: ScheduleViewMode.semaine,
+        day: DateTime(2026, 9, 22),
+        today: tuesday,
+      );
+
+      expect(find.byTooltip('Aujourd’hui'), findsOneWidget);
+      expect(centerOf(tester, 'Période précédente'), back);
+      expect(centerOf(tester, 'Période suivante'), forward);
+    });
+
+    testWidgets('sits left of both arrows', (tester) async {
+      await pump(
+        tester,
+        mode: ScheduleViewMode.semaine,
+        day: DateTime(2026, 9, 22),
+        today: tuesday,
+      );
+      final today = centerOf(tester, 'Aujourd’hui').dx;
+      expect(today, lessThan(centerOf(tester, 'Période précédente').dx));
+      expect(today, lessThan(centerOf(tester, 'Période suivante').dx));
+    });
+
+    testWidgets('appearing does not hand its element to an arrow', (
+      tester,
+    ) async {
+      // Unkeyed, the children match by position when this button appears, so
+      // each arrow inherits its neighbour's element and the tap ripple plays
+      // on the icon next door.
+      await pump(
+        tester,
+        mode: ScheduleViewMode.semaine,
+        day: tuesday,
+        today: tuesday,
+      );
+      final back = tester.element(find.byTooltip('Période précédente'));
+      final forward = tester.element(find.byTooltip('Période suivante'));
+
+      await pump(
+        tester,
+        mode: ScheduleViewMode.semaine,
+        day: DateTime(2026, 9, 22),
+        today: tuesday,
+      );
+
+      expect(tester.element(find.byTooltip('Période précédente')), back);
+      expect(tester.element(find.byTooltip('Période suivante')), forward);
+      expect(
+        tester.element(find.byTooltip('Aujourd’hui')),
+        isNot(anyOf(back, forward)),
+      );
+    });
+
+    testWidgets('never lands where an arrow was', (tester) async {
+      await pump(
+        tester,
+        mode: ScheduleViewMode.semaine,
+        day: tuesday,
+        today: tuesday,
+      );
+      final arrows = <Offset>[
+        centerOf(tester, 'Période précédente'),
+        centerOf(tester, 'Période suivante'),
+      ];
+
+      await pump(
+        tester,
+        mode: ScheduleViewMode.semaine,
+        day: DateTime(2026, 9, 22),
+        today: tuesday,
+      );
+      expect(arrows, isNot(contains(centerOf(tester, 'Aujourd’hui'))));
+    });
   });
 }

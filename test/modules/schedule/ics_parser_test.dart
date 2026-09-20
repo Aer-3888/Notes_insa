@@ -124,4 +124,61 @@ void main() {
         'END:VCALENDAR\r\n';
     expect(parseAdeIcs(ics).single.room, 'Amphi C (V)');
   });
+
+  test('keeps the occurrence uid and decodes the ADE activity id', () {
+    final events = parseAdeIcs(fixture);
+    final sa = events.where((e) => e.title == 'SA_L').toList();
+    expect(sa, hasLength(2));
+    // Two sessions of one series a week apart: same activity, different uid.
+    expect(sa.first.activityId, '5506');
+    expect(sa.last.activityId, '5506');
+    expect(sa.first.uid, isNot(sa.last.uid));
+  });
+
+  test('every recorded event carries an activity id', () {
+    for (final e in parseAdeIcs(fixture)) {
+      expect(e.activityId, isNotNull, reason: e.title);
+      expect(e.uid, isNotNull, reason: e.title);
+    }
+  });
+
+  test('two different courses never share an activity id', () {
+    final events = parseAdeIcs(fixture);
+    final byActivity = <String, Set<String>>{};
+    for (final e in events) {
+      (byActivity[e.activityId!] ??= <String>{}).add(e.title);
+    }
+    for (final entry in byActivity.entries) {
+      expect(entry.value, hasLength(1), reason: 'activity ${entry.key}');
+    }
+  });
+
+  test('an event with no uid parses with null identifiers', () {
+    const ics =
+        'BEGIN:VCALENDAR\r\n'
+        'BEGIN:VEVENT\r\n'
+        'DTSTART:20260908T081500Z\r\n'
+        'DTEND:20260908T101500Z\r\n'
+        'SUMMARY:Algebre 3\r\n'
+        'END:VEVENT\r\n'
+        'END:VCALENDAR\r\n';
+    final event = parseAdeIcs(ics).single;
+    expect(event.uid, isNull);
+    expect(event.activityId, isNull);
+  });
+
+  test('an unreadable uid is kept but yields no activity id', () {
+    const ics =
+        'BEGIN:VCALENDAR\r\n'
+        'BEGIN:VEVENT\r\n'
+        'DTSTART:20260908T081500Z\r\n'
+        'DTEND:20260908T101500Z\r\n'
+        'SUMMARY:Algebre 3\r\n'
+        'UID:not-an-ade-identifier\r\n'
+        'END:VEVENT\r\n'
+        'END:VCALENDAR\r\n';
+    final event = parseAdeIcs(ics).single;
+    expect(event.uid, 'not-an-ade-identifier');
+    expect(event.activityId, isNull);
+  });
 }

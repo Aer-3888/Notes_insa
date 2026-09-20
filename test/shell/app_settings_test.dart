@@ -42,6 +42,8 @@ void main() {
     tester,
   ) async {
     await pumpSettings(tester);
+    // The list is long enough that the row builds only once scrolled to.
+    await tester.scrollUntilVisible(find.textContaining('À propos'), 200);
     expect(find.textContaining('À propos'), findsOneWidget);
   });
 
@@ -88,5 +90,12 @@ void main() {
       findsNothing,
     );
     expect(find.byType(Card), findsNothing);
+  });
+  testWidgets('settings reach the hidden courses screen', (tester) async {
+    await pumpSettings(tester);
+    final tile = find.text('Cours masqués');
+    await tester.scrollUntilVisible(tile, 200);
+    expect(tile, findsOneWidget);
+    expect(find.text('Retirer un cours de l’emploi du temps'), findsOneWidget);
   });
 }

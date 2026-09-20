@@ -4,6 +4,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
 import 'package:notes_insa/modules/schedule/ade_groups.dart';
+import 'package:notes_insa/modules/schedule/ade_tree.dart';
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
@@ -18,7 +19,7 @@ void main() {
   test('a known group resolves to the id ADE accepts', () async {
     final all = await AdeGroups.loadBundled();
     final students = AdeGroups.ofCategory(all, AdeCategory.student);
-    expect(AdeGroups.search(students, 'S3-STPI-L').first.id, 2152);
+    expect(AdeTree.search(students, 'S3-STPI-L').first.id, 2152);
   });
 
   test('the full S7-INFO selection is present and resolvable', () async {
@@ -55,7 +56,7 @@ void main() {
   test('the top level is departments, not 1433 groups', () async {
     final all = await AdeGroups.loadBundled();
     final students = AdeGroups.ofCategory(all, AdeCategory.student);
-    final roots = AdeGroups.childrenOf(students, null);
+    final roots = AdeTree.childrenOf(students, null);
     expect(roots.length, 18);
     expect(roots.map((g) => g.name), contains('INFO'));
     expect(roots.map((g) => g.name), contains('STPI'));
@@ -64,17 +65,17 @@ void main() {
   test('drilling INFO reaches S7-INFO, then its groups', () async {
     final all = await AdeGroups.loadBundled();
     final students = AdeGroups.ofCategory(all, AdeCategory.student);
-    final info = AdeGroups.childrenOf(
+    final info = AdeTree.childrenOf(
       students,
       null,
     ).firstWhere((g) => g.name == 'INFO');
 
-    final semesters = AdeGroups.childrenOf(students, info.id);
+    final semesters = AdeTree.childrenOf(students, info.id);
     expect(semesters.map((g) => g.name), contains('S7-INFO'));
 
     final s7 = semesters.firstWhere((g) => g.name == 'S7-INFO');
     expect(s7.id, 1214);
-    final groups = AdeGroups.childrenOf(students, s7.id);
+    final groups = AdeTree.childrenOf(students, s7.id);
     expect(groups.map((g) => g.name), contains('S7-INFO-G1'));
     expect(groups.map((g) => g.name), contains('S7-INFO-OPTION'));
   });
@@ -84,15 +85,15 @@ void main() {
     () async {
       final all = await AdeGroups.loadBundled();
       final students = AdeGroups.ofCategory(all, AdeCategory.student);
-      expect(AdeGroups.hasChildren(students, 899), isFalse); // S7-INFO-ROBO
-      expect(AdeGroups.hasChildren(students, 1214), isTrue); // S7-INFO
+      expect(AdeTree.hasChildren(students, 899), isFalse); // S7-INFO-ROBO
+      expect(AdeTree.hasChildren(students, 1214), isTrue); // S7-INFO
     },
   );
 
   test('pathTo builds the breadcrumb outermost first', () async {
     final all = await AdeGroups.loadBundled();
     final students = AdeGroups.ofCategory(all, AdeCategory.student);
-    final path = AdeGroups.pathTo(students, 136); // S7-INFO-G1-1
+    final path = AdeTree.pathTo(students, 136); // S7-INFO-G1-1
     expect(path.map((g) => g.name).toList(), <String>[
       'INFO',
       'S7-INFO',
