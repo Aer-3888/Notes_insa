@@ -89,7 +89,7 @@ class CachedRemoteImage extends ImageProvider<CachedRemoteImage> {
       } catch (e) {
         // An expired copy still draws correctly, and the source being briefly
         // unreachable is not a reason to fall back to initials.
-        if (file.existsSync()) return file.readAsBytes();
+        if (file.existsSync()) return await file.readAsBytes();
         _missing.add(key.url);
         PaintingBinding.instance.imageCache.evict(key);
         rethrow;
@@ -105,7 +105,7 @@ class CachedRemoteImage extends ImageProvider<CachedRemoteImage> {
       if (response.statusCode != 200) {
         throw http.ClientException('HTTP ${response.statusCode}', uri);
       }
-      return shrink(response.bodyBytes, key.storedSize);
+      return await shrink(response.bodyBytes, key.storedSize);
     } finally {
       client.close();
     }
