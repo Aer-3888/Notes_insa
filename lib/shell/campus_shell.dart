@@ -97,9 +97,6 @@ class _CampusShellState extends ConsumerState<CampusShell>
     // Cached grades are read from local storage only, so this is cheap and
     // stays unconditional.
     ref.read(gradesProvider.notifier).loadStoredGrades();
-    // Association reminders belong to every student, not only the ones with
-    // an INSA account, so this is set up outside the signed-in bootstrap.
-    _assoReminders = AssociationReminderScheduler(container);
     unawaited(_setupNotifications());
     unawaited(_bootstrapForSignedInUsers());
   }
@@ -116,6 +113,9 @@ class _CampusShellState extends ConsumerState<CampusShell>
     if (_notifSub != null) return;
     await NotificationService.initialize();
     if (!mounted) return;
+    _assoReminders = AssociationReminderScheduler(
+      ProviderScope.containerOf(context, listen: false),
+    );
     _notifSub = NotificationService.tapStream.listen(_onNotificationTap);
     final pendingPayload = NotificationService.consumePendingPayload();
     if (pendingPayload != null) _onNotificationTap(pendingPayload);
@@ -205,6 +205,7 @@ class _CampusShellState extends ConsumerState<CampusShell>
       _lock?.onPause();
     } else if (state == AppLifecycleState.resumed) {
       _ensureLockIfNeeded();
+      unawaited(_assoReminders?.refreshPermission() ?? Future<void>.value());
     }
   }
 

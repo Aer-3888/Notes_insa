@@ -1,7 +1,11 @@
 import 'package:flutter_test/flutter_test.dart';
+import 'package:http/http.dart' as http;
+import 'package:http/testing.dart';
+import 'package:notes_insa/core/search_text.dart';
 import 'package:notes_insa/core/time.dart';
 import 'package:notes_insa/modules/associations/association.dart';
 import 'package:notes_insa/modules/associations/association_service.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 Map<String, Object?> _row({
   Object? id = 'ktulu',
@@ -32,6 +36,7 @@ Map<String, Object?> _event({
 };
 
 void main() {
+  TestWidgetsFlutterBinding.ensureInitialized();
   setUpAll(initCampusTime);
   group('a row the seed gets wrong is dropped, not crashed on', () {
     test('an entry with no id or no name is not an association', () {
@@ -97,13 +102,85 @@ void main() {
     expect(links.instagramUri.toString(), 'https://www.instagram.com/ktulu/');
   });
 
-  test('blank links read as absent', () {
+  test('an organigram keeps its public roles grouped by mandate', () {
+    final association = Association.fromJson(<String, Object?>{
+      ..._row(),
+      'organigram': <String, Object?>{
+        'title': 'Mandat 2026',
+        'sections': <Object?>[
+          <String, Object?>{
+            'title': 'Bureau',
+            'members': <Object?>[
+              <String, Object?>{'role': 'Président·e', 'name': 'Maxime'},
+            ],
+          },
+        ],
+      },
+    });
+
+    expect(association!.organigram?.title, 'Mandat 2026');
+    expect(association.organigram?.memberCount, 1);
+    expect(
+      association.organigram?.sections.single.members.single.role,
+      'Président·e',
+    );
+  });
+
+  test('recruitment is shown only when the feed explicitly opens it', () {
+    final association = Association.fromJson(<String, Object?>{
+      ..._row(),
+      'recruitment': <String, Object?>{
+        'isOpen': true,
+        'title': 'Candidate maintenant',
+        'url': 'https://example.test/apply',
+      },
+    });
+    final closed = AssociationRecruitment.fromJson(<String, Object?>{
+      'isOpen': false,
+    });
+
+    expect(association!.recruitment?.isVisible, isTrue);
+    expect(association.recruitment?.title, 'Candidate maintenant');
+    expect(closed?.isVisible, isFalse);
+  });
+
+  test('remote public media is accepted only over HTTPS', () {
+    final association = Association.fromJson(<String, Object?>{
+      ..._row(
+        events: <Object?>[
+          <String, Object?>{
+            ..._event(),
+            'coverUrl': 'https://cdn.example.test/poster.jpg',
+          },
+        ],
+      ),
+      'logoUrl': 'https://cdn.example.test/logo.png',
+    });
+    expect(association!.logoUrl, 'https://cdn.example.test/logo.png');
+    expect(
+      association.events.single.coverUrl,
+      'https://cdn.example.test/poster.jpg',
+    );
+
+    final unsafe = Association.fromJson(<String, Object?>{
+      ..._row(),
+      'logoUrl': 'http://example.test/logo.png',
+    });
+    expect(unsafe!.logoUrl, isNull);
+  });
+
+  test('blank links read as absent while LinkedIn is kept', () {
     final links = AssociationLinks.fromJson(<String, Object?>{
       'instagram': '   ',
       'website': '',
       'email': 42,
+      'linkedin':
+          'https://www.linkedin.com/company/ouest-insa-junior-entreprise/',
     });
-    expect(links.isEmpty, isTrue);
+    expect(
+      links.linkedin,
+      'https://www.linkedin.com/company/ouest-insa-junior-entreprise/',
+    );
   });
 
   group('events split on the clock, not on a flag', () {
@@ -159,6 +236,57 @@ void main() {
     });
   });
 
+  group('remote directory', () {
+    test('uses a valid Worker feed before the bundled seed', () async {
+      final directory = await Associations.load(
+        client: MockClient((request) async {
+          expect(request.url.path, '/associations');
+          return http.Response(
+            '{"version":1,"updatedAt":"2026-09-17T00:00:00Z",'
+            '"associations":[{"id":"remote","name":"À distance",'
+            '"category":"tech"}]}',
+            200,
+          );
+        }),
+      );
+      expect(directory.map((association) => association.id), <String>[
+        'remote',
+      ]);
+    });
+
+    test('falls back to the bundled seed when the Worker fails', () async {
+      final directory = await Associations.load(
+        client: MockClient((_) async => http.Response('unavailable', 503)),
+      );
+      expect(directory, isNotEmpty);
+    });
+  });
+
+  group('fast directory', () {
+    setUp(() => SharedPreferences.setMockInitialValues(<String, Object>{}));
+
+    test(
+      'uses a valid cached Worker response before the bundled seed',
+      () async {
+        const response =
+            '{"version":1,"associations":[{"id":"cached",'
+            '"name":"En cache","category":"tech"}]}';
+        await Associations.refreshCache(
+          client: MockClient((_) async => http.Response(response, 200)),
+        );
+
+        final directory = await Associations.loadFast();
+        expect(directory.map((association) => association.id), <String>[
+          'cached',
+        ]);
+      },
+    );
+
+    test('falls back to the bundled seed without a cached directory', () async {
+      expect(await Associations.loadFast(), isNotEmpty);
+    });
+  });
+
   test('the display name prefers the short one', () {
     expect(Association.fromJson(_row())!.displayName, 'Association Ktulu');
     final short = Association.fromJson(<String, Object?>{
@@ -174,11 +302,14 @@ void main() {
       'shortName': 'Ktulu',
       'summary': 'Le club théâtre du campus',
     })!;
-    expect(association.matches(''), isTrue);
-    expect(association.matches('ktu'), isTrue);
+    bool search(String typed) =>
+        association.matchesFolded(foldForSearch(typed));
+
+    expect(search(''), isTrue);
+    expect(search('ktu'), isTrue);
     // Nobody types the accents into a search field.
-    expect(association.matches('THEATRE'), isTrue);
-    expect(association.matches('théâtre'), isTrue);
-    expect(association.matches('robotique'), isFalse);
+    expect(search('THEATRE'), isTrue);
+    expect(search('théâtre'), isTrue);
+    expect(search('robotique'), isFalse);
   });
 }

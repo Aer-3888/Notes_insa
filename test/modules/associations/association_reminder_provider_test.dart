@@ -3,10 +3,43 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:notes_insa/core/time.dart';
 import 'package:notes_insa/modules/associations/association.dart';
 import 'package:notes_insa/modules/associations/association_follows.dart';
+import 'package:notes_insa/modules/associations/association_notification_permission.dart';
 import 'package:notes_insa/modules/associations/association_reminder_provider.dart';
 import 'package:notes_insa/modules/associations/association_reminders.dart';
 import 'package:notes_insa/modules/associations/association_service.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+
+import 'package:notes_insa/services/notification_service.dart';
+
+class _FakePermissions implements NotificationPermissionGateway {
+  _FakePermissions(this.value);
+
+  NotificationPermissionState value;
+
+  @override
+  Future<void> openSettings() async {}
+
+  @override
+  Future<NotificationPermissionState> request() async => value;
+
+  @override
+  Future<NotificationPermissionState> status() async => value;
+}
+
+class _FakeReminderPlatform implements AssociationReminderPlatform {
+  var cancels = 0;
+  final schedules = <List<AssociationReminder>>[];
+
+  @override
+  Future<void> cancel() async {
+    cancels++;
+  }
+
+  @override
+  Future<void> schedule(List<AssociationReminder> reminders) async {
+    schedules.add(reminders);
+  }
+}
 
 Association _asso(String id, {List<AssociationEvent> events = const []}) =>
     Association(
@@ -33,6 +66,7 @@ void main() {
   Future<ProviderContainer> open({
     List<String> follows = const <String>[],
     AssociationReminderLead? lead,
+    NotificationPermissionGateway? permissions,
   }) async {
     SharedPreferences.setMockInitialValues(<String, Object>{
       AssociationFollowsNotifier.key: follows,
@@ -47,6 +81,8 @@ void main() {
             _asso('b', events: <AssociationEvent>[_event('e2', 'b', soon)]),
           ],
         ),
+        if (permissions != null)
+          notificationPermissionGatewayProvider.overrideWithValue(permissions),
       ],
     );
     addTearDown(container.dispose);
@@ -123,5 +159,27 @@ void main() {
       c.read(associationReminderLeadProvider),
       AssociationReminderLead.fallback,
     );
+  });
+
+  test('schedules only after notification permission is granted', () async {
+    final permissions = _FakePermissions(NotificationPermissionState.denied);
+    await open(follows: <String>['a'], permissions: permissions);
+    final platform = _FakeReminderPlatform();
+    final scheduler = AssociationReminderScheduler(
+      container,
+      platform: platform,
+    );
+    addTearDown(scheduler.dispose);
+
+    await container.read(associationNotificationPermissionProvider.future);
+    await scheduler.idle;
+    expect(platform.schedules, isEmpty);
+    expect(platform.cancels, greaterThanOrEqualTo(1));
+
+    permissions.value = NotificationPermissionState.granted;
+    await scheduler.refreshPermission();
+    await scheduler.idle;
+    expect(platform.schedules, isNotEmpty);
+    expect(platform.schedules.last.map((r) => r.eventId), <String>['e1']);
   });
 }

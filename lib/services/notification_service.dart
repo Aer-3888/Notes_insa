@@ -4,6 +4,15 @@ import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:timezone/timezone.dart' as tz;
 
+enum NotificationPermissionState {
+  granted,
+  denied,
+  permanentlyDenied,
+  unavailable;
+
+  bool get isGranted => this == NotificationPermissionState.granted;
+}
+
 // Simple cross-platform notification helper.
 class NotificationService {
   static final FlutterLocalNotificationsPlugin _notifications =
@@ -34,7 +43,31 @@ class NotificationService {
   }
 
   // Request notification permission, call this from the foreground UI only.
-  static Future<void> requestPermission() async {
+  static Future<NotificationPermissionState> permissionState() async {
+    if (!Platform.isAndroid && !Platform.isIOS) {
+      return NotificationPermissionState.unavailable;
+    }
+
+    try {
+      return _permissionStateFrom(await Permission.notification.status);
+    } catch (_) {
+      return NotificationPermissionState.unavailable;
+    }
+  }
+
+  static NotificationPermissionState _permissionStateFrom(
+    PermissionStatus status,
+  ) => switch (status) {
+    PermissionStatus.granted ||
+    PermissionStatus.limited ||
+    PermissionStatus.provisional => NotificationPermissionState.granted,
+    PermissionStatus.denied => NotificationPermissionState.denied,
+    PermissionStatus.permanentlyDenied || PermissionStatus.restricted =>
+      NotificationPermissionState.permanentlyDenied,
+  };
+
+  // Request notification permission from a foreground user action only.
+  static Future<NotificationPermissionState> requestPermission() async {
     if (Platform.isAndroid) {
       await Permission.notification.request();
     } else if (Platform.isIOS) {
@@ -44,6 +77,7 @@ class NotificationService {
           >()
           ?.requestPermissions(alert: true, badge: true, sound: true);
     }
+    return permissionState();
   }
 
   // Initialize notifications and create channel on Android.

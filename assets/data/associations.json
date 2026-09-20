@@ -6,42 +6,23 @@
       "name": "Amicale des Élèves de l’INSA Rennes",
       "shortName": "AEIR",
       "category": "bde",
-      "summary": "L’amicale étudiante du campus, plus de 1 100 adhérent·es.",
-      "description": "Créée en 1967, l’AEIR est l’association des élèves-ingénieur·es de l’INSA Rennes. Elle compte plus de 1 100 adhérent·es. Son objectif est de développer des activités et d’organiser des événements sur le campus, mais aussi de tisser des liens avec les associations rennaises, les étudiant·es des autres INSA et les alumni.\n\nL’amicale se compose de trois sections : le Foyer et la K-Fet, les évènements, et les clubs. Le Foyer est un espace de rencontres entièrement géré par les membres de l’Amicale, et aussi un lieu de concerts, de soirées et de spectacles. La K-Fet est un espace de détente pour décompresser, prendre un café, faire un baby-foot.",
+      "summary": "L’association qui fait vivre la vie étudiante.",
+      "description": "L’AEIR coordonne les clubs, le Foyer, la Kfêt et les grands temps forts du campus.",
       "buildingCode": "23",
+      "logoUrl": "https://aeir.insa-rennes.fr/images/club/AElR.png",
       "links": {
         "website": "https://aeir.insa-rennes.fr/",
         "instagram": "aeirennes",
         "facebook": "https://www.facebook.com/AEIRennes"
-      },
-      "events": [
-        {
-          "id": "aeir-gala-2025",
-          "title": "Gala de l’INSA Rennes 2025",
-          "startsAt": "2025-11-29",
-          "description": "Édition 2025 sur le thème de la musique.",
-          "location": "Halle polyvalente Francis Querné",
-          "buildingCode": "17",
-          "url": "https://gala.asso.insa-rennes.fr/"
-        },
-        {
-          "id": "aeir-rocknsolex-59",
-          "title": "Rock’n Solex, 59ᵉ édition",
-          "startsAt": "2026-05-06",
-          "endsAt": "2026-05-10",
-          "description": "Courses de Solex et concerts sur le campus.",
-          "location": "Campus de l’INSA Rennes",
-          "url": "https://www.rocknsolex.fr/"
-        }
-      ]
+      }
     },
     {
       "id": "as-insa-rennes",
       "name": "Association Sportive de l’INSA Rennes",
       "shortName": "AS INSA",
       "category": "sport",
-      "summary": "Plus d’une trentaine de sports, et l’INSA Shop.",
-      "description": "L’AS permet aux élèves-ingénieur·es de pratiquer une activité physique en proposant plus d’une trentaine de sports. Elle organise également diverses manifestations : les championnats de France des grandes écoles, la Run INSA Orange, etc. L’association sportive gère également l’INSA Shop, la boutique officielle de l’INSA Rennes.",
+      "summary": "Plus d’une trentaine de sports et l’INSA Shop.",
+      "description": "L’AS permet de pratiquer de nombreux sports et organise compétitions, tournois et événements sportifs.",
       "links": { "website": "https://asinsarennes.wordpress.com/" }
     },
     {
@@ -49,151 +30,550 @@
       "name": "Ouest INSA",
       "category": "entreprise",
       "summary": "La Junior-Entreprise de l’INSA Rennes.",
-      "description": "Ouest INSA a pour objectif de lier les élèves-ingénieur·es et le monde du travail par le biais de la gestion de projets, l’organisation d’événements, la réalisation d’études ou encore le développement de relations avec les entreprises.",
-      "links": { "website": "https://ouest-insa.fr" }
+      "description": "Ouest INSA est la Junior-Entreprise de l’INSA Rennes, une association entièrement gérée par des étudiant·es. Elle crée un lien direct entre les entreprises et l’enseignement supérieur en réalisant des missions d’ingénierie sur mesure.\n\nL’équipe analyse les besoins techniques, mobilise les élèves-ingénieurs les plus adaptés au projet et accompagne chaque étude jusqu’à la remise des livrables.",
+      "recruitment": { "isOpen": false },
+      "faqs": [
+        {
+          "question": "Qu’est-ce qu’une Junior-Entreprise ?",
+          "answer": "C’est une association étudiante qui fonctionne comme une entreprise et permet aux élèves-ingénieurs de réaliser des projets concrets pour des organisations."
+        },
+        {
+          "question": "Que fait Ouest INSA ?",
+          "answer": "Ouest INSA accompagne des entreprises et collectivités sur des projets techniques, de l’analyse du besoin à la remise des livrables."
+        },
+        {
+          "question": "Comment rejoindre Ouest INSA ?",
+          "answer": "Les modalités de recrutement sont publiées sur les canaux officiels d’Ouest INSA. Suis l’association pour être informé·e de la prochaine campagne."
+        },
+        {
+          "question": "Comment rester informé·e ?",
+          "answer": "Utilise le bouton Suivre pour recevoir les prochains événements, puis retrouve Ouest INSA sur Instagram, LinkedIn ou son site web."
+        },
+        {
+          "question": "Je connais une entreprise avec un projet, que faire ?",
+          "answer": "Elle peut découvrir l’offre et demander un devis via le site web d’Ouest INSA."
+        }
+      ],
+      "organigram": {
+        "title": "Mandat 2026",
+        "sections": [
+          {
+            "title": "Bureau",
+            "members": [
+              { "role": "Président·e", "name": "Maxime" },
+              { "role": "Vice-président·e", "name": "Lucas" },
+              { "role": "Secrétaire général·e", "name": "Laurine" },
+              { "role": "Trésorier·e", "name": "Nicolas" }
+            ]
+          },
+          {
+            "title": "Conseil d’administration",
+            "members": [
+              { "role": "Comptable", "name": "Théo" },
+              { "role": "Responsable DSI", "name": "Mathys" },
+              {
+                "role": "Responsable qualité et performances",
+                "name": "Jean-Nicolas"
+              },
+              { "role": "Responsable marketing", "name": "Ghada" },
+              { "role": "Responsable affaires", "name": "Adrian" }
+            ]
+          },
+          {
+            "title": "Membres",
+            "members": [
+              { "role": "Chargé·e DSI", "name": "Irhary" },
+              {
+                "role": "Chargé·e qualité et performances",
+                "name": "Julie"
+              },
+              { "role": "Chargé·e communication", "name": "Thomas" },
+              {
+                "role": "Chargé·e de développement commercial",
+                "name": "Noé"
+              },
+              { "role": "Chargé·e d’affaires", "name": "Michel" },
+              { "role": "Chargé·e d’affaires", "name": "Louis" },
+              { "role": "Chargé·e d’affaires", "name": "Victor" }
+            ]
+          }
+        ]
+      },
+      "links": {
+        "instagram": "ouestinsa",
+        "linkedin": "https://www.linkedin.com/company/ouest-insa-junior-entreprise/posts/?feedView=all",
+        "website": "https://ouest-insa.fr"
+      }
     },
     {
       "id": "forum-grand-ouest",
       "name": "Forum Grand Ouest",
       "category": "entreprise",
-      "summary": "Le forum annuel de rencontre étudiant·es / entreprises.",
-      "description": "Cette association organise le Forum Grand Ouest, manifestation annuelle de référence en matière de rencontre étudiant·es/entreprises dans le Grand Ouest.",
-      "links": { "website": "http://www.forumgrandouest.com/" }
+      "summary": "Le rendez-vous entre étudiant·es et entreprises.",
+      "description": "L’association organise le Forum Grand Ouest, un événement annuel de rencontre avec les entreprises.",
+      "links": { "website": "https://www.forumgrandouest.com/" }
     },
     {
       "id": "eai",
-      "name": "EAI – Échange Afrique INSA",
+      "name": "Échange Afrique INSA",
       "shortName": "EAI",
       "category": "engagement",
-      "summary": "Actions humanitaires dans les pays en voie de développement.",
-      "description": "EAI mène un certain nombre d’actions humanitaires dans les pays en voie de développement : construction d’écoles, de centres d’apprentissage, etc.",
-      "links": { "website": "http://www.echange-afrique-insa.fr/" }
+      "summary": "Des projets solidaires avec des partenaires africains.",
+      "description": "EAI mène des actions de solidarité internationale et soutient des projets d’éducation et de développement.",
+      "links": { "website": "https://www.echange-afrique-insa.fr/" }
     },
     {
       "id": "ins-india",
       "name": "Ins’India",
       "category": "engagement",
-      "summary": "Soutien à des orphelinats et écoles indiennes.",
-      "description": "L’association Ins’India a pour but de soutenir des orphelinats ou écoles indiennes. L’équipe d’étudiant·es INSA mène des actions sur le campus et aux alentours tout le long de l’année afin d’échanger, de sensibiliser et de récolter des fonds pour le voyage humanitaire."
+      "summary": "Soutenir des projets éducatifs en Inde.",
+      "description": "Ins’India organise des actions de sensibilisation et de collecte afin de soutenir des orphelinats et des écoles indiennes."
+    },
+    {
+      "id": "weipa",
+      "name": "WEIPA",
+      "category": "bde",
+      "summary": "La semaine d’intégration des premières années.",
+      "description": "WEIPA imagine une semaine d’activités pour prendre ses repères et découvrir la vie associative.",
+      "logoUrl": "https://aeir.insa-rennes.fr/images/club/WEIPA.png"
+    },
+    {
+      "id": "wei",
+      "name": "WEI",
+      "category": "bde",
+      "summary": "L’accueil des étudiant·es de troisième année.",
+      "description": "Le WEI organise la semaine et le week-end d’accueil des étudiant·es entrant en troisième année.",
+      "logoUrl": "https://aeir.insa-rennes.fr/images/club/WEI.png"
+    },
+    {
+      "id": "vulgaris-action",
+      "name": "Vulgaris’Action",
+      "category": "tech",
+      "summary": "La science expliquée et partagée.",
+      "description": "Vulgaris’Action fait découvrir les sciences au grand public et dans les établissements scolaires.",
+      "logoUrl": "https://aeir.insa-rennes.fr/images/club/Vulgaris'Action.png"
+    },
+    {
+      "id": "un-des-sens",
+      "name": "Un Des Sens",
+      "category": "culture",
+      "summary": "Le festival multiculturel de l’INSA Rennes.",
+      "description": "Un Des Sens prépare concerts, animations et découvertes culturelles sur plusieurs jours.",
+      "logoUrl": "https://aeir.insa-rennes.fr/images/club/Un%20Des%20Sens.png",
+      "links": { "website": "https://www.undessens.fr/" }
+    },
+    {
+      "id": "trombinoscope",
+      "name": "Trombinoscope",
+      "category": "autre",
+      "summary": "Les portraits de la communauté étudiante.",
+      "description": "Le club prépare le trombinoscope des étudiant·es de l’INSA Rennes.",
+      "logoUrl": "https://aeir.insa-rennes.fr/images/club/Trombinoscope.png"
+    },
+    {
+      "id": "secur-insa",
+      "name": "Sécur’INSA",
+      "category": "tech",
+      "summary": "Cybersécurité, événements et CTF.",
+      "description": "Sécur’INSA rassemble les curieux·ses de cybersécurité autour d’ateliers, événements et compétitions.",
+      "logoUrl": "https://aeir.insa-rennes.fr/images/club/S%C3%A9cur'Insa.png"
+    },
+    {
+      "id": "son-et-lumiere",
+      "name": "Son & Lumière",
+      "category": "culture",
+      "summary": "La technique des soirées du campus.",
+      "description": "Son & Lumière gère le matériel du Foyer et accompagne les grands événements en son et lumière.",
+      "logoUrl": "https://aeir.insa-rennes.fr/images/club/Son%20%26%20Lumi%C3%A8re.png"
+    },
+    {
+      "id": "solidar-insa",
+      "name": "Solidar’INSA",
+      "category": "engagement",
+      "summary": "Des missions de solidarité locale.",
+      "description": "Solidar’INSA facilite l’engagement dans des maraudes, jeux solidaires et actions avec des associations locales.",
+      "logoUrl": "https://aeir.insa-rennes.fr/images/club/Solidar'Insa.png"
     },
     {
       "id": "solid-alim",
-      "name": "Solid’Alim",
+      "name": "Solidalim",
       "category": "engagement",
-      "links": { "instagram": "solidalim_insa_rennes" }
+      "summary": "L’épicerie solidaire du campus.",
+      "description": "Solidalim aide à accéder à une alimentation saine et diversifiée et recherche régulièrement des bénévoles.",
+      "logoUrl": "https://aeir.insa-rennes.fr/images/club/Solidalim.png",
+      "links": { "instagram": "solidalim_insa_rennes", "email": "aeir-solidalim@insa-rennes.fr" }
+    },
+    {
+      "id": "rocknsolex",
+      "name": "Rock’n Solex",
+      "category": "culture",
+      "summary": "Courses de Solex et concerts sur le campus.",
+      "description": "Rock’n Solex est un festival étudiant mêlant plusieurs soirées de concerts et des courses de Solex.",
+      "logoUrl": "https://aeir.insa-rennes.fr/images/club/Rock'N%20Solex.png",
+      "links": { "website": "https://www.rocknsolex.fr/" }
+    },
+    {
+      "id": "megaphone",
+      "name": "Mégaphone",
+      "category": "culture",
+      "summary": "La radio et les podcasts de la vie insalienne.",
+      "description": "Mégaphone réalise émissions, interviews et reportages sur le campus et ses événements.",
+      "logoUrl": "https://aeir.insa-rennes.fr/images/club/M%C3%A9gaphone.png",
+      "links": { "website": "https://lemegaphone.asso.insa-rennes.fr/" }
+    },
+    {
+      "id": "lab-insa",
+      "name": "Lab’INSA",
+      "category": "tech",
+      "summary": "Fabriquer, réparer et apprendre ensemble.",
+      "description": "Le Lab’INSA partage outils et conseils autour du bricolage, de l’impression 3D et de l’électronique.",
+      "logoUrl": "https://aeir.insa-rennes.fr/images/club/Lab'INSA.png",
+      "links": { "instagram": "labinsarennes", "discord": "https://discord.gg/MTemse24fu" }
+    },
+    {
+      "id": "kfet",
+      "name": "Kfêt",
+      "category": "bde",
+      "summary": "Le lieu pour souffler entre les cours.",
+      "description": "La Kfêt est un espace convivial où se retrouver et faire une pause sur le campus.",
+      "logoUrl": "https://aeir.insa-rennes.fr/images/club/Kf%C3%AAt.png"
+    },
+    {
+      "id": "insaerien",
+      "name": "Insaérien",
+      "category": "tech",
+      "summary": "Construire et piloter des drones.",
+      "description": "Insaérien permet de découvrir la conception, le bricolage et le pilotage de drones.",
+      "logoUrl": "https://aeir.insa-rennes.fr/images/club/Insa%C3%A9rien.png"
+    },
+    {
+      "id": "insavoyarde",
+      "name": "INSAvoyarde",
+      "category": "gastronomie",
+      "summary": "Dégustations de fromage conviviales.",
+      "description": "INSAvoyarde partage sa passion du fromage au cours de dégustations avec des fromagers.",
+      "logoUrl": "https://aeir.insa-rennes.fr/images/club/Insavoyarde.png"
+    },
+    {
+      "id": "insaveur-biere",
+      "name": "Insaveur Bière",
+      "category": "gastronomie",
+      "summary": "Découvrir des bières originales à la Kfêt.",
+      "description": "Insaveur Bière organise régulièrement des séances de découverte et de dégustation responsables.",
+      "logoUrl": "https://aeir.insa-rennes.fr/images/club/Insaveur%20Bi%C3%A8re.png"
+    },
+    {
+      "id": "insatisfaites",
+      "name": "INSAtisfait·e·s",
+      "category": "engagement",
+      "summary": "Égalité, prévention et lutte contre les discriminations.",
+      "description": "INSAtisfait·e·s organise ateliers, débats et actions pour l’égalité et la prévention sur le campus.",
+      "logoUrl": "https://aeir.insa-rennes.fr/images/club/Insatisfait.e.s.png",
+      "links": { "instagram": "insatisfait.e.s" }
+    },
+    {
+      "id": "insaroule",
+      "name": "Insa’Roule",
+      "category": "autre",
+      "summary": "Du covoiturage entre Insalien·nes.",
+      "description": "Insa’Roule facilite le covoiturage entre étudiant·es pour voyager plus simplement et partager les frais.",
+      "logoUrl": "https://aeir.insa-rennes.fr/images/club/Insaroule.png"
+    },
+    {
+      "id": "insakura",
+      "name": "Insakura",
+      "category": "culture",
+      "summary": "Manga, culture japonaise et discussions.",
+      "description": "Insakura propose des mangas-cafés et des temps d’échange autour de la culture japonaise.",
+      "logoUrl": "https://aeir.insa-rennes.fr/images/club/Insakura.png"
+    },
+    {
+      "id": "insalan",
+      "name": "InsaLan",
+      "category": "jeux",
+      "summary": "Jeux vidéo, tournois et LAN annuelle.",
+      "description": "InsaLan réunit les passionné·es de jeux vidéo autour de soirées, tournois et d’un événement LAN ouvert au public.",
+      "logoUrl": "https://aeir.insa-rennes.fr/images/club/InsaLan.png",
+      "links": {
+        "website": "https://www.insalan.fr/",
+        "instagram": "insalan_officiel",
+        "discord": "https://discord.gg/arvRZ7FPtN",
+        "facebook": "https://www.facebook.com/InsaLan"
+      }
+    },
+    {
+      "id": "inscape-game",
+      "name": "Ins’cape Game",
+      "category": "jeux",
+      "summary": "Des escape games imaginés sur le campus.",
+      "description": "Ins’cape Game écrit ses scénarios, imagine ses énigmes et anime des escape games tout au long de l’année.",
+      "logoUrl": "https://aeir.insa-rennes.fr/images/club/Ins'cape%20game.png",
+      "links": { "instagram": "inscape_game_rennes" }
+    },
+    {
+      "id": "ins-arc-en-ciel",
+      "name": "INS’Arc-en-Ciel",
+      "category": "engagement",
+      "summary": "Pour l’inclusion des personnes LGBTQIA+.",
+      "description": "INS’Arc-en-Ciel lutte contre les LGBTQIAphobies et crée des espaces d’échange et de prévention.",
+      "logoUrl": "https://aeir.insa-rennes.fr/images/club/Ins'arc-en-ciel.png"
+    },
+    {
+      "id": "ins-amap",
+      "name": "Ins’AMAP",
+      "category": "engagement",
+      "summary": "Des produits bio et locaux sur le campus.",
+      "description": "Ins’AMAP rapproche producteurs locaux et étudiant·es pour une alimentation fraîche et plus responsable.",
+      "logoUrl": "https://aeir.insa-rennes.fr/images/club/Ins'Amap.png"
+    },
+    {
+      "id": "imagine-ca",
+      "name": "Imagine ça !",
+      "category": "culture",
+      "summary": "Improvisation théâtrale, ateliers et spectacles.",
+      "description": "Imagine ça ! fait vivre le théâtre d’impro sur le campus avec des ateliers et des spectacles.",
+      "logoUrl": "https://aeir.insa-rennes.fr/images/club/Imagine%20%C3%A7a%20!.png"
+    },
+    {
+      "id": "insa-talks",
+      "name": "INSA Talks",
+      "category": "culture",
+      "summary": "L’équipe derrière le TEDx INSA Rennes.",
+      "description": "INSA Talks organise le TEDx INSA Rennes : conférences d’idées et animations artistiques.",
+      "logoUrl": "https://aeir.insa-rennes.fr/images/club/INSA%20Talks%20.png"
     },
     {
       "id": "greensa-rennes",
       "name": "Green’sa Rennes",
       "category": "engagement",
+      "summary": "Agir autour des enjeux écologiques et sociaux.",
+      "description": "Green’sa organise conférences, sensibilisation et projets environnementaux sur le campus.",
+      "logoUrl": "https://aeir.insa-rennes.fr/images/club/Green'sa.png",
       "links": { "instagram": "greensa_rennes" }
     },
     {
-      "id": "insatisfaites",
-      "name": "INSAtisfait·e·s",
-      "category": "engagement"
+      "id": "gala",
+      "name": "Gala",
+      "category": "bde",
+      "summary": "La soirée annuelle de l’INSA Rennes.",
+      "description": "L’équipe Gala prépare le grand rendez-vous festif annuel, de la programmation à la scénographie.",
+      "logoUrl": "https://aeir.insa-rennes.fr/images/club/Gala.png",
+      "links": { "website": "https://gala.asso.insa-rennes.fr/" }
     },
     {
-      "id": "ins-arc-en-ciel",
-      "name": "INS’Arc en Ciel",
-      "category": "engagement",
-      "links": { "instagram": "insarc.en.ciel" }
+      "id": "foyer",
+      "name": "Foyer",
+      "shortName": "Foy’",
+      "category": "bde",
+      "summary": "Le bar étudiant et lieu de concerts de l’INSA.",
+      "description": "Le Foyer accueille soirées, concerts et événements associatifs tout au long de l’année.",
+      "buildingCode": "23",
+      "logoUrl": "https://aeir.insa-rennes.fr/images/club/Foyer.png",
+      "links": { "instagram": "le_foy_" }
     },
     {
-      "id": "bebop",
-      "name": "Bebop",
-      "category": "culture"
-    },
-    {
-      "id": "son-et-lumiere",
-      "name": "Son et Lumière",
-      "category": "culture"
-    },
-    {
-      "id": "la-fanfare",
-      "name": "La Fanfare",
-      "category": "culture"
-    },
-    {
-      "id": "club-photo-video",
-      "name": "Club Photo-Vidéo",
-      "category": "culture"
-    },
-    {
-      "id": "club-cine",
-      "name": "Club Ciné",
-      "category": "culture"
-    },
-    {
-      "id": "biip",
-      "name": "BiiP",
-      "category": "culture"
-    },
-    {
-      "id": "radio-le-megaphone",
-      "name": "Radio Le Mégaphone",
-      "category": "culture"
+      "id": "fanfarinsarrasin",
+      "name": "FanfarINSArrasin",
+      "category": "culture",
+      "summary": "La fanfare étudiante de l’INSA Rennes.",
+      "description": "FanfarINSArrasin anime festivals et événements avec une fanfare énergique et éclectique.",
+      "logoUrl": "https://aeir.insa-rennes.fr/images/club/FanfarINSArrasin.png",
+      "links": {
+        "website": "https://fanfare-rennes.fr/",
+        "instagram": "fanfarinsarrasin",
+        "facebook": "https://www.facebook.com/Fanfarinsarrasin"
+      }
     },
     {
       "id": "festival-oeil-glauque",
-      "name": "Festival de l’Oeil Glauque",
+      "name": "Festival de l’Œil Glauque",
       "shortName": "FOG",
-      "category": "jeux"
+      "category": "jeux",
+      "summary": "Jeux de plateau, jeux de rôle et festival annuel.",
+      "description": "Le FOG organise une convention de jeux, des soirées jeux et des drafts Magic avec une vaste ludothèque.",
+      "logoUrl": "https://aeir.insa-rennes.fr/images/club/FOG.png",
+      "links": {
+        "website": "https://www.oeilglauque.fr/",
+        "discord": "https://discord.gg/sgEt8zJpay",
+        "email": "oeilglauque@gmail.com"
+      }
+    },
+    {
+      "id": "dataloss",
+      "name": "Dataloss",
+      "category": "culture",
+      "summary": "Des concerts de tous styles, notamment le Bebop.",
+      "description": "Dataloss programme des artistes et organise des concerts sur le campus, de la scène à l’accueil du public.",
+      "logoUrl": "https://aeir.insa-rennes.fr/images/club/Dataloss.png",
+      "links": { "instagram": "bebop_insa_rennes", "email": "bebop.contact@gmail.com" }
+    },
+    {
+      "id": "cuis-insa",
+      "name": "Cuis’INSA",
+      "category": "gastronomie",
+      "summary": "Cuisine, sorties gourmandes et recettes étudiantes.",
+      "description": "Cuis’INSA propose sorties, cours de cuisine et astuces pour apprendre à cuisiner à tous les niveaux.",
+      "logoUrl": "https://aeir.insa-rennes.fr/images/club/Cuis'INSA.png"
+    },
+    {
+      "id": "club-solex",
+      "name": "Club Solex",
+      "category": "tech",
+      "summary": "Mécanique, restauration et préparation de Solex.",
+      "description": "Le Club Solex permet de restaurer et préparer des Solex et d’autres véhicules pour Rock’n Solex.",
+      "logoUrl": "https://aeir.insa-rennes.fr/images/club/Club%20Solex.png"
+    },
+    {
+      "id": "robotique",
+      "name": "Club Robot",
+      "category": "tech",
+      "summary": "Construire des robots et participer à la Coupe de France.",
+      "description": "Le Club Robot travaille mécanique, électronique et informatique pour concevoir des robots en équipe.",
+      "logoUrl": "https://aeir.insa-rennes.fr/images/club/Club%20Robot.png",
+      "links": { "instagram": "crinsa.rennes", "email": "club.robotique.insa.rennes@gmail.com" }
+    },
+    {
+      "id": "club-rap",
+      "name": "Club Rap",
+      "category": "culture",
+      "summary": "La culture hip-hop à l’INSA Rennes.",
+      "description": "Le Club Rap partage la culture hip-hop à travers contenus, podcasts et soirées au Foyer.",
+      "logoUrl": "https://aeir.insa-rennes.fr/images/club/Club%20Rap.png",
+      "links": { "instagram": "clubrap_insarennes" }
     },
     {
       "id": "club-poker",
       "name": "Club Poker",
-      "category": "jeux"
+      "category": "jeux",
+      "summary": "Poker, blackjack et tournois pour tous les niveaux.",
+      "description": "Le Club Poker organise des tournois conviviaux de poker et blackjack, ouverts aux débutant·es comme aux habitué·es.",
+      "logoUrl": "https://aeir.insa-rennes.fr/images/club/Club%20Poker.png",
+      "links": {
+        "instagram": "aeir_poker",
+        "facebook": "https://www.facebook.com/ClubPokerInsaRennes"
+      }
     },
     {
-      "id": "jeux-de-roles",
-      "name": "Jeux de Rôles",
-      "category": "jeux"
-    },
-    {
-      "id": "jeux-en-reseaux",
-      "name": "Jeux en réseaux",
-      "category": "tech"
-    },
-    {
-      "id": "robotique",
-      "name": "Robotique",
-      "category": "tech"
+      "id": "club-photo-video",
+      "name": "Club Photo & Vidéos",
+      "category": "culture",
+      "summary": "Photographier, filmer et garder les souvenirs du campus.",
+      "description": "Le Club Photo & Vidéos couvre les événements, accompagne photographes et vidéastes et prête du matériel.",
+      "logoUrl": "https://aeir.insa-rennes.fr/images/club/Club%20Photo%26Vid%C3%A9os.png",
+      "links": {
+        "instagram": "clubphotoinsarennes",
+        "website": "https://www.flickr.com/photos/clubphotoinsarennes/albums"
+      }
     },
     {
       "id": "oenologie",
-      "name": "Oenologie",
-      "category": "gastronomie"
+      "name": "Club Œnologie",
+      "category": "gastronomie",
+      "summary": "Découvrir le vin avec des professionnel·les.",
+      "description": "Le Club Œnologie propose des séances de découverte de vins avec des cavistes et œnologues.",
+      "logoUrl": "https://aeir.insa-rennes.fr/images/club/Club%20Oenologie.png"
     },
     {
-      "id": "gastronomie",
-      "name": "Gastronomie",
-      "category": "gastronomie"
+      "id": "club-musique",
+      "name": "Club Musique",
+      "category": "culture",
+      "summary": "Répéter, enregistrer et jouer ensemble.",
+      "description": "Le Club Musique met une salle équipée à disposition et organise des jam sessions pour les musicien·nes.",
+      "logoUrl": "https://aeir.insa-rennes.fr/images/club/Club%20Musique.png",
+      "links": {
+        "facebook": "https://www.facebook.com/ClubMusiqueINSA",
+        "email": "club-musique@air-insa.fr"
+      }
     },
     {
-      "id": "trip-club",
-      "name": "Trip’Club",
-      "category": "international"
+      "id": "club-echecs",
+      "name": "Club Échecs",
+      "category": "jeux",
+      "summary": "Entraînements, initiations et tournois d’échecs.",
+      "description": "Le Club Échecs se retrouve chaque semaine pour jouer, apprendre et organiser des tournois.",
+      "logoUrl": "https://aeir.insa-rennes.fr/images/club/Club%20Echecs.png"
+    },
+    {
+      "id": "club-dj",
+      "name": "Club DJ",
+      "category": "culture",
+      "summary": "Mix, beatmaking et soirées au Foyer.",
+      "description": "Le Club DJ est un espace pour apprendre à mixer, découvrir le beatmaking et préparer les soirées.",
+      "logoUrl": "https://aeir.insa-rennes.fr/images/club/Club%20DJ.png",
+      "links": { "instagram": "club_dj_insa" }
+    },
+    {
+      "id": "club-coiffure",
+      "name": "Club Coiffure",
+      "category": "autre",
+      "summary": "Un collectif autour de la coiffure.",
+      "description": "Le Club Coiffure permet de partager conseils, pratique et bons moments autour de la coiffure.",
+      "logoUrl": "https://aeir.insa-rennes.fr/images/club/Club%20Coiffure.png"
+    },
+    {
+      "id": "club-cine",
+      "name": "Club Ciné",
+      "category": "culture",
+      "summary": "Des projections gratuites pour les amateur·rices de cinéma.",
+      "description": "Le Club Ciné organise des projections variées sur le campus, avec une ambiance de salle conviviale.",
+      "logoUrl": "https://aeir.insa-rennes.fr/images/club/Club%20Cin%C3%A9.png"
+    },
+    {
+      "id": "club-chill",
+      "name": "Club Chill",
+      "category": "autre",
+      "summary": "De petits rendez-vous pour se retrouver.",
+      "description": "Le Club Chill propose des rencontres détendues sur le campus : limonades, barbecues et autres pauses ensemble.",
+      "logoUrl": "https://aeir.insa-rennes.fr/images/club/Club%20Chill.png"
+    },
+    {
+      "id": "club-belote",
+      "name": "Club Belote",
+      "category": "jeux",
+      "summary": "Belote, coinche et tournois au Foyer.",
+      "description": "Le Club Belote organise des tournois de belote et de coinche dans une ambiance conviviale.",
+      "logoUrl": "https://aeir.insa-rennes.fr/images/club/Club%20Belote.png"
     },
     {
       "id": "bear",
-      "name": "BEAR",
-      "category": "international"
-    },
-    {
-      "id": "wei",
-      "name": "WEI",
-      "category": "bde"
-    },
-    {
-      "id": "weipa",
-      "name": "WEIPA",
-      "category": "bde"
+      "name": "Club BEAR",
+      "category": "international",
+      "summary": "Accueillir et intégrer les étudiant·es internationaux.",
+      "description": "Le Bureau d’Étudiants Accueillis à Rennes favorise les échanges interculturels avec sorties et temps conviviaux.",
+      "logoUrl": "https://aeir.insa-rennes.fr/images/club/Club%20BEAR.png"
     },
     {
       "id": "club-amour",
       "name": "Club Amour",
-      "category": "bde"
+      "category": "engagement",
+      "summary": "Prévention, réduction des risques et écoute en soirée.",
+      "description": "Le Club Amour tient des stands de prévention pendant les soirées et participe à des collectes de sang.",
+      "logoUrl": "https://aeir.insa-rennes.fr/images/club/Club%20Amour.png",
+      "links": { "instagram": "clubamour.insarennes" }
+    },
+    {
+      "id": "boom",
+      "name": "Boom",
+      "category": "bde",
+      "summary": "Des soirées à thème préparées par des premières années.",
+      "description": "Boom imagine et organise les grandes soirées à thème du Foyer et permet de découvrir la vie associative.",
+      "logoUrl": "https://aeir.insa-rennes.fr/images/club/Boom.png"
+    },
+    {
+      "id": "biip",
+      "name": "BiiP",
+      "category": "culture",
+      "summary": "Le journal insalien.",
+      "description": "BiiP publie régulièrement actualités associatives, anecdotes, tutoriels et récits de la vie du campus.",
+      "logoUrl": "https://aeir.insa-rennes.fr/images/club/BIIP.png"
+    },
+    {
+      "id": "insa-coudbien",
+      "name": "INSA’coudbien",
+      "category": "autre",
+      "summary": "Réparer, modifier et créer ses vêtements.",
+      "description": "INSA’coudbien met du matériel à disposition et permet de partager ses techniques de couture.",
+      "logoUrl": "https://aeir.insa-rennes.fr/images/club/%20INSA'coudbien.png"
     }
   ]
 }

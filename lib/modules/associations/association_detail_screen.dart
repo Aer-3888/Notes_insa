@@ -1,5 +1,8 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:permission_handler/permission_handler.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../../core/campus_navigation.dart';
@@ -8,9 +11,14 @@ import '../../theme/campus_context.dart';
 import '../../theme/state_view.dart';
 import '../../theme/tokens.dart';
 import 'association.dart';
+import 'association_follow_action.dart';
 import 'association_follows.dart';
+import 'association_logo.dart';
+import 'association_notification_permission.dart';
+import 'association_organigram_screen.dart';
+import 'association_reminder_provider.dart';
+import 'association_reminders.dart';
 import 'association_service.dart';
-import 'associations_screen.dart' show associationInitials;
 
 /// One association's page.
 ///
@@ -41,9 +49,12 @@ class AssociationDetailScreen extends ConsumerWidget {
 
     final follows = ref.watch(associationFollowsProvider);
     final isFollowed = follows.contains(association.id);
+    final reminderLead = ref.watch(associationReminderLeadProvider);
+    final permission = ref.watch(associationNotificationPermissionProvider);
     final now = campusNow();
     final upcoming = association.upcoming(now);
     final past = association.past(now);
+    final recruitment = association.recruitment;
 
     return Scaffold(
       appBar: AppBar(title: Text(association.displayName)),
@@ -58,9 +69,9 @@ class AssociationDetailScreen extends ConsumerWidget {
           _Identity(association: association),
           const SizedBox(height: CampusSpacing.x5),
           FilledButton.tonalIcon(
-            onPressed: () => ref
-                .read(associationFollowsProvider.notifier)
-                .toggle(association.id),
+            onPressed: () => unawaited(
+              toggleAssociationFollow(context, ref, association.id),
+            ),
             icon: Icon(
               isFollowed
                   ? Icons.notifications_active
@@ -78,9 +89,26 @@ class AssociationDetailScreen extends ConsumerWidget {
                 ),
               ),
             ),
+          if (isFollowed &&
+              reminderLead != AssociationReminderLead.off &&
+              permission.value?.isGranted == false)
+            Padding(
+              padding: const EdgeInsets.only(top: CampusSpacing.x2),
+              child: _ReminderDisabled(
+                onOpenSettings: () => unawaited(openAppSettings()),
+              ),
+            ),
           if (association.description case final description?) ...<Widget>[
             const SizedBox(height: CampusSpacing.x5),
+            const _SectionHeader('À propos'),
             Text(description, style: context.text.bodyLarge),
+          ],
+          if (association.organigram case final organigram?) ...<Widget>[
+            const SizedBox(height: CampusSpacing.x5),
+            _OrganigramEntry(
+              associationName: association.displayName,
+              organigram: organigram,
+            ),
           ],
           if (association.buildingCode case final code?) ...<Widget>[
             const SizedBox(height: CampusSpacing.x4),
@@ -90,8 +118,16 @@ class AssociationDetailScreen extends ConsumerWidget {
             const SizedBox(height: CampusSpacing.x5),
             _Links(links: association.links),
           ],
-          if (upcoming.isNotEmpty) ...<Widget>[
-            const _SectionHeader('À venir'),
+          if (association.faqs.isNotEmpty) ...<Widget>[
+            const _SectionHeader('Questions fréquentes'),
+            _Faqs(faqs: association.faqs),
+          ],
+          if (recruitment?.isVisible == true ||
+              upcoming.isNotEmpty) ...<Widget>[
+            const _SectionHeader('Que puis-je faire ici ?'),
+            if (recruitment case final openRecruitment?
+                when openRecruitment.isVisible)
+              _RecruitmentEntry(recruitment: openRecruitment),
             for (final event in upcoming)
               _EventTile(event: event, isPast: false),
           ],
@@ -115,6 +151,135 @@ class AssociationDetailScreen extends ConsumerWidget {
   }
 }
 
+class _RecruitmentEntry extends StatelessWidget {
+  const _RecruitmentEntry({required this.recruitment});
+
+  final AssociationRecruitment recruitment;
+
+  @override
+  Widget build(BuildContext context) => Card(
+    child: Padding(
+      padding: const EdgeInsets.all(CampusSpacing.x3),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: <Widget>[
+          const Icon(Icons.person_add_alt_1_outlined),
+          const SizedBox(width: CampusSpacing.x3),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: <Widget>[
+                Text(
+                  recruitment.title ?? 'Recrutement ouvert',
+                  style: context.text.titleSmall,
+                ),
+                if (recruitment.description
+                    case final description?) ...<Widget>[
+                  const SizedBox(height: CampusSpacing.x1),
+                  Text(description),
+                ],
+                if (recruitment.url case final url?)
+                  TextButton.icon(
+                    onPressed: () => launchUrl(
+                      Uri.parse(url),
+                      mode: LaunchMode.externalApplication,
+                    ),
+                    icon: const Icon(Icons.open_in_new, size: 18),
+                    label: const Text('Candidater'),
+                  ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    ),
+  );
+}
+
+class _Faqs extends StatelessWidget {
+  const _Faqs({required this.faqs});
+
+  final List<AssociationFaq> faqs;
+
+  @override
+  Widget build(BuildContext context) => Card(
+    child: Column(
+      children: <Widget>[
+        for (var index = 0; index < faqs.length; index++) ...<Widget>[
+          ExpansionTile(
+            title: Text(faqs[index].question),
+            childrenPadding: const EdgeInsets.fromLTRB(
+              CampusSpacing.x4,
+              0,
+              CampusSpacing.x4,
+              CampusSpacing.x3,
+            ),
+            children: <Widget>[
+              Align(
+                alignment: Alignment.centerLeft,
+                child: Text(faqs[index].answer),
+              ),
+            ],
+          ),
+          if (index != faqs.length - 1) const Divider(height: 1),
+        ],
+      ],
+    ),
+  );
+}
+
+class _ReminderDisabled extends StatelessWidget {
+  const _ReminderDisabled({required this.onOpenSettings});
+
+  final VoidCallback onOpenSettings;
+
+  @override
+  Widget build(BuildContext context) => Card(
+    child: Padding(
+      padding: const EdgeInsets.all(CampusSpacing.x3),
+      child: Row(
+        children: <Widget>[
+          const Icon(Icons.notifications_off_outlined),
+          const SizedBox(width: CampusSpacing.x3),
+          Expanded(
+            child: Text('Rappels désactivés', style: context.text.bodyMedium),
+          ),
+          TextButton(onPressed: onOpenSettings, child: const Text('Activer')),
+        ],
+      ),
+    ),
+  );
+}
+
+class _OrganigramEntry extends StatelessWidget {
+  const _OrganigramEntry({
+    required this.associationName,
+    required this.organigram,
+  });
+
+  final String associationName;
+  final AssociationOrganigram organigram;
+
+  @override
+  Widget build(BuildContext context) => Card(
+    child: ListTile(
+      key: const Key('association-organigram'),
+      leading: const Icon(Icons.account_tree_outlined),
+      title: const Text('L’équipe'),
+      subtitle: Text('${organigram.title} · ${organigram.memberCount} membres'),
+      trailing: const Icon(Icons.chevron_right),
+      onTap: () => Navigator.of(context).push(
+        MaterialPageRoute<void>(
+          builder: (_) => AssociationOrganigramScreen(
+            associationName: associationName,
+            organigram: organigram,
+          ),
+        ),
+      ),
+    ),
+  );
+}
+
 class _Identity extends StatelessWidget {
   const _Identity({required this.association});
 
@@ -122,25 +287,14 @@ class _Identity extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final asset = association.logoAsset;
     final summary = association.summary;
     return Row(
       crossAxisAlignment: CrossAxisAlignment.center,
       children: <Widget>[
-        SizedBox(
-          width: 56,
-          height: 56,
-          child: asset == null
-              ? _Initials(name: association.displayName)
-              : ClipRRect(
-                  borderRadius: CampusRadii.controlRadius,
-                  child: Image.asset(
-                    asset,
-                    fit: BoxFit.cover,
-                    errorBuilder: (context, _, _) =>
-                        _Initials(name: association.displayName),
-                  ),
-                ),
+        AssociationLogo(
+          association: association,
+          size: 56,
+          initialsStyle: context.text.titleMedium,
         ),
         const SizedBox(width: CampusSpacing.x4),
         Expanded(
@@ -166,27 +320,6 @@ class _Identity extends StatelessWidget {
       ],
     );
   }
-}
-
-class _Initials extends StatelessWidget {
-  const _Initials({required this.name});
-
-  final String name;
-
-  @override
-  Widget build(BuildContext context) => Container(
-    alignment: Alignment.center,
-    decoration: BoxDecoration(
-      color: context.scheme.secondaryContainer,
-      borderRadius: CampusRadii.controlRadius,
-    ),
-    child: Text(
-      associationInitials(name),
-      style: context.text.titleMedium?.copyWith(
-        color: context.scheme.onSecondaryContainer,
-      ),
-    ),
-  );
 }
 
 /// The association's room, handed to the map tab the same way a course room is.
@@ -243,6 +376,8 @@ class _Links extends StatelessWidget {
         (Icons.forum_outlined, 'Discord', Uri.parse(url)),
       if (links.facebook case final url?)
         (Icons.groups_outlined, 'Facebook', Uri.parse(url)),
+      if (links.linkedin case final url?)
+        (Icons.business_center_outlined, 'LinkedIn', Uri.parse(url)),
       if (links.email case final address?)
         (Icons.mail_outline, 'Écrire', Uri(scheme: 'mailto', path: address)),
     ];

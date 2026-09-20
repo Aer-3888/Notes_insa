@@ -73,5 +73,7 @@ key.properties
 worker/wrangler.toml
 
 scripts/*
+# The bakers that produce committed assets. Their caches stay out.
+!scripts/*.py
 worker/.dev.vars
 mdw_capture/

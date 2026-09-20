@@ -47,3 +47,86 @@ CREATE INDEX IF NOT EXISTS idx_coeff_lookup
 
 -- Migration for existing deployments (safe to run multiple times):
 -- ALTER TABLE submissions ADD COLUMN user_hash TEXT NOT NULL DEFAULT '';
+
+-- ── Association directory ────────────────────────────────────────────────
+-- D1 is the source of truth for future association editors. The Worker turns
+-- these records into one public JSON document in KV after every authorised
+-- change, so Flutter clients never need access to this authoring data.
+
+CREATE TABLE IF NOT EXISTS association_profiles (
+  id               TEXT PRIMARY KEY,
+  name             TEXT NOT NULL,
+  short_name       TEXT,
+  category         TEXT NOT NULL,
+  summary          TEXT,
+  description      TEXT,
+  logo_url         TEXT,
+  building_code    TEXT,
+  links_json       TEXT NOT NULL DEFAULT '{}',
+  organigram_json  TEXT,
+  source_url       TEXT,
+  last_verified_at TEXT,
+  created_at       TEXT NOT NULL DEFAULT (datetime('now')),
+  updated_at       TEXT NOT NULL DEFAULT (datetime('now'))
+);
+
+-- Existing deployments:
+-- ALTER TABLE association_profiles ADD COLUMN organigram_json TEXT;
+
+CREATE TABLE IF NOT EXISTS association_events (
+  id               TEXT PRIMARY KEY,
+  association_id   TEXT NOT NULL REFERENCES association_profiles(id) ON DELETE CASCADE,
+  title            TEXT NOT NULL,
+  starts_at        TEXT NOT NULL,
+  ends_at          TEXT,
+  description      TEXT,
+  location         TEXT,
+  building_code    TEXT,
+  url              TEXT,
+  cover_url        TEXT,
+  is_all_day       INTEGER NOT NULL DEFAULT 0 CHECK(is_all_day IN (0, 1)),
+  created_at       TEXT NOT NULL DEFAULT (datetime('now')),
+  updated_at       TEXT NOT NULL DEFAULT (datetime('now'))
+);
+
+CREATE INDEX IF NOT EXISTS idx_association_events_starts_at
+  ON association_events(starts_at);
+CREATE INDEX IF NOT EXISTS idx_association_events_association
+  ON association_events(association_id);
+
+-- Invited contacts are scoped to exactly one association. The admin page will
+-- use passwordless magic links once a sending domain has been onboarded.
+CREATE TABLE IF NOT EXISTS association_owners (
+  id               INTEGER PRIMARY KEY AUTOINCREMENT,
+  association_id   TEXT NOT NULL REFERENCES association_profiles(id) ON DELETE CASCADE,
+  email            TEXT NOT NULL COLLATE NOCASE,
+  role             TEXT NOT NULL DEFAULT 'editor' CHECK(role IN ('editor', 'owner')),
+  active           INTEGER NOT NULL DEFAULT 1 CHECK(active IN (0, 1)),
+  created_at       TEXT NOT NULL DEFAULT (datetime('now')),
+  UNIQUE(association_id, email)
+);
+
+CREATE TABLE IF NOT EXISTS association_sessions (
+  id               TEXT PRIMARY KEY,
+  owner_id         INTEGER NOT NULL REFERENCES association_owners(id) ON DELETE CASCADE,
+  token_hash       TEXT NOT NULL UNIQUE,
+  expires_at       TEXT NOT NULL,
+  created_at       TEXT NOT NULL DEFAULT (datetime('now'))
+);
+
+CREATE INDEX IF NOT EXISTS idx_association_sessions_owner
+  ON association_sessions(owner_id);
+
+-- Magic links are deliberately distinct from sessions: a link is consumed
+-- once during verification, then creates a reusable, short-lived session.
+CREATE TABLE IF NOT EXISTS association_magic_links (
+  id               TEXT PRIMARY KEY,
+  owner_id         INTEGER NOT NULL REFERENCES association_owners(id) ON DELETE CASCADE,
+  token_hash       TEXT NOT NULL UNIQUE,
+  expires_at       TEXT NOT NULL,
+  used_at          TEXT,
+  created_at       TEXT NOT NULL DEFAULT (datetime('now'))
+);
+
+CREATE INDEX IF NOT EXISTS idx_association_magic_links_owner
+  ON association_magic_links(owner_id);

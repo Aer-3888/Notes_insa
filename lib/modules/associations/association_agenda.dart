@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/time.dart';
+import '../../core/remote_image_cache.dart';
 import '../../theme/campus_context.dart';
 import '../../theme/state_view.dart';
 import '../../theme/tokens.dart';
@@ -69,7 +70,7 @@ class _AssociationAgendaState extends ConsumerState<AssociationAgenda> {
         title: _followedOnly ? 'Rien chez tes assos' : 'Rien de prévu',
         body: _followedOnly
             ? 'Aucun évènement à venir dans les associations que tu suis.'
-            : 'Aucun évènement annoncé pour le moment.',
+            : 'Aucun évènement annoncé pour le moment. Explore les assos du campus pour en découvrir.',
       );
     }
 
@@ -98,28 +99,125 @@ class _AssociationAgendaState extends ConsumerState<AssociationAgenda> {
         );
       }
       final association = byId[event.associationId];
-      rows.add(
-        ListTile(
+      rows.add(_AgendaEventCard(event: event, association: association));
+    }
+    rows.add(const SizedBox(height: CampusSpacing.x8));
+    return ListView(children: rows);
+  }
+}
+
+class _AgendaEventCard extends StatelessWidget {
+  const _AgendaEventCard({required this.event, required this.association});
+
+  final AssociationEvent event;
+  final Association? association;
+
+  @override
+  Widget build(BuildContext context) {
+    final coverUrl = event.coverUrl;
+    final day = event.startsAt.day.toString().padLeft(2, '0');
+    final coverWidth = (72 * MediaQuery.devicePixelRatioOf(context)).round();
+    final coverHeight = (88 * MediaQuery.devicePixelRatioOf(context)).round();
+    final month = _months[event.startsAt.month - 1]
+        .substring(0, 3)
+        .toUpperCase();
+
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(
+        CampusSpacing.gutter,
+        0,
+        CampusSpacing.gutter,
+        CampusSpacing.x2,
+      ),
+      child: Card(
+        clipBehavior: Clip.antiAlias,
+        child: InkWell(
           onTap: () => Navigator.of(context).push(
             MaterialPageRoute<void>(
               builder: (_) =>
                   AssociationDetailScreen(associationId: event.associationId),
             ),
           ),
-          title: Text(event.title),
-          subtitle: Text(
-            <String>[
-              if (!event.isAllDay) _clock(event.startsAt),
-              ?association?.displayName,
-              ?event.location,
-            ].join(' · '),
+          child: IntrinsicHeight(
+            child: Row(
+              children: <Widget>[
+                Container(
+                  width: 72,
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: CampusSpacing.x2,
+                    vertical: CampusSpacing.x3,
+                  ),
+                  color: context.scheme.primaryContainer,
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: <Widget>[
+                      Text(
+                        day,
+                        style: context.text.headlineSmall?.copyWith(
+                          color: context.scheme.onPrimaryContainer,
+                        ),
+                      ),
+                      Text(
+                        month,
+                        style: context.text.labelMedium?.copyWith(
+                          color: context.scheme.onPrimaryContainer,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                Expanded(
+                  child: Padding(
+                    padding: const EdgeInsets.fromLTRB(
+                      CampusSpacing.x3,
+                      CampusSpacing.x3,
+                      CampusSpacing.x2,
+                      CampusSpacing.x3,
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: <Widget>[
+                        Text(event.title, style: context.text.titleSmall),
+                        const SizedBox(height: CampusSpacing.x1),
+                        Text(
+                          <String>[
+                            if (!event.isAllDay) _clock(event.startsAt),
+                            ?association?.displayName,
+                            ?event.location,
+                          ].join(' · '),
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                          style: context.text.bodySmall?.copyWith(
+                            color: context.scheme.onSurfaceVariant,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+                if (coverUrl != null)
+                  SizedBox(
+                    width: 72,
+                    height: 88,
+                    child: Image(
+                      image: ResizeImage(
+                        CachedRemoteImage(coverUrl, storedSize: 384),
+                        width: coverWidth,
+                        height: coverHeight,
+                        policy: ResizeImagePolicy.fit,
+                        allowUpscaling: false,
+                      ),
+                      fit: BoxFit.cover,
+                      errorBuilder: (context, _, _) => const SizedBox.shrink(),
+                    ),
+                  ),
+              ],
+            ),
           ),
-          trailing: const Icon(Icons.chevron_right),
         ),
-      );
-    }
-    rows.add(const SizedBox(height: CampusSpacing.x8));
-    return ListView(children: rows);
+      ),
+    );
   }
 }
 

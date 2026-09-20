@@ -2,6 +2,11 @@ import 'package:flutter/foundation.dart';
 
 import '../../core/search_text.dart';
 import '../../core/time.dart';
+import 'association_logo_assets.dart';
+import 'association_local_logo_assets.dart';
+
+final RegExp _leadingAt = RegExp(r'^@');
+final RegExp _dateOnly = RegExp(r'^\d{4}-\d{2}-\d{2}$');
 
 /// What kind of association this is, for grouping and filtering the list.
 ///
@@ -54,6 +59,7 @@ class AssociationLinks {
     this.email,
     this.discord,
     this.facebook,
+    this.linkedin,
   });
 
   /// Handle without the @, as it appears in the profile URL.
@@ -62,13 +68,15 @@ class AssociationLinks {
   final String? email;
   final String? discord;
   final String? facebook;
+  final String? linkedin;
 
   bool get isEmpty =>
       instagram == null &&
       website == null &&
       email == null &&
       discord == null &&
-      facebook == null;
+      facebook == null &&
+      linkedin == null;
 
   Uri? get instagramUri => instagram == null
       ? null
@@ -85,11 +93,12 @@ class AssociationLinks {
 
     return AssociationLinks(
       // Tolerated so a pasted "@ktulu" does not become a broken profile URL.
-      instagram: text('instagram')?.replaceFirst(RegExp(r'^@'), ''),
+      instagram: text('instagram')?.replaceFirst(_leadingAt, ''),
       website: text('website'),
       email: text('email'),
       discord: text('discord'),
       facebook: text('facebook'),
+      linkedin: text('linkedin'),
     );
   }
 }
@@ -108,6 +117,7 @@ class AssociationEvent {
     this.location,
     this.buildingCode,
     this.url,
+    this.coverUrl,
     this.isAllDay = false,
   });
 
@@ -130,6 +140,10 @@ class AssociationEvent {
   final String? buildingCode;
 
   final String? url;
+
+  /// Public poster or social image for an agenda card. It is deliberately a
+  /// URL rather than a bundled asset: associations can refresh it remotely.
+  final String? coverUrl;
 
   /// The seed gave a day with no time, so no hour is shown and none is
   /// invented. Posters often announce a date weeks before the schedule.
@@ -163,9 +177,7 @@ class AssociationEvent {
 
     final endsAt = DateTime.tryParse(raw['endsAt'] as String? ?? '');
     // "2026-05-06" is a day; "2026-05-06T20:00:00" is a time.
-    final isAllDay = RegExp(
-      r'^\d{4}-\d{2}-\d{2}$',
-    ).hasMatch(raw['startsAt'] as String);
+    final isAllDay = _dateOnly.hasMatch(raw['startsAt'] as String);
     return AssociationEvent(
       id: id,
       associationId: associationId,
@@ -179,24 +191,144 @@ class AssociationEvent {
       location: text('location'),
       buildingCode: text('buildingCode'),
       url: text('url'),
+      coverUrl: _publicImageUrl(text('coverUrl')),
       isAllDay: isAllDay,
     );
   }
 }
 
 @immutable
+class AssociationOrganigram {
+  const AssociationOrganigram({required this.title, required this.sections});
+
+  final String title;
+  final List<AssociationOrganigramSection> sections;
+
+  int get memberCount =>
+      sections.fold<int>(0, (count, section) => count + section.members.length);
+
+  static AssociationOrganigram? fromJson(Object? raw) {
+    if (raw is! Map) return null;
+    final title = raw['title'];
+    final rows = raw['sections'];
+    if (title is! String || title.trim().isEmpty || rows is! List) return null;
+
+    final sections = <AssociationOrganigramSection>[
+      for (final row in rows) ?AssociationOrganigramSection.fromJson(row),
+    ];
+    if (sections.isEmpty) return null;
+    return AssociationOrganigram(title: title.trim(), sections: sections);
+  }
+}
+
+@immutable
+class AssociationOrganigramSection {
+  const AssociationOrganigramSection({
+    required this.title,
+    required this.members,
+  });
+
+  final String title;
+  final List<AssociationOrganigramMember> members;
+
+  static AssociationOrganigramSection? fromJson(Object? raw) {
+    if (raw is! Map) return null;
+    final title = raw['title'];
+    final rows = raw['members'];
+    if (title is! String || title.trim().isEmpty || rows is! List) return null;
+
+    final members = <AssociationOrganigramMember>[
+      for (final row in rows) ?AssociationOrganigramMember.fromJson(row),
+    ];
+    if (members.isEmpty) return null;
+    return AssociationOrganigramSection(title: title.trim(), members: members);
+  }
+}
+
+@immutable
+class AssociationOrganigramMember {
+  const AssociationOrganigramMember({required this.role, required this.name});
+
+  final String role;
+  final String name;
+
+  static AssociationOrganigramMember? fromJson(Object? raw) {
+    if (raw is! Map) return null;
+    final role = raw['role'];
+    final name = raw['name'];
+    if (role is! String || role.trim().isEmpty) return null;
+    if (name is! String || name.trim().isEmpty) return null;
+    return AssociationOrganigramMember(role: role.trim(), name: name.trim());
+  }
+}
+
+@immutable
+class AssociationFaq {
+  const AssociationFaq({required this.question, required this.answer});
+
+  final String question;
+  final String answer;
+
+  static AssociationFaq? fromJson(Object? raw) {
+    if (raw is! Map) return null;
+    final question = raw['question'];
+    final answer = raw['answer'];
+    if (question is! String || question.trim().isEmpty) return null;
+    if (answer is! String || answer.trim().isEmpty) return null;
+    return AssociationFaq(question: question.trim(), answer: answer.trim());
+  }
+}
+
+@immutable
+class AssociationRecruitment {
+  const AssociationRecruitment({
+    required this.isOpen,
+    this.title,
+    this.description,
+    this.url,
+  });
+
+  final bool isOpen;
+  final String? title;
+  final String? description;
+  final String? url;
+
+  bool get isVisible => isOpen && (description != null || url != null);
+
+  static AssociationRecruitment? fromJson(Object? raw) {
+    if (raw is! Map || raw['isOpen'] is! bool) return null;
+    String? text(String key) {
+      final value = raw[key];
+      if (value is! String) return null;
+      final trimmed = value.trim();
+      return trimmed.isEmpty ? null : trimmed;
+    }
+
+    return AssociationRecruitment(
+      isOpen: raw['isOpen'] as bool,
+      title: text('title'),
+      description: text('description'),
+      url: text('url'),
+    );
+  }
+}
+
+@immutable
 class Association {
-  const Association({
+  Association({
     required this.id,
     required this.name,
     required this.category,
     this.shortName,
     this.summary,
     this.description,
-    this.logoAsset,
+    this.logoUrl,
     this.buildingCode,
     this.links = const AssociationLinks(),
     this.events = const <AssociationEvent>[],
+    this.organigram,
+    this.faqs = const <AssociationFaq>[],
+    this.recruitment,
   });
 
   /// Stable slug. Follows and notifications key on it, so it must survive a
@@ -214,14 +346,34 @@ class Association {
   /// The longer text on the detail page.
   final String? description;
 
-  /// Path under assets/images/associations, null until a logo is added.
-  final String? logoAsset;
+  /// The bundled logo for this association, null when it has none.
+  ///
+  /// Keyed on [id], so a row the Worker serves picks up its logo without
+  /// carrying a path. A baked file only matches the URL it came from, so a
+  /// logo that moved upstream falls through to [logoUrl].
+  String? get logoAsset {
+    if (kBundledAssociationLocalLogos[id] case final filename?) {
+      return 'assets/images/associations/$filename';
+    }
+    final bakedFrom = kBundledAssociationLogos[id];
+    if (bakedFrom == null) return null;
+    if (logoUrl != null && logoUrl != bakedFrom) return null;
+    return 'assets/images/associations/$id.webp';
+  }
+
+  /// Public logo supplied by an association. Bundled [logoAsset] still wins
+  /// when present so an offline asset remains usable.
+  final String? logoUrl;
 
   /// Building on the INSA plan where the association is based, when it has one.
   final String? buildingCode;
 
   final AssociationLinks links;
   final List<AssociationEvent> events;
+
+  final AssociationOrganigram? organigram;
+  final List<AssociationFaq> faqs;
+  final AssociationRecruitment? recruitment;
 
   String get displayName => shortName ?? name;
 
@@ -233,13 +385,18 @@ class Association {
       events.where((e) => e.isPast(now)).toList()
         ..sort((a, b) => b.startsAt.compareTo(a.startsAt));
 
-  bool matches(String query) {
-    final q = foldForSearch(query);
-    if (q.isEmpty) return true;
-    return foldForSearch(name).contains(q) ||
-        foldForSearch(shortName ?? '').contains(q) ||
-        foldForSearch(summary ?? '').contains(q);
-  }
+  /// Everything the directory searches on, folded once. Folding walks runes,
+  /// so it cannot be done per association per keystroke.
+  late final String searchKey = <String>[
+    name,
+    shortName ?? '',
+    summary ?? '',
+  ].map(foldForSearch).join(' ');
+
+  /// [foldedQuery] has already been through [foldForSearch]: the caller folds
+  /// once for the directory rather than once per association.
+  bool matchesFolded(String foldedQuery) =>
+      foldedQuery.isEmpty || searchKey.contains(foldedQuery);
 
   static Association? fromJson(Object? raw) {
     if (raw is! Map) return null;
@@ -256,6 +413,7 @@ class Association {
     }
 
     final rawEvents = raw['events'];
+    final rawFaqs = raw['faqs'];
     return Association(
       id: id,
       name: name.trim(),
@@ -263,9 +421,16 @@ class Association {
       shortName: text('shortName'),
       summary: text('summary'),
       description: text('description'),
-      logoAsset: text('logoAsset'),
+      logoUrl: _publicImageUrl(text('logoUrl')),
       buildingCode: text('buildingCode'),
       links: AssociationLinks.fromJson(raw['links']),
+      organigram: AssociationOrganigram.fromJson(raw['organigram']),
+      faqs: rawFaqs is! List
+          ? const <AssociationFaq>[]
+          : <AssociationFaq>[
+              for (final faq in rawFaqs) ?AssociationFaq.fromJson(faq),
+            ],
+      recruitment: AssociationRecruitment.fromJson(raw['recruitment']),
       events: rawEvents is! List
           ? const <AssociationEvent>[]
           : <AssociationEvent>[
@@ -274,4 +439,11 @@ class Association {
             ],
     );
   }
+}
+
+String? _publicImageUrl(String? raw) {
+  if (raw == null) return null;
+  final uri = Uri.tryParse(raw);
+  if (uri == null || uri.scheme != 'https' || uri.host.isEmpty) return null;
+  return uri.toString();
 }

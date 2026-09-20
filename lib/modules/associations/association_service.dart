@@ -1,9 +1,13 @@
+import 'dart:async';
 import 'dart:convert';
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart' show rootBundle;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:http/http.dart' as http;
+import 'package:shared_preferences/shared_preferences.dart';
 
+import '../../constants.dart';
 import 'association.dart';
 import 'association_follows.dart';
 
@@ -15,6 +19,8 @@ import 'association_follows.dart';
 /// what catches it, not a student's phone.
 abstract final class Associations {
   static const String assetPath = 'assets/data/associations.json';
+  static const String _cacheKey = 'associations_remote_cache';
+  static const Duration _timeout = Duration(seconds: 10);
 
   /// Bumped when the shape changes in a way an older app cannot read.
   static const int supportedVersion = 1;
@@ -41,7 +47,33 @@ abstract final class Associations {
     }
   }
 
-  static Future<List<Association>> load() async {
+  static Future<List<Association>> load({http.Client? client}) async {
+    try {
+      final remote = await _fetchRemote(client: client);
+      if (remote.isNotEmpty) return remote;
+    } catch (_) {
+      // The bundled directory deliberately covers offline use and a Worker
+      // outage. The remote feed will be tried again on the next app launch.
+    }
+    return loadBundled();
+  }
+
+  /// Opens immediately from the last valid directory or the shipped fallback.
+  static Future<List<Association>> loadFast() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final cached = prefs.getString(_cacheKey);
+      if (cached != null) {
+        final directory = parse(cached);
+        if (directory.isNotEmpty) return directory;
+      }
+    } catch (_) {
+      // The bundled directory remains available if local storage is unavailable.
+    }
+    return loadBundled();
+  }
+
+  static Future<List<Association>> loadBundled() async {
     try {
       return parse(await rootBundle.loadString(assetPath));
     } catch (e) {
@@ -49,11 +81,60 @@ abstract final class Associations {
       return const <Association>[];
     }
   }
+
+  /// Saves a valid Worker response and reports whether it changed.
+  static Future<bool> refreshCache({http.Client? client}) async {
+    final c = client ?? http.Client();
+    final uri = Uri.parse('$kWorkerBaseUrl/associations');
+    try {
+      final response = await c.get(uri).timeout(_timeout);
+      if (response.statusCode != 200) {
+        throw http.ClientException('HTTP ${response.statusCode}', uri);
+      }
+      if (parse(response.body).isEmpty) {
+        throw const FormatException('empty associations feed');
+      }
+      final prefs = await SharedPreferences.getInstance();
+      if (prefs.getString(_cacheKey) == response.body) return false;
+      await prefs.setString(_cacheKey, response.body);
+      return true;
+    } finally {
+      if (client == null) c.close();
+    }
+  }
+
+  static Future<List<Association>> _fetchRemote({http.Client? client}) async {
+    final c = client ?? http.Client();
+    final uri = Uri.parse('$kWorkerBaseUrl/associations');
+    try {
+      final response = await c.get(uri).timeout(_timeout);
+      if (response.statusCode != 200) {
+        throw http.ClientException('HTTP ${response.statusCode}', uri);
+      }
+      final parsed = parse(response.body);
+      if (parsed.isEmpty) {
+        throw const FormatException('empty associations feed');
+      }
+      return parsed;
+    } finally {
+      if (client == null) c.close();
+    }
+  }
 }
 
-final associationsProvider = FutureProvider<List<Association>>(
-  (ref) => Associations.load(),
-);
+final associationsProvider = FutureProvider<List<Association>>((ref) {
+  unawaited(_refreshDirectoryCache(ref));
+  return Associations.loadFast();
+});
+
+Future<void> _refreshDirectoryCache(Ref ref) async {
+  try {
+    final changed = await Associations.refreshCache();
+    if (changed && ref.mounted) ref.invalidateSelf();
+  } catch (_) {
+    // The local directory stays usable while the Worker is unavailable.
+  }
+}
 
 /// Every event from every association, soonest first. The today card reads
 /// this and filters it down to what the student follows.
