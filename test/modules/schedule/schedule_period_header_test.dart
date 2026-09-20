@@ -14,6 +14,7 @@ void main() {
     required DateTime day,
     required DateTime today,
     VoidCallback? onToday,
+    VoidCallback? onPickDate,
     double textScale = 1.0,
   }) async {
     final shifts = <int>[];
@@ -32,6 +33,7 @@ void main() {
               today: today,
               onShift: shifts.add,
               onToday: onToday ?? () {},
+              onPickDate: onPickDate ?? () {},
             ),
           ),
         ),
@@ -62,6 +64,21 @@ void main() {
     await tester.tap(find.byTooltip('Période précédente'));
     await tester.pump();
     expect(shifts, <int>[1, -1]);
+  });
+
+  testWidgets('the period label opens date selection', (tester) async {
+    var opened = 0;
+    await pump(
+      tester,
+      mode: ScheduleViewMode.semaine,
+      day: tuesday,
+      today: tuesday,
+      onPickDate: () => opened++,
+    );
+
+    await tester.tap(find.byTooltip('Choisir une date'));
+    await tester.pump();
+    expect(opened, 1);
   });
 
   testWidgets('offers a way back only when today is off screen', (

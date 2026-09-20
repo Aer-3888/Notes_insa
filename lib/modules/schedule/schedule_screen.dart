@@ -129,6 +129,31 @@ class _ScheduleScreenState extends ConsumerState<ScheduleScreen> {
   void _shiftPeriod(int direction) =>
       _goTo(shiftPeriod(ref.read(scheduleViewModeProvider), _day, direction));
 
+  Future<void> _pickDate() async {
+    final today = _today();
+    final range = academicYearRange(today);
+    final selected = await showDatePicker(
+      context: context,
+      initialDate: _clampDateToRange(_day, range),
+      currentDate: today,
+      firstDate: range.from,
+      lastDate: range.to,
+      helpText: 'Choisir une date',
+      cancelText: 'Annuler',
+      confirmText: 'Afficher',
+      fieldHintText: 'jj/mm/aaaa',
+      fieldLabelText: 'Date',
+    );
+    if (selected != null && mounted) _goTo(selected);
+  }
+
+  DateTime _clampDateToRange(DateTime date, PeriodRange range) {
+    final day = DateTime(date.year, date.month, date.day);
+    if (day.isBefore(range.from)) return range.from;
+    if (day.isAfter(range.to)) return range.to;
+    return day;
+  }
+
   /// Semaine starts on Monday; 3 jours starts on the current day, which is
   /// what makes it read as "the next few days" rather than a fixed page.
   List<DateTime> _daysFor(ScheduleViewMode mode) {
@@ -420,6 +445,7 @@ class _ScheduleScreenState extends ConsumerState<ScheduleScreen> {
                         today: campusNow(),
                         onShift: _shiftPeriod,
                         onToday: () => _goTo(_today()),
+                        onPickDate: () => unawaited(_pickDate()),
                       ),
                       if (needsRange &&
                           (rangeLoading ||

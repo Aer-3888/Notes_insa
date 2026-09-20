@@ -7,6 +7,11 @@ export 'french_dates.dart';
 
 typedef PeriodRange = ({DateTime from, DateTime to});
 
+PeriodRange academicYearRange(DateTime date) {
+  final startYear = date.month >= 9 ? date.year : date.year - 1;
+  return (from: DateTime(startYear, 9, 1), to: DateTime(startYear + 1, 8, 31));
+}
+
 DateTime _mondayOf(DateTime d) =>
     DateTime(d.year, d.month, d.day - (d.weekday - 1));
 
