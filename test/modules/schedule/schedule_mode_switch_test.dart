@@ -87,10 +87,10 @@ void main() {
     expect(find.text('Semaine'), findsOneWidget);
   });
 
-  testWidgets('only Jour starts with the week strip', (tester) async {
+  testWidgets('no mode starts with the week strip', (tester) async {
     for (final entry in <String, bool>{
       'Liste': false,
-      'Jour': true,
+      'Jour': false,
       '3 jours': false,
       'Semaine': false,
       'Mois': false,
@@ -109,18 +109,21 @@ void main() {
     }
   });
 
-  testWidgets('Jour can hide and show its week strip', (tester) async {
+  testWidgets('Jour can show and hide its week strip', (tester) async {
     await pump(tester);
+    expect(find.byType(WeekStrip), findsNothing);
+
+    final show = find.byTooltip('Afficher l\'aper\u00e7u de la semaine');
+    expect(show, findsOneWidget);
+    await tester.tap(show);
+    await tester.pumpAndSettle();
+
+    expect(find.byType(WeekStrip), findsOneWidget);
     final hide = find.byTooltip('Masquer l\'aper\u00e7u de la semaine');
     expect(hide, findsOneWidget);
     await tester.tap(hide);
     await tester.pumpAndSettle();
-
     expect(find.byType(WeekStrip), findsNothing);
-    expect(
-      find.byTooltip('Afficher l\'aper\u00e7u de la semaine'),
-      findsOneWidget,
-    );
   });
 
   testWidgets('Liste can show the week strip it starts without', (
@@ -144,9 +147,9 @@ void main() {
 
   testWidgets('Liste and Jour remember the strip separately', (tester) async {
     await pump(tester);
-    await tester.tap(find.byTooltip('Masquer l\'aperçu de la semaine'));
+    await tester.tap(find.byTooltip('Afficher l\'aperçu de la semaine'));
     await tester.pumpAndSettle();
-    expect(find.byType(WeekStrip), findsNothing);
+    expect(find.byType(WeekStrip), findsOneWidget);
 
     await tester.tap(find.byType(PopupMenuButton<ScheduleViewMode>));
     await tester.pumpAndSettle();
@@ -154,29 +157,27 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.byType(WeekStrip), findsNothing);
 
-    await tester.tap(find.byTooltip('Afficher l\'aperçu de la semaine'));
-    await tester.pumpAndSettle();
-    expect(find.byType(WeekStrip), findsOneWidget);
-
     await tester.tap(find.byType(PopupMenuButton<ScheduleViewMode>));
     await tester.pumpAndSettle();
     await tester.tap(find.text('Jour').last);
     await tester.pumpAndSettle();
-    expect(find.byType(WeekStrip), findsNothing);
+    expect(find.byType(WeekStrip), findsOneWidget);
   });
 
-  testWidgets('Mois can hide the classes in its cells', (tester) async {
+  testWidgets('Mois can show the classes its cells start without', (
+    tester,
+  ) async {
     await pump(tester);
     await tester.tap(find.byType(PopupMenuButton<ScheduleViewMode>));
     await tester.pumpAndSettle();
     await tester.tap(find.text('Mois').last);
     await tester.pumpAndSettle();
 
-    final hide = find.byTooltip('Masquer les cours dans les cases');
-    expect(hide, findsOneWidget);
-    await tester.tap(hide);
+    final show = find.byTooltip('Afficher les cours dans les cases');
+    expect(show, findsOneWidget);
+    await tester.tap(show);
     await tester.pumpAndSettle();
 
-    expect(find.byTooltip('Afficher les cours dans les cases'), findsOneWidget);
+    expect(find.byTooltip('Masquer les cours dans les cases'), findsOneWidget);
   });
 }

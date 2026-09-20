@@ -66,17 +66,17 @@ void main() {
   });
 
   test(
-    'the Day week strip is visible by default and can be remembered off',
+    'the Day week strip is hidden by default and can be remembered on',
     () async {
       final container = ProviderContainer();
       addTearDown(container.dispose);
 
-      expect(container.read(scheduleDayWeekStripProvider), isTrue);
-      await container.read(scheduleDayWeekStripProvider.notifier).toggle();
       expect(container.read(scheduleDayWeekStripProvider), isFalse);
+      await container.read(scheduleDayWeekStripProvider.notifier).toggle();
+      expect(container.read(scheduleDayWeekStripProvider), isTrue);
 
       final prefs = await SharedPreferences.getInstance();
-      expect(prefs.getBool(kScheduleDayWeekStripKey), isFalse);
+      expect(prefs.getBool(kScheduleDayWeekStripKey), isTrue);
     },
   );
 
@@ -103,16 +103,16 @@ void main() {
     expect(prefs.getBool(kScheduleListWeekStripKey), isTrue);
   });
 
-  test('Mois draws its classes until it is told not to', () async {
+  test('Mois leaves its cells bare until it is told otherwise', () async {
     final container = ProviderContainer();
     addTearDown(container.dispose);
 
-    expect(container.read(scheduleMonthPreviewProvider), isTrue);
-    await container.read(scheduleMonthPreviewProvider.notifier).toggle();
     expect(container.read(scheduleMonthPreviewProvider), isFalse);
+    await container.read(scheduleMonthPreviewProvider.notifier).toggle();
+    expect(container.read(scheduleMonthPreviewProvider), isTrue);
 
     final prefs = await SharedPreferences.getInstance();
-    expect(prefs.getBool(kScheduleMonthPreviewKey), isFalse);
+    expect(prefs.getBool(kScheduleMonthPreviewKey), isTrue);
   });
 
   test('a stored flag is restored', () async {

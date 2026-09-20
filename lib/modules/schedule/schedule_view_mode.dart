@@ -90,9 +90,9 @@ abstract class ScheduleFlagNotifier extends Notifier<bool> {
   }
 }
 
-/// Whether Jour keeps the compact week strip above its day timeline.
+/// Whether Jour shows the compact week strip.
 class ScheduleDayWeekStripNotifier extends ScheduleFlagNotifier {
-  ScheduleDayWeekStripNotifier() : super(kScheduleDayWeekStripKey, true);
+  ScheduleDayWeekStripNotifier() : super(kScheduleDayWeekStripKey, false);
 }
 
 final scheduleDayWeekStripProvider =
@@ -111,9 +111,9 @@ final scheduleListWeekStripProvider =
       ScheduleListWeekStripNotifier.new,
     );
 
-/// Whether Mois draws the day's classes inside each cell.
+/// Whether Mois shows classes in each day cell.
 class ScheduleMonthPreviewNotifier extends ScheduleFlagNotifier {
-  ScheduleMonthPreviewNotifier() : super(kScheduleMonthPreviewKey, true);
+  ScheduleMonthPreviewNotifier() : super(kScheduleMonthPreviewKey, false);
 }
 
 final scheduleMonthPreviewProvider =
