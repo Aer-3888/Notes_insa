@@ -6,27 +6,30 @@ import 'package:shared_preferences/shared_preferences.dart';
 void main() {
   setUp(() => SharedPreferences.setMockInitialValues({}));
 
-  test('defaults to cards and tolerates an unknown saved mode', () async {
-    SharedPreferences.setMockInitialValues({kGradesViewModeKey: 'unknown'});
-    final container = ProviderContainer();
-    addTearDown(container.dispose);
-    expect(container.read(gradesViewModeProvider), GradesViewMode.cartes);
-    await Future<void>.delayed(Duration.zero);
-    expect(container.read(gradesViewModeProvider), GradesViewMode.cartes);
-  });
+  test(
+    'defaults to the synthesis and tolerates an unknown saved mode',
+    () async {
+      SharedPreferences.setMockInitialValues({kGradesViewModeKey: 'unknown'});
+      final container = ProviderContainer();
+      addTearDown(container.dispose);
+      expect(container.read(gradesViewModeProvider), GradesViewMode.synthese);
+      await Future<void>.delayed(Duration.zero);
+      expect(container.read(gradesViewModeProvider), GradesViewMode.synthese);
+    },
+  );
 
   test('selection survives a new provider container', () async {
     final first = ProviderContainer();
     await first
         .read(gradesViewModeProvider.notifier)
-        .set(GradesViewMode.synthese);
+        .set(GradesViewMode.cartes);
     first.dispose();
 
     final restored = ProviderContainer();
     addTearDown(restored.dispose);
     restored.read(gradesViewModeProvider);
     await Future<void>.delayed(Duration.zero);
-    expect(restored.read(gradesViewModeProvider), GradesViewMode.synthese);
+    expect(restored.read(gradesViewModeProvider), GradesViewMode.cartes);
   });
 
   test(

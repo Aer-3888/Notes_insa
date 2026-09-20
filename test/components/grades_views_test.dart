@@ -50,14 +50,11 @@ void main() {
                 ).copyWith(textScaler: TextScaler.linear(textScale)),
                 child: Column(
                   children: [
-                    DashboardHeader(
+                    const DashboardHeader(
                       average: 13,
                       title: 'Notes',
-                      titleWidget: const GradesViewMenu(),
+                      titleWidget: GradesViewMenu(),
                       subtitle: 'Département exemple',
-                      selectedSemester: 1,
-                      availableSemesters: const [1, 2],
-                      onSemesterChanged: (_) {},
                     ),
                     Expanded(
                       child: GradesViews(
@@ -91,6 +88,11 @@ void main() {
   ) async {
     TeachingUnit? opened;
     await pumpViews(tester, onTap: (unit) => opened = unit);
+    // Synthèse is the default view.
+    expect(find.byType(UnitCardGrid), findsNothing);
+    expect(find.byType(LinearProgressIndicator), findsWidgets);
+
+    await choose(tester, 'Cartes');
     expect(find.byType(UnitCardGrid), findsOneWidget);
 
     await choose(tester, 'Liste');

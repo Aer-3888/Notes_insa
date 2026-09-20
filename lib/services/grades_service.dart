@@ -150,75 +150,111 @@ class GradesService {
     final mdw = _requireMdw;
 
     return _mdwCall('ERR_GRADES', () async {
-      final merged = await mdw.openAllRows(id);
-      final root = GradeParser.parse(merged);
-      await mdw.closeGrades();
+      try {
+        final merged = await mdw.openAllRows(id);
+        final root = GradeParser.parse(merged);
 
-      if (kDebugMode) {
-        var nodes = 0;
-        root?.forEach((_, _) => nodes++);
-        final rows = GradeParser.rowsOf(merged);
-        final size = merged.gridSize;
-        final unfetched = GradeParser.missingChildKeys(rows);
-        debugPrint(
-          '[GradesService] group $id: ${merged.changes.length} changes, '
-          '${merged.execute.length} calls, $nodes grades '
-          'of ${size ?? '?'} rows'
-          '${size != null && rows.length < size ? ' SHORT' : ''}'
-          '${unfetched.isEmpty ? '' : ', ${unfetched.length} parent(s) '
-                    'still claiming rows'}',
-        );
+        if (kDebugMode) {
+          var nodes = 0;
+          root?.forEach((_, _) => nodes++);
+          final rows = GradeParser.rowsOf(merged);
+          final size = merged.gridSize;
+          final unfetched = GradeParser.missingChildKeys(rows);
+          debugPrint(
+            '[GradesService] group $id: ${merged.changes.length} changes, '
+            '${merged.execute.length} calls, $nodes grades '
+            'of ${size ?? '?'} rows'
+            '${size != null && rows.length < size ? ' SHORT' : ''}'
+            '${unfetched.isEmpty ? '' : ', ${unfetched.length} parent(s) '
+                      'still claiming rows'}',
+          );
+        }
+
+        if (root == null) {
+          throw VaadinException(
+            'no grade rows in the response (${merged.describe()})',
+          );
+        }
+
+        return jsonEncode(root.toJson());
+      } finally {
+        try {
+          await mdw.closeGrades();
+        } catch (e) {
+          if (kDebugMode) {
+            debugPrint('[GradesService] closeGrades error for group $id: $e');
+          }
+        }
       }
-
-      if (root == null) {
-        throw VaadinException(
-          'no grade rows in the response (${merged.describe()})',
-        );
-      }
-
-      return jsonEncode(root.toJson());
     });
   }
+
+  @visibleForTesting
+  static Future<String> Function(int id)? coefficientsOverride;
 
   /// Reads every row's coefficient from its details dialog.
   ///
   /// MDW only exposes one coefficient at a time, so this opens and closes a
   /// dialog per row and is much slower than a grade fetch.
-  static Future<String> coefficients(int id) async {
+  static Future<String> coefficients(
+    int id, {
+    bool Function()? isCancelled,
+  }) async {
+    final override = coefficientsOverride;
+    if (override != null) return override(id);
+
     final mdw = _requireMdw;
 
     return _mdwCall('ERR_COEFFICIENTS', () async {
-      final data = await mdw.openAllRows(id);
-      final root = GradeParser.parse(data);
-      if (root == null) {
-        await mdw.closeGrades();
-        throw VaadinException('no grade rows to read coefficients from');
-      }
-
-      final targets = <Grade>[];
-      root.forEach((_, Grade grade) {
-        if (grade.key.isNotEmpty) targets.add(grade);
-      });
-
-      var filled = 0;
-      for (final Grade grade in targets) {
-        final opened = await mdw.openCoefficient(grade.key);
-        if (opened.coefficient != null) {
-          grade.coeff = opened.coefficient;
-          filled++;
+      try {
+        final data = await mdw.openAllRows(id);
+        if (isCancelled?.call() == true) {
+          return '{}';
         }
-        await mdw.closeCoefficient(opened.node);
+        final root = GradeParser.parse(data);
+        if (root == null) {
+          throw VaadinException('no grade rows to read coefficients from');
+        }
+
+        final targets = <Grade>[];
+        root.forEach((_, Grade grade) {
+          if (grade.key.isNotEmpty) targets.add(grade);
+        });
+
+        var filled = 0;
+        for (final Grade grade in targets) {
+          if (isCancelled?.call() == true) {
+            if (kDebugMode) {
+              debugPrint('[GradesService] coefficients fetch cancelled');
+            }
+            break;
+          }
+          final opened = await mdw.openCoefficient(grade.key);
+          if (opened.coefficient != null) {
+            grade.coeff = opened.coefficient;
+            filled++;
+          }
+          await mdw.closeCoefficient(opened.node);
+        }
+
+        if (kDebugMode) {
+          debugPrint(
+            '[GradesService] group $id: $filled/${targets.length} coefficients',
+          );
+        }
+
+        return jsonEncode(root.toJson());
+      } finally {
+        try {
+          await mdw.closeGrades();
+        } catch (e) {
+          if (kDebugMode) {
+            debugPrint(
+              '[GradesService] closeGrades error in coefficients for group $id: $e',
+            );
+          }
+        }
       }
-
-      await mdw.closeGrades();
-
-      if (kDebugMode) {
-        debugPrint(
-          '[GradesService] group $id: $filled/${targets.length} coefficients',
-        );
-      }
-
-      return jsonEncode(root.toJson());
     });
   }
 
@@ -258,6 +294,12 @@ class GradesService {
       } on PlatformException catch (e) {
         if (kDebugMode) debugPrint('[GradesService] group $i skipped: $e');
         failures.add('$i');
+        // Try recovering the session for remaining groups
+        if (i + 1 < groupCount) {
+          try {
+            await loadGroups();
+          } catch (_) {}
+        }
         continue;
       }
 

@@ -47,6 +47,7 @@ class MdwClient {
   /// The range calls this grid publishes, empty when it offers none.
   String rangeMethod = '';
   String childRangeMethod = '';
+  bool canConfirmParentUpdate = false;
 
   int openedGroup = 0;
   int gridNode = 0;
@@ -177,40 +178,51 @@ class MdwClient {
         names.firstWhere(published.contains, orElse: () => '');
     rangeMethod = offered(_rangeMethods);
     childRangeMethod = offered(_childRangeMethods);
+    canConfirmParentUpdate = published.contains('confirmParentUpdate');
 
     return data;
   }
 
   /// Opens card [groupIndex] and widens the viewport until it holds every row.
-  ///
-  /// The grid keeps the whole expanded tree as one flat list and serves the
-  /// first page of it unasked, blanking the rest. Its size counts only the rows
-  /// it has already fetched, so it is no target: the loop stops when a wider
-  /// window brings nothing new.
   Future<VaadinData> openAllRows(int groupIndex) async {
     final responses = <VaadinData>[await _openGrades(groupIndex)];
     var merged = responses.first;
+    await _ackOpen(merged);
+
     var rows = GradeParser.rowsOf(merged);
-
-    await _confirmRows(_parentsOf(rows), updateIds: merged.updateIds);
-
     var window = _pageSize;
 
     for (var round = 0; round < _maxRounds; round++) {
-      final size = merged.gridSize;
-      if (size == null || rangeMethod.isEmpty) break;
-      if (rows.length >= size && window >= size) break;
+      if (rangeMethod.isEmpty) break;
 
-      // Whole pages from zero, and always wider than last time or the grid has
-      // nothing new to answer with.
-      final wanted = ((size + _pageSize - 1) ~/ _pageSize) * _pageSize;
+      var knownEnd = merged.gridSize ?? 0;
+      for (final gap in merged.clearedRanges) {
+        final end = gap.start + gap.length;
+        if (end > knownEnd) knownEnd = end;
+      }
+
+      final flatIndices = <int>{
+        for (final row in rows)
+          if (row.parentKey == null) row.index,
+      };
+      final hasKnownGap = merged.clearedRanges.any(
+        (gap) => Iterable<int>.generate(
+          gap.length,
+          (i) => gap.start + i,
+        ).any((index) => !flatIndices.contains(index)),
+      );
+      final firstPageIsFull = rows.length >= window;
+      if (!hasKnownGap && rows.length >= knownEnd && !firstPageIsFull) break;
+
+      final wanted = ((knownEnd + _pageSize - 1) ~/ _pageSize) * _pageSize;
       window = wanted > window ? wanted : window + _pageSize;
 
       final before = rows.length;
-      responses.add(await _requestRange(0, window));
+      final rangeData = await _requestRange(0, window);
+      responses.add(rangeData);
       merged = VaadinData.merge(responses);
       rows = GradeParser.rowsOf(merged);
-      await _confirmRows(_parentsOf(rows), updateIds: responses.last.updateIds);
+      await _confirmUpdates(rangeData.updateIds);
       if (rows.length == before) break;
     }
 
@@ -221,19 +233,18 @@ class MdwClient {
       if (missing.isEmpty || childRangeMethod.isEmpty) break;
 
       final before = rows.length;
-      responses.add(
-        await _requestChildren(<Map<String, Object>>[
-          for (final String key in missing)
-            <String, Object>{
-              'firstIndex': 0,
-              'parentKey': key,
-              'size': _childPageSize,
-            },
-        ]),
-      );
+      final childData = await _requestChildren(<Map<String, Object>>[
+        for (final String key in missing)
+          <String, Object>{
+            'firstIndex': 0,
+            'parentKey': key,
+            'size': _childPageSize,
+          },
+      ]);
+      responses.add(childData);
       merged = VaadinData.merge(responses);
       rows = GradeParser.rowsOf(merged);
-      await _confirmRows(_parentsOf(rows), updateIds: responses.last.updateIds);
+      await _confirmChildren(missing, updateIds: childData.updateIds);
       if (rows.length == before) break;
     }
 
@@ -252,31 +263,17 @@ class MdwClient {
         ),
       ], label: 'requestRange');
 
-  /// Keys of the rows that carry children, which is what MDW expects back.
-  static List<String> _parentsOf(List<GradeRow> rows) => rows
-      .where((GradeRow r) => r.hasChildren)
-      .map((GradeRow r) => r.key)
-      .toList();
-
-  /// Acknowledges the rows Vaadin sent and opens the dialog.
-  ///
-  /// MDW keeps the grid's server-side state pending until each update is
-  /// confirmed, and leaving it pending makes the next card open empty.
-  Future<void> _confirmRows(
-    Iterable<String> parentKeys, {
-    Iterable<int> updateIds = const <int>[],
-  }) async {
+  /// Acknowledges the dialog opening and confirms any initial rows delivered.
+  Future<void> _ackOpen(VaadinData data) async {
     final rpc = <VaadinRpc>[
-      VaadinRpc(
-        node: dialogNode,
-        type: 'event',
-        event: 'opened-changed',
-        data: const <String, Object>{},
-      ),
-    ];
-
-    for (final int id in updateIds) {
-      rpc.add(
+      if (dialogNode != 0)
+        VaadinRpc(
+          node: dialogNode,
+          type: 'event',
+          event: 'opened-changed',
+          data: const <String, Object>{},
+        ),
+      for (final int id in data.updateIds)
         VaadinRpc(
           node: gridNode,
           type: 'publishedEventHandler',
@@ -284,22 +281,58 @@ class MdwClient {
           templateEventMethodName: 'confirmUpdate',
           templateEventMethodArgs: <Object>[id],
         ),
-      );
+    ];
+    if (rpc.isNotEmpty) {
+      await session.send(rpc, label: 'openGrades.ack');
     }
+  }
 
-    for (final String key in parentKeys) {
-      rpc.add(
+  /// Confirms flat viewport range row batches.
+  Future<void> _confirmUpdates(Iterable<int> updateIds) async {
+    if (updateIds.isEmpty || gridNode == 0) return;
+    final rpc = <VaadinRpc>[
+      for (final int id in updateIds)
         VaadinRpc(
           node: gridNode,
           type: 'publishedEventHandler',
           promise: 0,
-          templateEventMethodName: 'confirmParentUpdate',
-          templateEventMethodArgs: <Object>[0, key],
+          templateEventMethodName: 'confirmUpdate',
+          templateEventMethodArgs: <Object>[id],
         ),
-      );
+    ];
+    if (rpc.isNotEmpty) {
+      await session.send(rpc, label: 'confirmUpdate');
     }
+  }
 
-    await session.send(rpc, label: 'confirmRows');
+  /// Confirms child rows requested for specific parents.
+  Future<void> _confirmChildren(
+    Iterable<String> requestedKeys, {
+    Iterable<int> updateIds = const <int>[],
+  }) async {
+    if (gridNode == 0) return;
+    final rpc = <VaadinRpc>[
+      for (final int id in updateIds)
+        VaadinRpc(
+          node: gridNode,
+          type: 'publishedEventHandler',
+          promise: 0,
+          templateEventMethodName: 'confirmUpdate',
+          templateEventMethodArgs: <Object>[id],
+        ),
+      if (canConfirmParentUpdate)
+        for (final String key in requestedKeys)
+          VaadinRpc(
+            node: gridNode,
+            type: 'publishedEventHandler',
+            promise: 0,
+            templateEventMethodName: 'confirmParentUpdate',
+            templateEventMethodArgs: <Object>[0, key],
+          ),
+    ];
+    if (rpc.isNotEmpty) {
+      await session.send(rpc, label: 'confirmChildren');
+    }
   }
 
   /// Asks for a window of several parents' children at once.
@@ -368,18 +401,23 @@ class MdwClient {
 
   Future<void> closeGrades() async {
     if (closeButtonNode == 0) return;
-    await session.send(<VaadinRpc>[
-      VaadinRpc(
-        node: closeButtonNode,
-        type: 'event',
-        event: 'click',
-        data: _clickData(),
-      ),
-    ], label: 'closeGrades');
-
-    openedGroup = 0;
-    gridNode = 0;
-    dialogNode = 0;
-    closeButtonNode = 0;
+    try {
+      await session.send(<VaadinRpc>[
+        VaadinRpc(
+          node: closeButtonNode,
+          type: 'event',
+          event: 'click',
+          data: _clickData(),
+        ),
+      ], label: 'closeGrades');
+    } finally {
+      openedGroup = 0;
+      gridNode = 0;
+      dialogNode = 0;
+      closeButtonNode = 0;
+      rangeMethod = '';
+      childRangeMethod = '';
+      canConfirmParentUpdate = false;
+    }
   }
 }

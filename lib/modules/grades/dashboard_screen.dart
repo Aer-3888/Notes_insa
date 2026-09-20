@@ -162,27 +162,6 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen>
       );
   }
 
-  void _swipeSemester(DragEndDetails details) {
-    final available = ref.read(availableSemestersProvider);
-    if (available.length <= 1) return;
-    final velocity = details.primaryVelocity ?? 0;
-    if (velocity.abs() < 300) return;
-    final current = ref.read(effectiveSemesterProvider);
-    if (current == null) return;
-    final idx = available.indexOf(current);
-    if (idx == -1) return;
-    // Display is lowest semester on left, so swipe left → newer semester.
-    final newIdx = velocity > 0
-        ? (idx - 1).clamp(0, available.length - 1)
-        : (idx + 1).clamp(0, available.length - 1);
-    if (newIdx != idx) {
-      HapticFeedback.lightImpact();
-      ref.read(selectedSemesterProvider.notifier).state = available[newIdx];
-    } else {
-      HapticFeedback.lightImpact();
-    }
-  }
-
   Future<void> _onManualRefresh(BuildContext context) async {
     final started = await ref.read(gradesProvider.notifier).manualRefresh();
     if (!started && context.mounted) {
@@ -211,6 +190,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen>
       context: context,
       isScrollControlled: true,
       useSafeArea: true,
+      backgroundColor: context.scheme.surfaceContainerLowest,
       builder: (_) => _UEDetailSheet(unit: unit),
     );
   }
@@ -243,7 +223,11 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen>
           next.error == null) {
         _trySubmitGrades();
         _maybePromptSharingConsent();
-        ref.invalidate(coefficientsProvider);
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (mounted) {
+            ref.invalidate(coefficientsProvider);
+          }
+        });
       }
 
       // Reactively show or hide the 2FA banner
@@ -254,13 +238,17 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen>
       }
     });
 
+    final gradesState = ref.watch(gradesProvider);
+    if (gradesState.authStatus == AuthStatus.loggingOut) {
+      return const SizedBox.shrink();
+    }
+
+    final decodedGrades = ref.watch(decodedGradesProvider);
+    final availableSemesters = ref.watch(availableSemestersProvider);
+    final effectiveSemester = ref.watch(effectiveSemesterProvider);
     final departmentName = ref.watch(departmentNameProvider);
     final curriculum = ref.watch(curriculumProvider);
     final semesterAverage = ref.watch(semesterAverageProvider);
-    final effectiveSemester = ref.watch(effectiveSemesterProvider);
-    final gradesState = ref.watch(gradesProvider);
-    final decodedGrades = ref.watch(decodedGradesProvider);
-
     final academicYear = ref.watch(academicYearProvider);
 
     // Pre-fetch coefficients for every semester so switching semesters
@@ -296,33 +284,29 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen>
       }
     }
 
-    return Scaffold(
-      body: SafeArea(
-        child: Column(
-          children: [
-            Builder(
-              builder: (context) => DashboardHeader(
-                title: 'Notes',
-                titleWidget: const GradesViewMenu(),
-                subtitle: departmentName,
-                average: semesterAverage,
-                provisional: ref.watch(semesterAverageProvisionalProvider),
-                lastUpdated: lastUpdated,
-                selectedSemester: effectiveSemester ?? 0,
-                availableSemesters: ref.watch(availableSemestersProvider),
-                onSemesterChanged: (newSem) {
-                  ref.read(selectedSemesterProvider.notifier).state = newSem;
-                },
-              ),
-            ),
-            Expanded(
-              child: GestureDetector(
-                onHorizontalDragEnd: _swipeSemester,
-                behavior: HitTestBehavior.opaque,
-                child: RefreshIndicator(
+    final content = Column(
+      children: [
+        Builder(
+          builder: (context) => DashboardHeader(
+            title: 'Notes',
+            titleWidget: const GradesViewMenu(),
+            subtitle: academicYear.isNotEmpty && academicYear != 'Non renseigné'
+                ? '$departmentName · $academicYear'
+                : departmentName,
+            average: semesterAverage,
+            provisional: ref.watch(semesterAverageProvisionalProvider),
+            lastUpdated: lastUpdated,
+            // Null rather than an empty rail, so its spacing goes too.
+            semesterSelector: availableSemesters.length < 2
+                ? null
+                : const _SemesterRail(),
+          ),
+        ),
+        Expanded(
+          child: availableSemesters.isEmpty
+              ? RefreshIndicator(
                   onRefresh: () => _onManualRefresh(context),
                   child: GradesViews(
-                    key: ValueKey(effectiveSemester),
                     mode: ref.watch(gradesViewModeProvider),
                     curriculum: curriculum,
                     isLoading: isLoading,
@@ -335,14 +319,507 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen>
                               .catchError((_) {}),
                     onUnitTap: (unit) => _showUEDetails(context, unit),
                   ),
+                )
+              : _SemesterTabView(
+                  semesters: availableSemesters,
+                  mode: ref.watch(gradesViewModeProvider),
+                  isLoading: isLoading,
+                  onRefresh: () => _onManualRefresh(context),
+                  onUnitTap: (unit) => _showUEDetails(context, unit),
+                ),
+        ),
+      ],
+    );
+
+    return Scaffold(
+      body: SafeArea(
+        child: availableSemesters.isEmpty
+            ? content
+            : DefaultTabController(
+                // A TabController fixes its length and initial index at
+                // creation, so the list changing has to remount it.
+                key: ValueKey<String>(availableSemesters.join(',')),
+                length: availableSemesters.length,
+                initialIndex: _initialTabIndex(
+                  availableSemesters,
+                  effectiveSemester,
+                ),
+                child: _SemesterSelectionSync(
+                  semesters: availableSemesters,
+                  child: content,
                 ),
               ),
+      ),
+    );
+  }
+
+  static int _initialTabIndex(List<int> semesters, int? effectiveSemester) {
+    final index = semesters.indexOf(effectiveSemester ?? -1);
+    return index < 0 ? semesters.length - 1 : index;
+  }
+}
+
+/// The semester selector.
+///
+/// The year row is a disclosure level, not fixed chrome: with one year it
+/// would be a button with nothing to choose, and with two it becomes two rows
+/// of two equal columns, which reads as a grid rather than a hierarchy.
+class _SemesterRail extends ConsumerWidget {
+  const _SemesterRail();
+
+  /// Below this, every semester fits one row and grouping saves no taps.
+  static const int _groupingThreshold = 3;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final semesters = ref.watch(availableSemestersProvider);
+    if (semesters.length < 2) return const SizedBox.shrink();
+
+    final groups = ref.watch(semesterYearGroupsProvider);
+    if (groups.length < _groupingThreshold) {
+      return _FlatSemesterRail(semesters: semesters);
+    }
+    return _GroupedSemesterRail(groups: groups, semesters: semesters);
+  }
+}
+
+class _FlatSemesterRail extends StatelessWidget {
+  const _FlatSemesterRail({required this.semesters});
+
+  final List<int> semesters;
+
+  @override
+  Widget build(BuildContext context) {
+    final campus = context.campus;
+    final labelStyle = context.text.labelMedium;
+
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: CampusSpacing.gutter),
+      child: DecoratedBox(
+        decoration: BoxDecoration(
+          color: context.scheme.surfaceContainerHighest,
+          borderRadius: CampusRadii.cardRadius,
+        ),
+        child: Padding(
+          padding: const EdgeInsets.all(_railTrackInset),
+          child: TabBar(
+            tabAlignment: TabAlignment.fill,
+            indicator: BoxDecoration(
+              color: campus.now,
+              borderRadius: CampusRadii.controlRadius,
             ),
-          ],
+            indicatorSize: TabBarIndicatorSize.tab,
+            indicatorAnimation: TabIndicatorAnimation.linear,
+            dividerHeight: 0,
+            splashBorderRadius: CampusRadii.controlRadius,
+            labelColor: campus.onNow,
+            unselectedLabelColor: context.scheme.onSurface,
+            labelStyle: labelStyle,
+            unselectedLabelStyle: labelStyle,
+            tabs: <Widget>[
+              for (final semester in semesters)
+                Tab(
+                  height: _railSegmentHeight,
+                  child: Text(
+                    'S$semester',
+                    semanticsLabel: _semesterSemantics(context, semester),
+                  ),
+                ),
+            ],
+          ),
         ),
       ),
     );
   }
+}
+
+class _GroupedSemesterRail extends StatelessWidget {
+  const _GroupedSemesterRail({required this.groups, required this.semesters});
+
+  final List<SemesterYearGroup> groups;
+  final List<int> semesters;
+
+  @override
+  Widget build(BuildContext context) {
+    final controller = DefaultTabController.of(context);
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: CampusSpacing.gutter),
+      child: AnimatedBuilder(
+        animation: controller.animation!,
+        builder: (context, _) {
+          final animation = controller.animation!;
+          // A tap sets `index` at once, then animates the value across every
+          // tab in between; following that raw value would sweep both rows
+          // through every year on the way. Only a drag moves them continuously.
+          final settling = controller.indexIsChanging;
+          final anchor = settling ? controller.index : animation.value.round();
+          final index = anchor.clamp(0, semesters.length - 1);
+          final groupIndex = groups.indexWhere(
+            (g) => g.semesters.contains(semesters[index]),
+          );
+          final group = groups[groupIndex < 0 ? 0 : groupIndex];
+
+          // A year tap swaps the segments underneath the pill, so there is
+          // nothing to slide between. Clamping to the year's range is not
+          // enough: arriving from below parks the pill on the first segment
+          // and slides it across, so forwards and backwards differ.
+          final previous = controller.previousIndex.clamp(
+            0,
+            semesters.length - 1,
+          );
+          final withinYear = group.semesters.contains(semesters[previous]);
+          final double position;
+          if (!settling) {
+            position = animation.value;
+          } else if (withinYear) {
+            position = animation.value.clamp(
+              semesters.indexOf(group.semesters.first).toDouble(),
+              semesters.indexOf(group.semesters.last).toDouble(),
+            );
+          } else {
+            position = index.toDouble();
+          }
+
+          return Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              _YearRow(
+                groups: groups,
+                selected: group,
+                semesters: semesters,
+                controller: controller,
+              ),
+              // One option left is not a choice.
+              if (group.semesters.length > 1) ...[
+                const SizedBox(height: CampusSpacing.x2),
+                _SemesterSegments(
+                  group: group,
+                  semesters: semesters,
+                  position: position,
+                ),
+              ],
+            ],
+          );
+        },
+      ),
+    );
+  }
+}
+
+class _YearRow extends StatelessWidget {
+  const _YearRow({
+    required this.groups,
+    required this.selected,
+    required this.semesters,
+    required this.controller,
+  });
+
+  final List<SemesterYearGroup> groups;
+  final SemesterYearGroup selected;
+  final List<int> semesters;
+  final TabController controller;
+
+  @override
+  Widget build(BuildContext context) {
+    final campus = context.campus;
+    final scheme = context.scheme;
+
+    return Row(
+      children: <Widget>[
+        for (var i = 0; i < groups.length; i++) ...[
+          if (i > 0) const SizedBox(width: CampusSpacing.x2),
+          Expanded(
+            child: Semantics(
+              button: true,
+              selected: groups[i] == selected,
+              label: 'Année ${i + 1}, ${groups[i].academicYear}',
+              child: SizedBox(
+                height: _railSegmentHeight,
+                child: Material(
+                  color: scheme.surface,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: CampusRadii.controlRadius,
+                    side: groups[i] == selected
+                        ? BorderSide(color: campus.now, width: 1.5)
+                        : BorderSide(color: scheme.outlineVariant),
+                  ),
+                  clipBehavior: Clip.antiAlias,
+                  child: InkWell(
+                    // "Show me that year" means its latest results.
+                    onTap: () => controller.animateTo(
+                      semesters.indexOf(groups[i].semesters.last),
+                    ),
+                    child: Center(
+                      child: ExcludeSemantics(
+                        child: Text(
+                          '${i + 1}A',
+                          style: context.text.labelMedium?.copyWith(
+                            color: groups[i] == selected
+                                ? campus.now
+                                : scheme.onSurfaceVariant,
+                            fontWeight: groups[i] == selected
+                                ? FontWeight.w700
+                                : FontWeight.w600,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ],
+      ],
+    );
+  }
+}
+
+/// Not a [TabBar]: it shows a slice of the controller's tabs, so the pill is
+/// positioned from the controller's animation by hand.
+class _SemesterSegments extends StatelessWidget {
+  const _SemesterSegments({
+    required this.group,
+    required this.semesters,
+    required this.position,
+  });
+
+  final SemesterYearGroup group;
+  final List<int> semesters;
+  final double position;
+
+  @override
+  Widget build(BuildContext context) {
+    final campus = context.campus;
+    final count = group.semesters.length;
+    final first = semesters.indexOf(group.semesters.first);
+    // Clamped so a swipe leaving the year parks the pill at the track edge.
+    final offset = (position - first).clamp(0.0, (count - 1).toDouble());
+
+    return Material(
+      color: context.scheme.surfaceContainerHighest,
+      borderRadius: CampusRadii.cardRadius,
+      clipBehavior: Clip.antiAlias,
+      child: Padding(
+        padding: const EdgeInsets.all(_railTrackInset),
+        child: LayoutBuilder(
+          builder: (context, constraints) {
+            final segment = constraints.maxWidth / count;
+            return SizedBox(
+              height: _railSegmentHeight,
+              child: Stack(
+                children: [
+                  Positioned(
+                    left: offset * segment,
+                    top: 0,
+                    width: segment,
+                    height: _railSegmentHeight,
+                    child: DecoratedBox(
+                      decoration: BoxDecoration(
+                        color: campus.now,
+                        borderRadius: CampusRadii.controlRadius,
+                      ),
+                    ),
+                  ),
+                  Positioned.fill(
+                    child: Row(
+                      children: <Widget>[
+                        for (final semester in group.semesters)
+                          Expanded(
+                            child: _SegmentLabel(
+                              semester: semester,
+                              selected:
+                                  semesters.indexOf(semester) ==
+                                  position.round(),
+                              index: semesters.indexOf(semester),
+                            ),
+                          ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            );
+          },
+        ),
+      ),
+    );
+  }
+}
+
+class _SegmentLabel extends StatelessWidget {
+  const _SegmentLabel({
+    required this.semester,
+    required this.selected,
+    required this.index,
+  });
+
+  final int semester;
+  final bool selected;
+  final int index;
+
+  @override
+  Widget build(BuildContext context) {
+    final controller = DefaultTabController.of(context);
+    return Semantics(
+      button: true,
+      selected: selected,
+      label: _semesterSemantics(context, semester),
+      child: InkWell(
+        borderRadius: CampusRadii.controlRadius,
+        onTap: () => controller.animateTo(index),
+        child: Center(
+          child: ExcludeSemantics(
+            child: Text(
+              'S$semester',
+              style: context.text.labelMedium?.copyWith(
+                color: selected
+                    ? context.campus.onNow
+                    : context.scheme.onSurface,
+                fontWeight: selected ? FontWeight.w700 : FontWeight.w600,
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+const double _railSegmentHeight = 44;
+const double _railTrackInset = 4;
+
+/// "S7" alone is not orienting once a student has eight of them.
+String _semesterSemantics(BuildContext context, int semester) {
+  final container = ProviderScope.containerOf(context, listen: false);
+  final year = container.read(academicYearForSemesterProvider(semester));
+  return 'Semestre $semester, $year';
+}
+
+class _SemesterTabView extends StatelessWidget {
+  const _SemesterTabView({
+    required this.semesters,
+    required this.mode,
+    required this.isLoading,
+    required this.onRefresh,
+    required this.onUnitTap,
+  });
+
+  final List<int> semesters;
+  final GradesViewMode mode;
+  final bool isLoading;
+  final RefreshCallback onRefresh;
+  final ValueChanged<TeachingUnit> onUnitTap;
+
+  @override
+  Widget build(BuildContext context) => TabBarView(
+    children: <Widget>[
+      for (final semester in semesters)
+        _SemesterPage(
+          semester: semester,
+          mode: mode,
+          isLoading: isLoading,
+          onRefresh: onRefresh,
+          onUnitTap: onUnitTap,
+        ),
+    ],
+  );
+}
+
+/// Bridges the ambient [TabController] and [selectedSemesterProvider].
+///
+/// The controller is the source of truth while a gesture is in flight, the
+/// provider for the rest of the app. Each direction no-ops when the two
+/// already agree, so neither can drive the other in a loop.
+class _SemesterSelectionSync extends ConsumerStatefulWidget {
+  const _SemesterSelectionSync({required this.semesters, required this.child});
+
+  final List<int> semesters;
+  final Widget child;
+
+  @override
+  ConsumerState<_SemesterSelectionSync> createState() =>
+      _SemesterSelectionSyncState();
+}
+
+class _SemesterSelectionSyncState
+    extends ConsumerState<_SemesterSelectionSync> {
+  TabController? _controller;
+  int? _publishedIndex;
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    final controller = DefaultTabController.of(context);
+    if (controller == _controller) return;
+    _controller?.removeListener(_publishSelection);
+    _controller = controller..addListener(_publishSelection);
+    // Silently: the starting index already matches the provider.
+    _publishedIndex = controller.index;
+  }
+
+  @override
+  void dispose() {
+    _controller?.removeListener(_publishSelection);
+    super.dispose();
+  }
+
+  /// Runs on every animation tick, so it acts only once `index` moves.
+  void _publishSelection() {
+    final controller = _controller;
+    if (controller == null || controller.index == _publishedIndex) return;
+    _publishedIndex = controller.index;
+    if (controller.index < 0 || controller.index >= widget.semesters.length) {
+      return;
+    }
+    unawaited(HapticFeedback.selectionClick());
+    final semester = widget.semesters[controller.index];
+    if (ref.read(selectedSemesterProvider) != semester) {
+      ref.read(selectedSemesterProvider.notifier).state = semester;
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    // For selections made outside this screen.
+    ref.listen<int?>(effectiveSemesterProvider, (_, next) {
+      final controller = _controller;
+      if (controller == null || next == null) return;
+      final index = widget.semesters.indexOf(next);
+      if (index < 0 || index == controller.index) return;
+      _publishedIndex = index;
+      controller.animateTo(index);
+    });
+    return widget.child;
+  }
+}
+
+class _SemesterPage extends ConsumerWidget {
+  const _SemesterPage({
+    required this.semester,
+    required this.mode,
+    required this.isLoading,
+    required this.onRefresh,
+    required this.onUnitTap,
+  });
+
+  final int semester;
+  final GradesViewMode mode;
+  final bool isLoading;
+  final RefreshCallback onRefresh;
+  final ValueChanged<TeachingUnit> onUnitTap;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) => RefreshIndicator(
+    onRefresh: onRefresh,
+    child: GradesViews(
+      mode: mode,
+      curriculum: ref.watch(curriculumForSemesterProvider(semester)),
+      isLoading: isLoading,
+      scrollStorageKey: 'semester-$semester',
+      onUnitTap: onUnitTap,
+    ),
+  );
 }
 
 // ---------------------------------------------------------------------------
@@ -375,6 +852,7 @@ class _UEDetailSheetState extends ConsumerState<_UEDetailSheet> {
     showModalBottomSheet(
       context: context,
       useSafeArea: true,
+      backgroundColor: context.scheme.surfaceContainerLowest,
       builder: (_) => _SubjectStatsSheet(subject: subject, avg: avg),
     );
   }

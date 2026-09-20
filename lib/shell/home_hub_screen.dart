@@ -135,6 +135,10 @@ class _ModuleShortcuts extends StatelessWidget {
     };
     return LayoutBuilder(
       builder: (context, constraints) {
+        if (constraints.maxWidth <=
+            CampusSpacing.gutter * 2 + CampusSpacing.x3 * 3) {
+          return const SizedBox.shrink();
+        }
         final width = constraints.maxWidth - CampusSpacing.gutter * 2;
         final unit = (width - CampusSpacing.x3 * 3) / 4;
         final placements = _packCards(ids, layout.sizeOf, unit, width);
@@ -329,6 +333,10 @@ class _HomeLayoutEditorState extends ConsumerState<_HomeLayoutEditor> {
         .toList();
     return LayoutBuilder(
       builder: (context, constraints) {
+        if (constraints.maxWidth <=
+            CampusSpacing.gutter * 2 + CampusSpacing.x3 * 3) {
+          return const SizedBox.shrink();
+        }
         final wide = constraints.maxWidth - CampusSpacing.gutter * 2;
         final unit = (wide - CampusSpacing.x3 * 3) / 4;
         final placements = _packCards(_order, _sizeOf, unit, wide);
