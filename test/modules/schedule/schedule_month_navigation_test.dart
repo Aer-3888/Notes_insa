@@ -36,6 +36,13 @@ void main() {
           scheduleProvider.overrideWith(
             (ref) => Stream<CachedEntry<List<ScheduleEvent>>>.value(_entry),
           ),
+          scheduleRangeProvider.overrideWith(
+            (ref, request) async => ScheduleRangeData(
+              range: request.range,
+              events: const <ScheduleEvent>[],
+              state: RefreshState.fresh,
+            ),
+          ),
         ],
         child: MaterialApp(
           theme: campusTheme(Brightness.light),

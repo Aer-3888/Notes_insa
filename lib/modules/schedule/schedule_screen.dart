@@ -81,15 +81,14 @@ class _ScheduleScreenState extends ConsumerState<ScheduleScreen> {
   /// grids own `_day` and set it. Every day change goes through here.
   void _goTo(DateTime day) {
     final mode = ref.read(scheduleViewModeProvider);
-    final target = mode == ScheduleViewMode.liste
-        ? _clampToRange(DateTime(day.year, day.month, day.day))
-        : DateTime(day.year, day.month, day.day);
+    final target = DateTime(day.year, day.month, day.day);
     if (mode != ScheduleViewMode.liste) {
       setState(() => _day = target);
       return;
     }
     final offset = _metrics?.offsetOfDay(target);
     if (offset == null || !_controller.hasClients) {
+      setState(() => _day = target);
       _pendingScroll = target;
       return;
     }
@@ -142,12 +141,6 @@ class _ScheduleScreenState extends ConsumerState<ScheduleScreen> {
     ];
   }
 
-  DateTime _clampToRange(DateTime day) {
-    if (day.isBefore(_rangeStart)) return _rangeStart;
-    if (day.isAfter(_rangeEnd)) return _rangeEnd;
-    return day;
-  }
-
   /// Opens one day on its own, from a month cell or a grid column heading.
   void _openDay(DateTime day) {
     _goTo(day);
@@ -161,10 +154,18 @@ class _ScheduleScreenState extends ConsumerState<ScheduleScreen> {
     return DateTime(now.year, now.month, now.day);
   }
 
-  /// The window the provider actually fetches, so the timeline never scrolls
-  /// into days the feed does not cover.
-  DateTime get _rangeStart => _today().subtract(kScheduleLookback);
-  DateTime get _rangeEnd => _today().add(kScheduleLookahead);
+  ScheduleRange get _initialRange => ScheduleRange(
+    _today().subtract(kScheduleLookback),
+    _today().add(kScheduleLookahead),
+  );
+
+  ScheduleRange _rangeFor(ScheduleViewMode mode, DateTime day) {
+    final period = periodRange(mode, day);
+    return ScheduleRange(
+      period.from.subtract(kScheduleLookback),
+      period.to.add(kScheduleLookahead),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -187,15 +188,17 @@ class _ScheduleScreenState extends ConsumerState<ScheduleScreen> {
       WidgetsBinding.instance.addPostFrameCallback((_) => _consumeFocus());
     });
     ref.listen<int>(scheduleTodayRequestProvider, (_, _) => _goTo(_today()));
-    ref.listen<ScheduleViewMode>(scheduleViewModeProvider, (_, next) {
-      if (next == ScheduleViewMode.liste) {
-        if (_day.isBefore(_rangeStart)) {
-          _goTo(_rangeStart);
-        } else if (_day.isAfter(_rangeEnd)) {
-          _goTo(_rangeEnd);
-        }
-      }
-    });
+    final requestedRange = _rangeFor(mode, _day);
+    final needsRange = !_initialRange.contains(requestedRange);
+    ScheduleRangeData? rangeData;
+    var rangeLoading = false;
+    if (needsRange) {
+      final range = ref.watch(
+        scheduleRangeProvider((resourceIds: ids, range: requestedRange)),
+      );
+      rangeData = range.asData?.value;
+      rangeLoading = range.isLoading;
+    }
 
     return Scaffold(
       appBar: AppBar(
@@ -307,15 +310,19 @@ class _ScheduleScreenState extends ConsumerState<ScheduleScreen> {
                 ),
               ),
               data: (entry) {
-                final all = entry.data ?? const <ScheduleEvent>[];
+                final activeRange = rangeData?.range ?? requestedRange;
+                final all = _mergeScheduleEvents(
+                  entry.data ?? const <ScheduleEvent>[],
+                  rangeData?.events ?? const <ScheduleEvent>[],
+                );
                 // Revealing keeps the hidden sessions in the index so they can
                 // be drawn dimmed; otherwise they leave before it is built and
                 // the free time they held is recomputed.
                 final shown = reveal ? all : visibleEvents(all, rules);
                 final index = ScheduleDayIndex.build(
                   events: shown,
-                  from: _rangeStart,
-                  to: _rangeEnd,
+                  from: activeRange.from,
+                  to: activeRange.to,
                   hidden: reveal
                       ? const <ScheduleEvent>[]
                       : hiddenEvents(all, rules),
@@ -349,15 +356,15 @@ class _ScheduleScreenState extends ConsumerState<ScheduleScreen> {
                     onDayTap: _goTo,
                     onShiftPeriod: _shiftPeriod,
                     onTapEvent: (e) => showEventSheet(context, e),
-                    rangeStart: _rangeStart,
-                    rangeEnd: _rangeEnd,
+                    rangeStart: activeRange.from,
+                    rangeEnd: activeRange.to,
                   ),
                   ScheduleViewMode.mois => _MonthView(
                     day: _day,
                     index: index,
                     showPreview: showMonthPreview,
-                    rangeStart: _rangeStart,
-                    rangeEnd: _rangeEnd,
+                    rangeStart: activeRange.from,
+                    rangeEnd: activeRange.to,
                     onPageChanged: _goTo,
                     onPickDay: _openDay,
                   ),
@@ -385,12 +392,67 @@ class _ScheduleScreenState extends ConsumerState<ScheduleScreen> {
                         onShift: _shiftPeriod,
                         onToday: () => _goTo(_today()),
                       ),
+                      if (needsRange &&
+                          (rangeLoading ||
+                              rangeData?.state != RefreshState.fresh))
+                        _ScheduleRangeStatus(
+                          loading: rangeLoading,
+                          state: rangeData?.state,
+                        ),
                       Expanded(child: body),
                     ],
                   ),
                 );
               },
             ),
+    );
+  }
+}
+
+List<ScheduleEvent> _mergeScheduleEvents(
+  List<ScheduleEvent> first,
+  List<ScheduleEvent> second,
+) {
+  final byKey = <String, ScheduleEvent>{};
+  for (final event in <ScheduleEvent>[...first, ...second]) {
+    byKey[event.uid ??
+            '${event.start.millisecondsSinceEpoch}:${event.end.millisecondsSinceEpoch}:${event.title}'] =
+        event;
+  }
+  return byKey.values.toList()..sort((a, b) => a.start.compareTo(b.start));
+}
+
+class _ScheduleRangeStatus extends StatelessWidget {
+  const _ScheduleRangeStatus({required this.loading, required this.state});
+
+  final bool loading;
+  final RefreshState? state;
+
+  @override
+  Widget build(BuildContext context) {
+    final text = loading
+        ? 'Cette période n’est pas encore chargée'
+        : state == RefreshState.failedOffline
+        ? 'Cette période n’est pas disponible hors connexion'
+        : 'Impossible d’actualiser cette période';
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(
+        CampusSpacing.gutter,
+        0,
+        CampusSpacing.gutter,
+        CampusSpacing.x1,
+      ),
+      child: Row(
+        children: <Widget>[
+          Icon(
+            loading ? Icons.sync_outlined : Icons.info_outline,
+            size: 16,
+            color: context.scheme.onSurfaceVariant,
+          ),
+          const SizedBox(width: CampusSpacing.x2),
+          Expanded(child: Text(text, style: context.text.labelMedium)),
+        ],
+      ),
     );
   }
 }
@@ -711,7 +773,8 @@ class _PeriodPagerState extends State<_PeriodPager> {
   @override
   Widget build(BuildContext context) => PageView.builder(
     controller: _controller,
-    itemCount: _window.length,
+    // One million periods in either direction.
+    itemCount: 2000001,
     onPageChanged: (index) => widget.onPageChanged(_window.dayAt(index)),
     itemBuilder: (context, index) =>
         widget.itemBuilder(context, _window.dayAt(index)),
@@ -724,17 +787,13 @@ class _PeriodPageWindow {
     required this.anchor,
     required DateTime rangeStart,
     required DateTime rangeEnd,
-  }) : _firstOffset = _firstOffsetFor(mode, anchor, rangeStart),
-       _lastOffset = _lastOffsetFor(mode, anchor, rangeEnd);
+  });
 
   final ScheduleViewMode mode;
   final DateTime anchor;
-  final int _firstOffset;
-  final int _lastOffset;
+  static const int _anchorPage = 1000000;
 
-  int get length => _lastOffset - _firstOffset + 1;
-
-  DateTime dayAt(int index) => shiftPeriod(mode, anchor, _firstOffset + index);
+  DateTime dayAt(int index) => shiftPeriod(mode, anchor, index - _anchorPage);
 
   int indexOf(DateTime day) {
     final offset = switch (mode) {
@@ -746,7 +805,7 @@ class _PeriodPageWindow {
       ScheduleViewMode.semaine => _daysBetween(anchor, day) ~/ 7,
       ScheduleViewMode.liste => 0,
     };
-    return offset.clamp(_firstOffset, _lastOffset) - _firstOffset;
+    return _anchorPage + offset;
   }
 
   static int _daysBetween(DateTime from, DateTime to) => DateTime.utc(
@@ -754,31 +813,4 @@ class _PeriodPageWindow {
     to.month,
     to.day,
   ).difference(DateTime.utc(from.year, from.month, from.day)).inDays;
-
-  static int _firstOffsetFor(
-    ScheduleViewMode mode,
-    DateTime anchor,
-    DateTime rangeStart,
-  ) {
-    return switch (mode) {
-      ScheduleViewMode.mois => -1200,
-      ScheduleViewMode.jour => -365,
-      ScheduleViewMode.troisJours => -120,
-      ScheduleViewMode.semaine => -52,
-      ScheduleViewMode.liste => 0,
-    };
-  }
-
-  static int _lastOffsetFor(
-    ScheduleViewMode mode,
-    DateTime anchor,
-    DateTime rangeEnd,
-  ) {
-    if (mode == ScheduleViewMode.mois) return 1200;
-    var offset = 0;
-    while (!shiftPeriod(mode, anchor, offset + 1).isAfter(rangeEnd)) {
-      offset++;
-    }
-    return offset;
-  }
 }

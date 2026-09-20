@@ -139,21 +139,31 @@ class _ResourceScheduleScreenState
     extends ConsumerState<ResourceScheduleScreen> {
   final ScrollController _scroll = ScrollController();
 
-  late Future<List<ScheduleEvent>> _events;
+  late Future<List<ScheduleEvent>> _schedule;
   late DateTime _from;
   late DateTime _to;
 
   @override
   void initState() {
     super.initState();
-    // Not cached: a lookup is a one-off, and caching it would compete with the
-    // user's own timetable for the one schedule cache slot.
     final now = campusNow();
     _from = now.subtract(kScheduleLookback);
     _to = now.add(kScheduleLookahead);
-    _events = ref
-        .read(adeServiceProvider)
-        .fetch(resourceIds: <int>[widget.resource.id], from: _from, to: _to);
+    _schedule = _fetchRange();
+  }
+
+  Future<List<ScheduleEvent>> _fetchRange() => ref
+      .read(adeServiceProvider)
+      .fetch(resourceIds: <int>[widget.resource.id], from: _from, to: _to);
+
+  void _shift(int direction) {
+    final span = _to.difference(_from).inDays + 1;
+    setState(() {
+      _from = DateTime(_from.year, _from.month, _from.day + direction * span);
+      _to = DateTime(_to.year, _to.month, _to.day + direction * span);
+      _schedule = _fetchRange();
+    });
+    if (_scroll.hasClients) _scroll.jumpTo(0);
   }
 
   @override
@@ -164,49 +174,49 @@ class _ResourceScheduleScreenState
 
   @override
   Widget build(BuildContext context) => Scaffold(
-    appBar: AppBar(title: Text(widget.resource.name)),
+    appBar: AppBar(
+      title: Text(widget.resource.name),
+      actions: <Widget>[
+        IconButton(
+          tooltip: 'Période précédente',
+          icon: const Icon(Icons.chevron_left),
+          onPressed: () => _shift(-1),
+        ),
+        IconButton(
+          tooltip: 'Période suivante',
+          icon: const Icon(Icons.chevron_right),
+          onPressed: () => _shift(1),
+        ),
+      ],
+    ),
     body: FutureBuilder<List<ScheduleEvent>>(
-      future: _events,
+      future: _schedule,
       builder: (context, snapshot) {
         if (snapshot.connectionState != ConnectionState.done) {
           return const Center(child: CircularProgressIndicator());
         }
-        if (snapshot.hasError) {
-          return StateView(
-            icon: Icons.cloud_off_outlined,
-            title: 'Emploi du temps indisponible',
-            body:
-                'Impossible de joindre ADE. Vérifiez la connexion, '
-                'puis réessayez.',
-            action: FilledButton.tonalIcon(
-              onPressed: () => setState(() {
-                _events = ref
-                    .read(adeServiceProvider)
-                    .fetch(
-                      resourceIds: <int>[widget.resource.id],
-                      from: _from,
-                      to: _to,
-                    );
-              }),
-              icon: const Icon(Icons.refresh),
-              label: const Text('Réessayer'),
-            ),
-          );
-        }
-        final events = snapshot.data ?? const <ScheduleEvent>[];
-        if (events.isEmpty) {
-          return const StateView(
-            icon: Icons.event_busy_outlined,
-            title: 'Rien de prévu',
-            body: 'ADE ne publie aucune séance pour cette ressource.',
-          );
-        }
+        if (snapshot.hasError) return _failure();
         return ScheduleTimeline(
-          index: ScheduleDayIndex.build(events: events, from: _from, to: _to),
+          index: ScheduleDayIndex.build(
+            events: snapshot.data ?? const <ScheduleEvent>[],
+            from: _from,
+            to: _to,
+          ),
           controller: _scroll,
           now: campusNow(),
         );
       },
+    ),
+  );
+
+  Widget _failure() => StateView(
+    icon: Icons.cloud_off_outlined,
+    title: 'Emploi du temps indisponible',
+    body: 'Impossible de joindre ADE. Vérifiez la connexion, puis réessayez.',
+    action: FilledButton.tonalIcon(
+      onPressed: () => setState(() => _schedule = _fetchRange()),
+      icon: const Icon(Icons.refresh),
+      label: const Text('Réessayer'),
     ),
   );
 }

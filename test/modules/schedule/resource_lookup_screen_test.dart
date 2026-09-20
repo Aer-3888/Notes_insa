@@ -1,8 +1,12 @@
+import 'dart:io';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
+import 'package:notes_insa/core/module_cache.dart';
+import 'package:notes_insa/core/module_cache_provider.dart';
 import 'package:notes_insa/core/time.dart';
 import 'package:notes_insa/modules/schedule/ade_groups.dart';
 import 'package:notes_insa/modules/schedule/ade_groups_provider.dart';
@@ -39,6 +43,8 @@ String get _ics {
 
 Future<List<Uri>> _pump(WidgetTester tester) async {
   SharedPreferences.setMockInitialValues(<String, Object>{});
+  final root = Directory.systemTemp.createTempSync('notes-insa-resource-test-');
+  addTearDown(() => root.delete(recursive: true));
   final asked = <Uri>[];
   final service = AdeService(
     client: MockClient((request) async {
@@ -50,6 +56,7 @@ Future<List<Uri>> _pump(WidgetTester tester) async {
     overrides: [
       adeGroupsProvider.overrideWith((ref) async => _rows),
       adeServiceProvider.overrideWithValue(service),
+      moduleCacheProvider.overrideWith((ref) async => ModuleCache(root)),
     ],
   );
   addTearDown(container.dispose);
@@ -104,12 +111,17 @@ void main() {
 
   testWidgets('the lookup leaves the subscription alone', (tester) async {
     SharedPreferences.setMockInitialValues(<String, Object>{});
+    final root = Directory.systemTemp.createTempSync(
+      'notes-insa-resource-test-',
+    );
+    addTearDown(() => root.delete(recursive: true));
     final container = ProviderContainer(
       overrides: [
         adeGroupsProvider.overrideWith((ref) async => _rows),
         adeServiceProvider.overrideWithValue(
           AdeService(client: MockClient((_) async => http.Response(_ics, 200))),
         ),
+        moduleCacheProvider.overrideWith((ref) async => ModuleCache(root)),
       ],
     );
     addTearDown(container.dispose);
