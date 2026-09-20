@@ -10,6 +10,10 @@ import 'package:url_launcher/url_launcher.dart';
 import '../../core/campus_navigation.dart';
 import '../../theme/campus_context.dart';
 import '../../theme/tokens.dart';
+import '../rooms/room_filter.dart';
+import '../rooms/room_status.dart';
+import '../rooms/rooms_screen.dart';
+import '../rooms/rooms_provider.dart';
 import 'campus_declination.dart';
 import 'campus_geo.dart';
 import 'campus_heading.dart';
@@ -77,6 +81,7 @@ class _MapScreenState extends ConsumerState<MapScreen>
   bool _locating = false;
   bool _locationPending = false;
   bool _searchVisible = false;
+  bool _showFreeRooms = false;
   _GuidanceStatus _guidanceStatus = _GuidanceStatus.stopped;
   String? _guidanceBuildingCode;
   StreamSubscription<CampusPosition>? _positionSubscription;
@@ -151,6 +156,8 @@ class _MapScreenState extends ConsumerState<MapScreen>
     _query.dispose();
     super.dispose();
   }
+
+  void _toggleFreeRooms() => setState(() => _showFreeRooms = !_showFreeRooms);
 
   Future<void> _openPlan() async {
     final opened = await launchUrl(
@@ -678,7 +685,7 @@ class _MapScreenState extends ConsumerState<MapScreen>
     _syncSensors();
   }
 
-  void _showPlaces(String code, CampusGeo geo) {
+  Future<void> _showPlaces(String code, CampusGeo geo) async {
     final places =
         ref.read(campusPlacesProvider).value ?? const <CampusPlace>[];
     final here = places.where((p) => p.code == code).toList();
@@ -694,7 +701,14 @@ class _MapScreenState extends ConsumerState<MapScreen>
         guidanceHere && _guidanceStatus == _GuidanceStatus.paused;
     final guidanceActive =
         guidanceHere && _guidanceStatus == _GuidanceStatus.active;
-    showModalBottomSheet<void>(
+    final availability = _showFreeRooms ? ref.read(freeRoomsProvider) : null;
+    final roomBuildings = _showFreeRooms
+        ? ref.read(roomBuildingsProvider).value
+        : null;
+    final freeCount = availability
+        ?.where((status) => roomBuildings?[status.room.id] == code)
+        .length;
+    final openRooms = await showModalBottomSheet<bool>(
       context: context,
       isScrollControlled: true,
       showDragHandle: true,
@@ -758,6 +772,18 @@ class _MapScreenState extends ConsumerState<MapScreen>
                     const SizedBox(height: CampusSpacing.x3),
                     placeDetails,
                   ],
+                  if (_showFreeRooms) ...<Widget>[
+                    const Divider(height: CampusSpacing.x6),
+                    FilledButton.tonalIcon(
+                      onPressed: () => Navigator.of(context).pop(true),
+                      icon: const Icon(Icons.meeting_room_outlined),
+                      label: Text(
+                        freeCount == null
+                            ? 'Voir les salles libres'
+                            : 'Voir les $freeCount salles libres',
+                      ),
+                    ),
+                  ],
                   if (geo.entrances.any(
                     (entrance) => entrance.code == code && entrance.node >= 0,
                   )) ...[
@@ -794,6 +820,13 @@ class _MapScreenState extends ConsumerState<MapScreen>
         ),
       ),
     );
+    if (openRooms == true && mounted) {
+      await Navigator.of(context).push(
+        MaterialPageRoute<void>(
+          builder: (_) => RoomsScreen(initialBuildingCode: code),
+        ),
+      );
+    }
   }
 
   CampusMapPalette _palette(BuildContext context) {
@@ -808,6 +841,98 @@ class _MapScreenState extends ConsumerState<MapScreen>
       selected: c.now,
       selectedEdge: c.now,
     );
+  }
+
+  List<Widget> _availabilityOverlay(
+    CampusGeo geo,
+    List<RoomStatus>? freeRooms,
+    Map<int, String>? roomBuildings,
+  ) {
+    final top = _searchVisible ? 76.0 : CampusSpacing.x3;
+    final selected = ref.watch(roomFreeDurationProvider);
+    final widgets = <Widget>[
+      Positioned(
+        top: top,
+        left: CampusSpacing.gutter,
+        right: CampusSpacing.gutter,
+        child: _MapDurationFilter(selected: selected),
+      ),
+    ];
+    if (freeRooms == null || roomBuildings == null) {
+      widgets.add(
+        Positioned(
+          top: top + 52,
+          left: CampusSpacing.gutter,
+          child: const _MapAvailabilityLabel(
+            label: 'Disponibilités indisponibles',
+          ),
+        ),
+      );
+      return widgets;
+    }
+
+    final counts = <String, int>{};
+    for (final room in freeRooms) {
+      final code = roomBuildings[room.room.id];
+      if (code != null) {
+        counts.update(code, (count) => count + 1, ifAbsent: () => 1);
+      }
+    }
+    for (final building in geo.buildings) {
+      final code = building.code;
+      if (code == null) continue;
+      final count = counts[code];
+      if (count == null) continue;
+      final at = _camera!.toScreen(building.centroid, _size);
+      if (at.dx < 0 ||
+          at.dx > _size.width ||
+          at.dy < 0 ||
+          at.dy > _size.height) {
+        continue;
+      }
+      widgets.add(
+        Positioned(
+          left: at.dx - 28,
+          top: at.dy - 18,
+          child: Semantics(
+            button: true,
+            label: '$count salles libres, bâtiment $code',
+            child: Material(
+              color: context.scheme.primaryContainer,
+              elevation: 2,
+              shape: const StadiumBorder(),
+              child: InkWell(
+                customBorder: const StadiumBorder(),
+                onTap: () {
+                  setState(() => _selected = code);
+                  _showPlaces(code, geo);
+                },
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: CampusSpacing.x2,
+                    vertical: CampusSpacing.x1,
+                  ),
+                  child: Text(
+                    '$count libre${count > 1 ? 's' : ''}',
+                    style: context.text.labelMedium?.copyWith(
+                      color: context.scheme.onPrimaryContainer,
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ),
+      );
+    }
+    widgets.add(
+      const Positioned(
+        left: CampusSpacing.gutter,
+        bottom: CampusSpacing.x6,
+        child: _MapAvailabilityLabel(label: 'Nombre de salles libres'),
+      ),
+    );
+    return widgets;
   }
 
   @override
@@ -827,6 +952,15 @@ class _MapScreenState extends ConsumerState<MapScreen>
                 ? 'Fermer la recherche'
                 : 'Rechercher un lieu',
             onPressed: _toggleSearch,
+          ),
+          IconButton(
+            icon: Icon(
+              _showFreeRooms ? Icons.meeting_room : Icons.meeting_room_outlined,
+            ),
+            tooltip: _showFreeRooms
+                ? 'Masquer les salles libres'
+                : 'Afficher les salles libres',
+            onPressed: _toggleFreeRooms,
           ),
           IconButton(
             icon: const Icon(Icons.open_in_new),
@@ -851,6 +985,10 @@ class _MapScreenState extends ConsumerState<MapScreen>
     List<CampusPlace> places,
     CampusMapFocus? mapFocus,
   ) {
+    final freeRooms = _showFreeRooms ? ref.watch(freeRoomsProvider) : null;
+    final roomBuildings = _showFreeRooms
+        ? ref.watch(roomBuildingsProvider).value
+        : null;
     return LayoutBuilder(
       builder: (context, constraints) {
         final size = Size(constraints.maxWidth, constraints.maxHeight);
@@ -902,6 +1040,8 @@ class _MapScreenState extends ConsumerState<MapScreen>
                 top: CampusSpacing.x3,
                 child: _search(geo, places),
               ),
+            if (_showFreeRooms && !_searchVisible)
+              ..._availabilityOverlay(geo, freeRooms, roomBuildings),
             Positioned(
               right: CampusSpacing.gutter,
               bottom: _route == null ? CampusSpacing.x6 : CampusSpacing.x10 * 3,
@@ -1151,4 +1291,59 @@ class _MapScreenState extends ConsumerState<MapScreen>
       ],
     );
   }
+}
+
+class _MapDurationFilter extends ConsumerWidget {
+  const _MapDurationFilter({required this.selected});
+
+  final RoomFreeDuration selected;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) => Material(
+    color: context.campus.surface,
+    elevation: 3,
+    borderRadius: CampusRadii.cardRadius,
+    child: SingleChildScrollView(
+      padding: const EdgeInsets.symmetric(
+        horizontal: CampusSpacing.x2,
+        vertical: CampusSpacing.x1,
+      ),
+      scrollDirection: Axis.horizontal,
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          for (final value in RoomFreeDuration.values)
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: CampusSpacing.x1),
+              child: ChoiceChip(
+                label: Text(value.label),
+                selected: value == selected,
+                onSelected: (_) =>
+                    ref.read(roomFreeDurationProvider.notifier).select(value),
+              ),
+            ),
+        ],
+      ),
+    ),
+  );
+}
+
+class _MapAvailabilityLabel extends StatelessWidget {
+  const _MapAvailabilityLabel({required this.label});
+
+  final String label;
+
+  @override
+  Widget build(BuildContext context) => Material(
+    color: context.campus.surface,
+    elevation: 2,
+    borderRadius: CampusRadii.cardRadius,
+    child: Padding(
+      padding: const EdgeInsets.symmetric(
+        horizontal: CampusSpacing.x2,
+        vertical: CampusSpacing.x1,
+      ),
+      child: Text(label, style: context.text.labelMedium),
+    ),
+  );
 }
