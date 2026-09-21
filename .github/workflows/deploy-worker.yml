@@ -5,6 +5,10 @@ on:
     branches: [main]
     paths:
       - 'worker/**'
+      # Changing how the worker is deployed is a reason to redeploy it.
+      - '.github/workflows/deploy-worker.yml'
+  # Path filters do not apply here, so a failed deploy can be retried as is.
+  workflow_dispatch:
 
 jobs:
   deploy:
