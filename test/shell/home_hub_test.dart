@@ -26,10 +26,15 @@ void main() {
 
   testWidgets('the hub lists every registered module', (tester) async {
     await pumpHub(tester);
+    // By identity: a dot card carries its name in a tooltip, not on screen.
+    final shown = tester
+        .widgetList<ModuleCard>(find.byType(ModuleCard))
+        .map((card) => card.module.id)
+        .toSet();
     for (final module in kCampusModules) {
       expect(
-        find.text(module.label),
-        findsWidgets,
+        shown,
+        contains(module.id),
         reason: '${module.id} missing from the hub',
       );
     }
@@ -72,6 +77,15 @@ void main() {
     tester,
   ) async {
     await pumpHub(tester);
+    final container = ProviderScope.containerOf(
+      tester.element(find.byType(HomeHubScreen)),
+    );
+    // The leftmost card, the only one with room to grow to full width.
+    final layout = container.read(homeLayoutProvider);
+    final moduleId = layout.order.firstWhere(layout.isModule);
+    container
+        .read(homeLayoutProvider.notifier)
+        .setSize(moduleId, HomeCardSize.square);
 
     await tester.tap(find.byTooltip('Modifier l’accueil'));
     await tester.pump();
@@ -79,15 +93,11 @@ void main() {
     expect(find.byType(CrousTodayCard), findsOneWidget);
     expect(find.byType(LibraryTodayCard), findsOneWidget);
 
-    final moduleId = moduleCardId('edt');
     final resize = find.byKey(ValueKey<String>('home-resize-$moduleId'));
     final card = find.byKey(ValueKey<String>('home-edit-$moduleId'));
     await tester.ensureVisible(resize);
     await tester.pumpAndSettle();
     final originalWidth = tester.getSize(card).width;
-    final container = ProviderScope.containerOf(
-      tester.element(find.byType(HomeHubScreen)),
-    );
     final gesture = await tester.startGesture(tester.getCenter(resize));
     // Holding the resize grip must not activate the card's long-press mover.
     await tester.pump(const Duration(milliseconds: 600));

@@ -16,8 +16,8 @@ sealed class CampusModule {
     required this.id,
     required this.label,
     required this.icon,
-    String? shortLabel,
-  }) : _shortLabel = shortLabel;
+    this._shortLabel,
+  });
 
   final String id;
   final String label;

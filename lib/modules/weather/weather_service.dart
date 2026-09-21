@@ -10,7 +10,7 @@ const double kCampusLat = 48.1197;
 const double kCampusLon = -1.6383;
 
 class WeatherService {
-  const WeatherService({http.Client? client}) : _client = client;
+  const WeatherService({this._client});
 
   final http.Client? _client;
 

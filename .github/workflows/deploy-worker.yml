@@ -2,9 +2,13 @@ name: Deploy Cloudflare Worker
 
 on:
   push:
-    branches: [ main ]
+    branches: [main]
     paths:
       - 'worker/**'
+      # Changing how the worker is deployed is a reason to redeploy it.
+      - '.github/workflows/deploy-worker.yml'
+  # Path filters do not apply here, so a failed deploy can be retried as is.
+  workflow_dispatch:
 
 jobs:
   deploy:
@@ -45,6 +49,7 @@ jobs:
           KV_ID: ${{ secrets.KV_ID }}
           ADE_KV_ID: ${{ secrets.ADE_KV_ID }}
           LAUNDRY_KV_ID: ${{ secrets.LAUNDRY_KV_ID }}
+          ASSOCIATIONS_KV_ID: ${{ secrets.ASSOCIATIONS_KV_ID }}
         working-directory: worker
         run: |
           set -euo pipefail
@@ -54,6 +59,7 @@ jobs:
           sed -i "s|__RATE_LIMIT_KV_ID__|${KV_ID:-}|g" wrangler.toml
           sed -i "s|__ADE_KV_ID__|${ADE_KV_ID:-}|g" wrangler.toml
           sed -i "s|__LAUNDRY_KV_ID__|${LAUNDRY_KV_ID:-}|g" wrangler.toml
+          sed -i "s|__ASSOCIATIONS_KV_ID__|${ASSOCIATIONS_KV_ID:-}|g" wrangler.toml
           # A placeholder that survives means a missing secret. Failing here
           # names it, instead of letting wrangler fail on a nonsense id later.
           if grep -n "__[A-Z0-9_]*__" wrangler.toml; then
@@ -84,5 +90,3 @@ jobs:
           set -euo pipefail
           # Deploy to workers.dev (this repository is configured for Cloudflare Workers only, no custom domain)
           npx wrangler deploy
-
-

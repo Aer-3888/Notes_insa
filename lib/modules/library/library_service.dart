@@ -37,7 +37,7 @@ class LibraryRateLimited implements Exception {
 /// Deliberately not [ResilientHttp]: a third party with no published rate limit
 /// gets one attempt, and a failed refresh simply keeps the cached card.
 class LibraryService {
-  const LibraryService({http.Client? client}) : _client = client;
+  const LibraryService({this._client});
 
   final http.Client? _client;
 

@@ -107,8 +107,8 @@ Contributions are accepted under the same license.
 
 Requirements:
 
-- Flutter, stable channel (built against 3.41)
-- Dart SDK `^3.10.4`, which `pubspec.yaml` pins
+- Flutter, stable channel `>=3.44.0` (CI builds against 3.47.5)
+- Dart SDK `^3.12.0`, which `pubspec.yaml` pins
 - Android SDK, minSdk 30
 - Node.js, for the husky hooks
 
