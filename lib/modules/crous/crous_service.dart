@@ -5,7 +5,7 @@ import 'package:http/http.dart' as http;
 import 'crous_restaurant.dart';
 
 class CrousService {
-  const CrousService({http.Client? client}) : _client = client;
+  const CrousService({this._client});
 
   final http.Client? _client;
 

@@ -25,7 +25,7 @@ jobs:
         with:
           channel: 'stable'
           # Pinned: 'stable' floats, so a Flutter that drops an API reddens CI on its own.
-          flutter-version: 3.41.9
+          flutter-version: 3.47.5
           cache: true
       - name: Get Dependencies
         run: flutter pub get
@@ -55,7 +55,7 @@ jobs:
         with:
           channel: 'stable'
           # Pinned: 'stable' floats, so a Flutter that drops an API reddens CI on its own.
-          flutter-version: 3.41.9
+          flutter-version: 3.47.5
           cache: true
 
       - name: Get Dependencies

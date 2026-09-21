@@ -9,7 +9,7 @@ import 'schedule_event.dart';
 /// no credentials, no token, and no proxy tier. ADE windows the response
 /// server-side via firstDate/lastDate, so no trimming is needed here.
 class AdeService {
-  const AdeService({http.Client? client}) : _client = client;
+  const AdeService({this._client});
 
   final http.Client? _client;
 
